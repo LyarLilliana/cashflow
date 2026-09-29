@@ -6,306 +6,413 @@
 <meta name="theme-color" content="#2F6F5E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="莱雅现金流">
+<meta name="apple-mobile-web-app-title" content="SafeSpend">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
-<title>莱雅现金流</title>
+<title>SafeSpend 现金流</title>
 <style>
 :root{
-  --bg:#F6F6F2; --card:#FFFFFF; --text:#1E2422; --muted:#717975;
-  --line:#E6E8E3; --accent:#2F6F5E; --accent2:#E7F0EC;
-  --good:#2F6F5E; --warn:#9A6A1F; --danger:#9B4545;
-  --shadow:0 10px 28px rgba(26,34,31,.055);
+  --bg:#F6F6F2;--card:#fff;--text:#1E2422;--muted:#747C78;--line:#E5E8E2;
+  --accent:#2F6F5E;--accentSoft:#E7F0EC;--danger:#9A4747;--warn:#9B6A24;
+  --shadow:0 10px 30px rgba(31,40,36,.055)
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif}
-body{min-height:100vh;padding-bottom:calc(82px + env(safe-area-inset-bottom))}
-button,input,select,textarea{font:inherit}
+body{min-height:100vh;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+button,input,select{font:inherit}
 button{touch-action:manipulation}
-.app{max-width:760px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 14px 24px}
-.topbar{display:flex;justify-content:space-between;align-items:center;padding:8px 2px 14px}
-.brand h1{font-size:26px;margin:0;letter-spacing:-.4px}
-.brand div{font-size:12px;color:var(--muted);margin-top:3px}
-.iconbtn{width:42px;height:42px;border:0;border-radius:14px;background:#fff;box-shadow:var(--shadow);font-size:20px}
+.app{max-width:760px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 14px 28px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 14px}
+.brand h1{font-size:25px;margin:0;letter-spacing:-.4px}
+.brand p{font-size:12px;color:var(--muted);margin:3px 0 0}
 .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:var(--shadow)}
-.hero{padding:18px}
-.hero-row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-.hero-label{font-size:12px;color:var(--muted)}
-.hero-value{font-size:32px;font-weight:780;letter-spacing:-.6px;margin-top:5px}
-.hero-sub{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5}
-.badge{background:var(--accent2);color:var(--accent);padding:6px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.hero{padding:20px}
+.eyebrow{font-size:11px;color:var(--muted)}
+.heroValue{font-size:39px;font-weight:790;letter-spacing:-1px;margin:6px 0 5px}
+.heroSub{font-size:12px;color:var(--muted);line-height:1.55}
+.heroAction{margin-top:14px;display:flex;gap:8px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-.stat .k{font-size:11px;color:var(--muted)}
-.stat .v{font-size:23px;font-weight:760;margin-top:6px}
-.stat .s{font-size:11px;color:var(--muted);margin-top:4px}
-.section{margin-top:16px}
-.section-title{font-size:16px;font-weight:750;margin:0 0 9px 3px}
-.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat .k{font-size:11px;color:var(--muted)} .stat .v{font-size:22px;font-weight:760;margin-top:6px}
+.stat .s{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.35}
+.section{margin-top:16px}.sectionTitle{font-size:16px;font-weight:760;margin:0 0 9px 3px}
+.step{display:flex;gap:10px;align-items:flex-start}
+.stepNo{width:25px;height:25px;border-radius:50%;background:var(--accentSoft);color:var(--accent);font-weight:800;display:grid;place-items:center;font-size:12px;flex:none}
 button.primary,button.secondary,button.ghost,button.danger{
   border:0;border-radius:15px;padding:13px 14px;font-weight:700
 }
 button.primary{background:var(--accent);color:#fff}
-button.secondary{background:var(--accent2);color:var(--accent)}
+button.secondary{background:var(--accentSoft);color:var(--accent)}
 button.ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
 button.danger{background:#F8ECEC;color:var(--danger)}
-button:active{transform:scale(.985)}
-input,select,textarea{
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.formGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.formGrid.one{grid-template-columns:1fr}
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px}
+input,select{
   width:100%;border:1px solid var(--line);border-radius:14px;padding:12px 13px;background:#fff;color:var(--text);outline:none
 }
-input:focus,select:focus,textarea:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,94,.08)}
-label{font-size:11px;color:var(--muted);display:block;margin-bottom:6px}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.form-grid.one{grid-template-columns:1fr}
-.spacer{height:10px}
+input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,94,.08)}
+.note{font-size:12px;color:var(--muted);line-height:1.6}
+.small{font-size:11px;color:var(--muted)}
 .divider{height:1px;background:var(--line);margin:14px 0}
-.envelopes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.env{background:#F7F8F5;border-radius:15px;padding:12px}
-.env .k{font-size:10px;color:var(--muted)}
-.env .v{font-size:18px;font-weight:750;margin-top:5px}
-.env .note{font-size:10px;color:var(--muted);margin-top:3px}
-.progress{height:8px;background:#EFF1ED;border-radius:999px;overflow:hidden;margin-top:10px}
+.progress{height:8px;background:#EEF1EC;border-radius:999px;overflow:hidden;margin-top:10px}
 .progress span{display:block;height:100%;background:var(--accent);border-radius:999px}
-.project{padding:12px 0;border-bottom:1px solid var(--line)}
-.project:last-child{border-bottom:0}
-.project-head{display:flex;justify-content:space-between;gap:10px}
-.project-name{font-weight:720;font-size:14px}
-.project-meta{font-size:11px;color:var(--muted);margin-top:4px}
-.tx{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
-.tx:last-child{border-bottom:0}
-.tx-title{font-size:14px;font-weight:650}
-.tx-meta{font-size:11px;color:var(--muted);margin-top:4px}
-.tx-amt{font-size:14px;font-weight:760;white-space:nowrap}
-.pos{color:var(--good)} .neg{color:#7E4747}
-.pill{display:inline-block;padding:4px 7px;border-radius:999px;background:#F0F2EF;font-size:10px;color:#5F6863}
-.note{font-size:12px;color:var(--muted);line-height:1.65}
-.install{display:none;margin-bottom:12px}
-.install.show{display:block}
-.install .steps{font-size:12px;line-height:1.75;color:var(--muted);margin-top:7px}
+.item{padding:12px 0;border-bottom:1px solid var(--line)} .item:last-child{border-bottom:0}
+.row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.name{font-size:14px;font-weight:700}.meta{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45}
+.amount{font-size:14px;font-weight:760;white-space:nowrap}
+.pos{color:var(--accent)}.neg{color:#7F4848}.warn{color:var(--warn)}
+.badge{display:inline-block;background:var(--accentSoft);color:var(--accent);padding:5px 8px;border-radius:999px;font-size:10px;font-weight:700}
+.explain{margin-top:12px;background:#F7F8F5;border-radius:16px;padding:13px}
+.explainRow{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12px}
+.explainRow.total{font-weight:760;border-top:1px solid var(--line);margin-top:5px;padding-top:9px}
 .bottom{
-  position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.92);
+  position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.93);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-  border-top:1px solid var(--line);
-  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
-  z-index:10
+  border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:10
 }
-.bottom-in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
-.navbtn{border:0;border-radius:13px;background:transparent;color:#68706C;padding:9px 4px;font-size:11px;font-weight:650}
-.navbtn.active{background:var(--accent2);color:var(--accent)}
+.bottomIn{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.nav{border:0;border-radius:13px;background:transparent;color:#68706C;padding:9px 4px;font-size:11px;font-weight:650}
+.nav.active{background:var(--accentSoft);color:var(--accent)}
 .panel{display:none}.panel.active{display:block}
-.sheet{
-  position:fixed;inset:0;background:rgba(24,30,28,.28);z-index:20;display:none;align-items:flex-end
-}
+.sheet{position:fixed;inset:0;background:rgba(24,30,28,.28);z-index:20;display:none;align-items:flex-end}
 .sheet.show{display:flex}
-.sheet-card{
-  width:100%;max-width:760px;margin:0 auto;background:var(--bg);
-  border-radius:24px 24px 0 0;padding:18px 14px calc(20px + env(safe-area-inset-bottom));
-  max-height:88vh;overflow:auto
+.sheetCard{
+  width:100%;max-width:760px;margin:0 auto;background:var(--bg);border-radius:24px 24px 0 0;
+  padding:18px 14px calc(22px + env(safe-area-inset-bottom));max-height:90vh;overflow:auto
 }
-.sheet-title{font-size:20px;font-weight:760;margin:0 0 14px}
-.sheet-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.sheetTitle{font-size:20px;font-weight:780;margin:0 0 14px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .toast{
-  position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));
-  transform:translateX(-50%) translateY(12px);background:#24312C;color:#fff;
-  padding:10px 14px;border-radius:12px;font-size:12px;opacity:0;pointer-events:none;transition:.2s;z-index:30
+  position:fixed;left:50%;bottom:calc(94px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(10px);
+  background:#24312C;color:#fff;padding:10px 14px;border-radius:12px;font-size:12px;opacity:0;pointer-events:none;transition:.2s;z-index:30
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-@media(min-width:700px){
-  .grid{grid-template-columns:repeat(4,1fr)}
-  .quick{grid-template-columns:repeat(4,1fr)}
-}
+.subCard{background:#F7F8F5;border-radius:16px;padding:13px;margin-top:10px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.quick{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="topbar">
-    <div class="brand"><h1>莱雅现金流</h1><div>先分配，再消费。</div></div>
-    <button class="iconbtn" id="shareBtn" aria-label="分享">↗</button>
+    <div class="brand"><h1>SafeSpend</h1><p>先计划，再记录现在。</p></div>
+    <button class="ghost" style="padding:9px 11px" id="shareTop">↗</button>
   </div>
 
-  <div class="install card" id="installCard">
-    <div style="font-weight:730">添加到 iPhone 主屏幕</div>
-    <div class="steps">请用 Safari 打开这个网页，点底部“分享”按钮，再选择“添加到主屏幕”。安装后会以独立 App 形式打开，并支持离线使用。</div>
-  </div>
+  <!-- PLAN FIRST -->
+  <section id="plan" class="panel active">
+    <div class="section">
+      <div class="sectionTitle">计划基础</div>
+      <div class="card">
+        <div class="step"><div class="stepNo">1</div><div style="flex:1">
+          <div class="name">先定义“生存成本”</div>
+          <div class="meta">这决定每次收入到账后，需要优先留出多少基础生活费。</div>
+          <div style="height:10px"></div>
+          <label>每日基础生活标准</label>
+          <input id="planDailyLiving" inputmode="decimal" type="number" placeholder="例如 30">
+          <div style="height:10px"></div>
+          <label>月度储蓄目标，可留空</label>
+          <input id="planMonthlyGoal" inputmode="decimal" type="number" placeholder="例如 900">
+          <div class="note" style="margin-top:8px">这里仅设目标。每一笔收入具体存多少，由对应的收入计划自己定义。</div>
+          <div style="height:10px"></div>
+          <button class="primary" style="width:100%" id="saveBasePlan">保存基础计划</button>
+        </div></div>
+      </div>
+    </div>
 
-  <section id="home" class="panel active">
-    <div class="card hero">
-      <div class="hero-row">
-        <div>
-          <div class="hero-label">本周期真正可自由花</div>
-          <div class="hero-value" id="freeHero">¥0</div>
-          <div class="hero-sub" id="cycleText">记录一笔到账后，这里会显示本周期可用额度。</div>
+    <div class="section">
+      <div class="sectionTitle">收入计划</div>
+      <div class="card">
+        <div class="step"><div class="stepNo">2</div><div style="flex:1">
+          <div class="name">告诉 App 钱什么时候来、每次来多少</div>
+          <div class="meta">每个人收入节奏不同。这里可以设置周薪、双周薪、月薪，也可以设置一次性收入。</div>
+          <div style="height:10px"></div>
+          <div class="formGrid">
+            <div><label>收入名称</label><input id="incomePlanName" placeholder="例如 每周生活费"></div>
+            <div><label>每次金额</label><input id="incomePlanAmount" inputmode="decimal" type="number" placeholder="500"></div>
+            <div><label>下一次到账日期（周期收入必填）</label><input id="incomePlanDate" type="date"></div>
+            <div><label>重复方式</label>
+              <select id="incomePlanFreq">
+                <option value="weekly">每周</option>
+                <option value="biweekly">每两周</option>
+                <option value="monthly">每月</option>
+                <option value="none">额外收入（仅一次）</option>
+              </select>
+              <div class="small" id="incomePlanFreqHint" style="margin-top:6px">周期收入会承担基础生活参考。</div>
+            </div>
+            <div><label>每次储蓄方式</label>
+              <select id="incomePlanSaveType">
+                <option value="fixed">固定金额</option>
+                <option value="percent">按比例</option>
+              </select>
+            </div>
+            <div><label id="incomePlanSaveLabel">每次储蓄金额</label><input id="incomePlanSaveValue" inputmode="decimal" type="number" placeholder="200"></div>
+          </div>
+          <div style="height:10px"></div>
+          <button class="primary" style="width:100%" id="addIncomePlan">添加收入计划</button>
+        </div></div>
+      </div>
+      <div class="card" style="margin-top:10px" id="incomePlanList"></div>
+    </div>
+
+    <div class="section">
+      <div class="sectionTitle">固定账单</div>
+      <div class="card">
+        <div class="formGrid">
+          <div><label>名称</label><input id="billName" placeholder="例如 iCloud"></div>
+          <div><label>每月金额</label><input id="billAmount" inputmode="decimal" type="number" placeholder="68"></div>
+          <div><label>每月扣款日</label><input id="billDay" inputmode="numeric" type="number" min="1" max="31" placeholder="5"></div>
+          <div style="display:flex;align-items:end"><button class="primary" style="width:100%" id="addBill">添加账单</button></div>
         </div>
-        <div class="badge" id="cycleBadge">等待到账</div>
+      </div>
+      <div class="card" style="margin-top:10px" id="billList"></div>
+    </div>
+
+    <div class="section">
+      <div class="sectionTitle">专项计划</div>
+      <div class="card">
+        <div class="formGrid">
+          <div><label>项目名称</label><input id="projectName" placeholder="例如 上海旅行"></div>
+          <div><label>总预算</label><input id="projectBudget" inputmode="decimal" type="number" placeholder="3500"></div>
+          <div><label>截止日期</label><input id="projectDue" type="date"></div>
+          <div><label>已经准备好的资金</label><input id="projectInitial" inputmode="decimal" type="number" value="0"></div>
+        </div>
+        <div style="height:10px"></div>
+        <button class="primary" style="width:100%" id="addProject">添加专项</button>
+      </div>
+      <div class="card" style="margin-top:10px" id="projectList"></div>
+    </div>
+  </section>
+
+  <!-- NOW -->
+  <section id="now" class="panel">
+    <div class="card hero">
+      <div class="eyebrow">当前零花钱</div>
+      <div class="heroValue" id="safeNow">¥0</div>
+      <div class="heroSub" id="safeSub">完成计划后，记录一笔收入。App 会扣除本周期基础生活、固定账单、专项和计划储蓄，再计算真正可以自由花的零花钱。</div>
+      <div class="heroAction">
+        <button class="primary" style="flex:1" onclick="openIncome()">记录收入</button>
+        <button class="secondary" style="flex:1" onclick="openSpend()">记一笔支出</button>
+      </div>
+      <div class="explain">
+        <div class="explainRow"><span>零花钱余额</span><strong id="whySafe">¥0</strong></div>
+        <div class="explainRow"><span>距离下一次周期收入</span><strong id="whyDays">—</strong></div>
+        <div class="explainRow total"><span>建议每日自由额度</span><strong id="dailyFree">¥0</strong></div>
       </div>
     </div>
 
     <div class="grid">
-      <div class="card stat"><div class="k">生活费余额</div><div class="v" id="foodBal">¥0</div><div class="s">买菜、吃饭</div></div>
-      <div class="card stat"><div class="k">机动金余额</div><div class="v" id="flexBal">¥0</div><div class="s">零花、课程小额</div></div>
-      <div class="card stat"><div class="k">固定费用池</div><div class="v" id="fixedBal">¥0</div><div class="s">会员、电话费</div></div>
-      <div class="card stat"><div class="k">累计储蓄</div><div class="v" id="saveBal">¥0</div><div class="s">本 App 记录期内</div></div>
+      <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div><div class="s">与上方“当前零花钱”完全一致</div></div>
+      <div class="card stat"><div class="k">账单预留</div><div class="v" id="billBal">¥0</div><div class="s">未来固定账单</div></div>
+      <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div><div class="s">已为专项准备好的钱</div></div>
+      <div class="card stat"><div class="k">本周期预计可存</div><div class="v" id="savingBal">¥0</div><div class="s">计划储蓄 + 本周期剩余零花钱；零花钱超支会自动扣减</div></div>
     </div>
 
     <div class="section">
-      <div class="section-title">快速操作</div>
-      <div class="quick">
-        <button class="primary" onclick="openIncome(500)">到账 ¥500</button>
-        <button class="primary" onclick="openIncome(600)">到账 ¥600</button>
-        <button class="secondary" onclick="openExpense('food')">记餐饮</button>
-        <button class="secondary" onclick="openExpense('flex')">记零花</button>
-      </div>
+      <div class="sectionTitle">下一笔周期收入</div>
+      <div class="card" id="nextIncomeBox"></div>
     </div>
 
     <div class="section">
-      <div class="section-title">本月</div>
-      <div class="card">
-        <div class="envelopes">
-          <div class="env"><div class="k">本月收入</div><div class="v" id="mIncome">¥0</div></div>
-          <div class="env"><div class="k">本月消费</div><div class="v" id="mSpend">¥0</div></div>
-          <div class="env"><div class="k">本月储蓄</div><div class="v" id="mSave">¥0</div></div>
-        </div>
-        <div class="progress"><span id="saveProgress" style="width:0%"></span></div>
-        <div class="note" id="saveProgressText" style="margin-top:6px">本月储蓄目标 ¥900</div>
-      </div>
+      <div class="sectionTitle">近期必须处理</div>
+      <div class="card" id="upcomingBox"></div>
     </div>
 
     <div class="section">
-      <div class="section-title">专项预算</div>
-      <div class="card" id="homeProjects"></div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">最近流水</div>
+      <div class="sectionTitle">最近流水</div>
       <div class="card" id="recentTx"></div>
     </div>
   </section>
 
-  <section id="ledger" class="panel">
+  <!-- RESULT -->
+  <section id="history" class="panel">
     <div class="section">
-      <div class="section-title">记一笔</div>
-      <div class="card">
-        <div class="quick">
-          <button class="primary" onclick="openIncome(500)">到账 ¥500</button>
-          <button class="primary" onclick="openIncome(600)">到账 ¥600</button>
-          <button class="secondary" onclick="openExpense('food')">餐饮</button>
-          <button class="secondary" onclick="openExpense('flex')">零花</button>
-          <button class="secondary" onclick="openExpense('fixed')">固定续费</button>
-          <button class="secondary" onclick="openExpense('project')">专项支出</button>
-        </div>
+      <div class="sectionTitle">本月结果</div>
+      <div class="grid">
+        <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
+        <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
+        <div class="card stat"><div class="k">储蓄净增</div><div class="v" id="mSaving">¥0</div><div class="s">本月各收入周期“预计可存”的合计</div></div>
+        <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">0%</div><div class="s">储蓄净增 ÷ 本月收入，可为负数</div></div>
+      </div>
+      <div class="card" style="margin-top:10px">
+        <div class="explainRow"><span>本月收入</span><strong id="mResultIncome">¥0</strong></div>
+        <div class="explainRow"><span>本月基础生活扣除</span><strong id="mLivingReserved">¥0</strong></div>
+        <div class="explainRow"><span>本月固定支出 / 预留</span><strong id="mFixedSpent">¥0</strong></div>
+        <div class="explainRow"><span>本月已用零花钱</span><strong id="mPocketSpent">¥0</strong></div>
+        <div class="explainRow total"><span>本月预计可存合计</span><strong id="mNetSavingDetail">¥0</strong></div>
       </div>
     </div>
     <div class="section">
-      <div class="section-title">本月流水</div>
+      <div class="sectionTitle">本月流水</div>
       <div class="card" id="monthTx"></div>
     </div>
   </section>
 
-  <section id="projects" class="panel">
-    <div class="section">
-      <div class="section-title">专项项目</div>
-      <div class="card">
-        <div class="form-grid">
-          <div><label>项目名称</label><input id="pName" placeholder="例如：10月旅行"></div>
-          <div><label>预算</label><input id="pBudget" inputmode="decimal" type="number" placeholder="3500"></div>
-        </div>
-        <div class="spacer"></div>
-        <button class="primary" style="width:100%" id="addProjectBtn">添加专项</button>
-      </div>
-    </div>
-    <div class="section"><div class="card" id="projectManage"></div></div>
-  </section>
-
+  <!-- SETTINGS -->
   <section id="settings" class="panel">
     <div class="section">
-      <div class="section-title">默认预算</div>
-      <div class="card">
-        <div class="form-grid">
-          <div><label>月储蓄目标</label><input id="sSave" inputmode="decimal" type="number"></div>
-          <div><label>每日餐标</label><input id="sDaily" inputmode="decimal" type="number"></div>
-          <div><label>500到账默认储蓄</label><input id="sSave500" inputmode="decimal" type="number"></div>
-          <div><label>600到账默认储蓄</label><input id="sSave600" inputmode="decimal" type="number"></div>
-          <div><label>每月固定续费参考</label><input id="sFixed" inputmode="decimal" type="number"></div>
-          <div><label>默认到账周期天数</label><input id="sDays" inputmode="numeric" type="number"></div>
-        </div>
-        <div class="spacer"></div>
-        <button class="primary" style="width:100%" id="saveSettingsBtn">保存设置</button>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">导出给 ChatGPT</div>
+      <div class="sectionTitle">导出给 ChatGPT</div>
       <div class="card">
         <div class="quick">
-          <button class="primary" id="shareSummaryBtn">分享本月摘要</button>
-          <button class="secondary" id="copySummaryBtn">复制本月摘要</button>
-          <button class="ghost" id="exportJsonBtn">导出 JSON 备份</button>
-          <button class="ghost" id="exportCsvBtn">导出 CSV 流水</button>
+          <button class="primary" id="shareSummary">分享本月摘要</button>
+          <button class="secondary" id="copySummary">复制摘要</button>
+          <button class="ghost" id="exportJson">导出完整备份</button>
+          <button class="ghost" id="exportCsv">导出流水 CSV</button>
         </div>
-        <div class="note" style="margin-top:10px">JSON 用于完整恢复数据；CSV 便于查看流水；“本月摘要”最适合直接发给我继续分析。</div>
       </div>
     </div>
-
     <div class="section">
-      <div class="section-title">数据维护</div>
+      <div class="sectionTitle">数据</div>
       <div class="card">
         <label class="ghost" style="display:block;text-align:center;border:1px solid var(--line);border-radius:15px;padding:13px;font-size:14px;font-weight:700;color:var(--text);cursor:pointer">
           导入 JSON 备份
           <input id="importFile" type="file" accept="application/json" style="display:none">
         </label>
-        <div class="spacer"></div>
-        <button class="danger" style="width:100%" id="resetBtn">清空全部数据</button>
+        <div style="height:10px"></div>
+        <button class="danger" style="width:100%" id="resetAll">清空全部数据</button>
       </div>
     </div>
   </section>
 </div>
 
 <div class="bottom">
-  <div class="bottom-in">
-    <button class="navbtn active" data-tab="home">总览</button>
-    <button class="navbtn" data-tab="ledger">记账</button>
-    <button class="navbtn" data-tab="projects">专项</button>
-    <button class="navbtn" data-tab="settings">设置</button>
+  <div class="bottomIn">
+    <button class="nav active" data-tab="plan">计划</button>
+    <button class="nav" data-tab="now">现在</button>
+    <button class="nav" data-tab="history">结果</button>
+    <button class="nav" data-tab="settings">设置</button>
   </div>
 </div>
 
+<!-- INCOME SHEET -->
 <div class="sheet" id="incomeSheet">
-  <div class="sheet-card">
-    <div class="sheet-title">记录到账并分配</div>
-    <div class="form-grid">
-      <div><label>到账金额</label><input id="iAmount" inputmode="decimal" type="number"></div>
-      <div><label>撑到下次到账</label><input id="iDays" inputmode="numeric" type="number"></div>
-      <div><label>这次直接存下</label><input id="iSave" inputmode="decimal" type="number"></div>
-      <div><label>生活费额度</label><input id="iFood" inputmode="decimal" type="number"></div>
-      <div><label>固定费用预留</label><input id="iFixed" inputmode="decimal" type="number" value="0"></div>
-      <div><label>机动额度</label><input id="iFlex" inputmode="decimal" type="number"></div>
+  <div class="sheetCard">
+    <div class="sheetTitle">记录这笔收入</div>
+    <div class="formGrid">
+      <div><label>对应收入计划</label><select id="incPlan"></select></div>
+      <div><label>到账金额</label><input id="incAmount" inputmode="decimal" type="number"></div>
+      <div><label>下一次周期收入日期</label><input id="incNextDate" type="date"></div>
+      <div><label>本次优先储蓄</label><input id="incSaving" inputmode="decimal" type="number"></div>
     </div>
-    <div class="note" id="incomeCheck" style="margin-top:10px"></div>
-    <div class="sheet-actions">
+    <div class="subCard">
+      <div class="name">本次基础生活扣除</div>
+      <div class="meta" id="incLivingMeta">周期性收入会覆盖自己的生活周期；相同日历日只扣一次。</div>
+      <div style="margin-top:8px;font-weight:750" id="incLivingGuide">¥0</div>
+    </div>
+    <div class="subCard">
+      <div class="name">近期固定账单</div>
+      <div class="meta">会自动计算下一次收入前需要支付的账单。</div>
+      <div style="margin-top:8px;font-weight:750" id="incBills">¥0</div>
+    </div>
+    <div class="subCard">
+      <div class="name">专项建议预留</div>
+      <div class="meta">按专项缺口与截止日期平均分摊到剩余收入周期。</div>
+      <div id="projectSuggest" style="margin-top:8px"></div>
+    </div>
+    <div class="explain">
+      <div class="explainRow"><span>到账</span><strong id="sumIncome">¥0</strong></div>
+      <div class="explainRow"><span>储蓄</span><strong id="sumSaving">¥0</strong></div>
+      <div class="explainRow"><span>基础生活</span><strong id="sumLiving">¥0</strong></div>
+      <div class="explainRow"><span>固定账单</span><strong id="sumBills">¥0</strong></div>
+      <div class="explainRow"><span>专项</span><strong id="sumProjects">¥0</strong></div>
+      <div class="explainRow total"><span>零花钱 / 真正可以自由花</span><strong id="sumSafe">¥0</strong></div>
+    </div>
+    <div class="note" id="incomeWarning" style="margin-top:8px"></div>
+    <div class="actions">
       <button class="ghost" onclick="closeSheet('incomeSheet')">取消</button>
-      <button class="primary" id="saveIncomeBtn">确认到账</button>
+      <button class="primary" id="saveIncome">确认分配</button>
     </div>
   </div>
 </div>
 
-<div class="sheet" id="expenseSheet">
-  <div class="sheet-card">
-    <div class="sheet-title">记录支出</div>
-    <div class="form-grid one">
-      <div><label>类别</label>
-        <select id="eType">
-          <option value="food">餐饮 / 买菜</option>
-          <option value="flex">机动 / 零花</option>
-          <option value="fixed">固定续费</option>
-          <option value="project">专项支出</option>
+<!-- SPEND SHEET -->
+<div class="sheet" id="spendSheet">
+  <div class="sheetCard">
+    <div class="sheetTitle">记录支出</div>
+    <div class="formGrid one">
+      <div><label>支出来源</label>
+        <select id="spendBucket">
+          <option value="safe">零花钱 / 日常支出</option>
+          <option value="bill">固定账单</option>
+          <option value="project">专项项目</option>
+          <option value="saving">从储蓄取用</option>
         </select>
       </div>
-      <div id="projectRow" style="display:none"><label>专项项目</label><select id="eProject"></select></div>
-      <div><label>金额</label><input id="eAmount" inputmode="decimal" type="number" placeholder="例如 86"></div>
-      <div><label>备注</label><input id="eNote" placeholder="例如：买未来5天的菜和肉"></div>
+      <div id="refRow" style="display:none"><label id="refLabel">选择项目</label><select id="spendRef"></select></div>
+      <div><label>金额</label><input id="spendAmount" inputmode="decimal" type="number"></div>
+      <div><label>备注</label><input id="spendNote" placeholder="例如 买未来5天的菜"></div>
     </div>
-    <div class="sheet-actions">
-      <button class="ghost" onclick="closeSheet('expenseSheet')">取消</button>
-      <button class="primary" id="saveExpenseBtn">保存支出</button>
+    <div class="note" id="spendHint" style="margin-top:9px"></div>
+    <div class="actions">
+      <button class="ghost" onclick="closeSheet('spendSheet')">取消</button>
+      <button class="primary" id="saveSpend">保存支出</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT INCOME PLAN -->
+<div class="sheet" id="editIncomePlanSheet">
+  <div class="sheetCard">
+    <div class="sheetTitle">修改收入计划</div>
+    <input type="hidden" id="editIncomePlanId">
+    <div class="formGrid">
+      <div><label>名称</label><input id="editIncomePlanName"></div>
+      <div><label>金额</label><input id="editIncomePlanAmount" inputmode="decimal" type="number"></div>
+      <div><label>下一次到账日期（周期收入必填）</label><input id="editIncomePlanDate" type="date"></div>
+      <div><label>重复方式</label>
+        <select id="editIncomePlanFreq">
+          <option value="weekly">每周</option>
+          <option value="biweekly">每两周</option>
+          <option value="monthly">每月</option>
+          <option value="none">额外收入（仅一次）</option>
+        </select>
+      </div>
+      <div><label>储蓄方式</label>
+        <select id="editIncomePlanSaveType">
+          <option value="fixed">固定金额</option>
+          <option value="percent">按比例</option>
+        </select>
+      </div>
+      <div><label>储蓄数值</label><input id="editIncomePlanSaveValue" inputmode="decimal" type="number"></div>
+    </div>
+    <div class="actions">
+      <button class="danger" id="deleteIncomePlan">删除</button>
+      <button class="primary" id="saveIncomePlanEdit">保存修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT BILL -->
+<div class="sheet" id="editBillSheet">
+  <div class="sheetCard">
+    <div class="sheetTitle">修改固定账单</div>
+    <input type="hidden" id="editBillId">
+    <div class="formGrid">
+      <div><label>名称</label><input id="editBillName"></div>
+      <div><label>金额</label><input id="editBillAmount" inputmode="decimal" type="number"></div>
+      <div><label>扣款日</label><input id="editBillDay" inputmode="numeric" type="number"></div>
+    </div>
+    <div class="actions">
+      <button class="danger" id="deleteBill">删除</button>
+      <button class="primary" id="saveBillEdit">保存修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT PROJECT -->
+<div class="sheet" id="editProjectSheet">
+  <div class="sheetCard">
+    <div class="sheetTitle">修改专项</div>
+    <input type="hidden" id="editProjectId">
+    <div class="formGrid">
+      <div><label>名称</label><input id="editProjectName"></div>
+      <div><label>总预算</label><input id="editProjectBudget" inputmode="decimal" type="number"></div>
+      <div><label>截止日期</label><input id="editProjectDue" type="date"></div>
+      <div><label>初始已备资金</label><input id="editProjectInitial" inputmode="decimal" type="number"></div>
+    </div>
+    <div class="actions">
+      <button class="danger" id="deleteProject">删除</button>
+      <button class="primary" id="saveProjectEdit">保存修改</button>
     </div>
   </div>
 </div>
@@ -313,315 +420,990 @@ label{font-size:11px;color:var(--muted);display:block;margin-bottom:6px}
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="laiya_cashflow_pwa_v2";
+const KEY="safespend_cashflow_v12";
+const OLD_KEYS=["safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  settings:{saveGoal:900,dailyFood:30,save500:200,save600:300,fixedMonthly:304,cycleDays:7},
-  projects:[
-    {id:"travel_oct",name:"10月旅行",budget:3500},
-    {id:"course_oct",name:"10月课程",budget:1400}
-  ],
+  version:12,
+  settings:{dailyLiving:0,monthlyGoal:0},
+  incomePlans:[],
+  bills:[],
+  projects:[],
   tx:[]
 };
-let state=load();
+let S=load();
 
 function load(){
   try{
-    const x=JSON.parse(localStorage.getItem(KEY));
-    if(x) return {...defaults,...x,settings:{...defaults.settings,...(x.settings||{})}};
+    const d=JSON.parse(localStorage.getItem(KEY));
+    if(d)return normalize(d);
+    for(const k of OLD_KEYS){
+      const old=localStorage.getItem(k);
+      if(old){
+        const parsed=JSON.parse(old);
+        const migrated=normalize(parsed);
+        migrated._migrated=true;
+        localStorage.setItem(KEY,JSON.stringify(migrated));
+        return migrated;
+      }
+    }
   }catch(e){}
   return JSON.parse(JSON.stringify(defaults));
 }
-function persist(){localStorage.setItem(KEY,JSON.stringify(state))}
-function today(){return new Date().toISOString().slice(0,10)}
-function monthKey(d=today()){return d.slice(0,7)}
-function money(v){return "¥"+(Math.round((Number(v)||0)*100)/100).toLocaleString("zh-CN",{maximumFractionDigits:2})}
-function sum(a,fn){return a.reduce((s,x)=>s+(fn?fn(x):Number(x)||0),0)}
+function normalize(d){
+  const s={...defaults,...d};
+  s.settings={...defaults.settings,...(d.settings||{})};
+  if(!s.settings.dailyLiving && d.settings?.dailyFood) s.settings.dailyLiving=Number(d.settings.dailyFood)||0;
+  if(!s.settings.monthlyGoal && d.settings?.saveGoal) s.settings.monthlyGoal=Number(d.settings.saveGoal)||0;
+  s.incomePlans=Array.isArray(d.incomePlans)?d.incomePlans:[];
+  s.bills=Array.isArray(d.bills)?d.bills:[];
+  s.projects=Array.isArray(d.projects)?d.projects:[];
+  s.tx=Array.isArray(d.tx)?d.tx:[];
+  return s;
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function N(v){return Number(v)||0}
+function pad2(v){return String(v).padStart(2,"0")}
+function localDateString(d=new Date()){
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function td(){return localDateString(new Date())}
+function parts(s){const [y,m,d]=String(s||"").split("-").map(Number);return {y,m,d}}
+function D(s){
+  const {y,m,d}=parts(s);
+  // Use local noon rather than midnight to avoid timezone/DST date rollover.
+  return new Date(y,m-1,d,12,0,0,0);
+}
+function addDays(s,n){
+  const d=D(s);
+  d.setDate(d.getDate()+Number(n));
+  return localDateString(d);
+}
+function addMonth(s){
+  const d=D(s),day=d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth()+1);
+  const last=new Date(d.getFullYear(),d.getMonth()+1,0,12).getDate();
+  d.setDate(Math.min(day,last));
+  return localDateString(d);
+}
+function dayNumber(s){
+  const {y,m,d}=parts(s);
+  return Date.UTC(y,m-1,d)/86400000;
+}
+function diffDays(a,b){return Math.max(0,Math.round(dayNumber(b)-dayNumber(a)))}
+function md(s=td()){return s.slice(0,7)}
+function M(v){return "¥"+(Math.round(N(v)*100)/100).toLocaleString("zh-CN",{maximumFractionDigits:2})}
+function sm(a,f){return a.reduce((x,y)=>x+(f?f(y):N(y)),0)}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function showToast(msg){toast.textContent=msg;toast.classList.add("show");setTimeout(()=>toast.classList.remove("show"),1600)}
-
-function balances(){
-  let food=0,flex=0,fixed=0,saved=0;
-  state.tx.forEach(t=>{
-    if(t.type==="income"){
-      food+=Number(t.alloc?.food||0);
-      flex+=Number(t.alloc?.flex||0);
-      fixed+=Number(t.alloc?.fixed||0);
-      saved+=Number(t.alloc?.saving||0);
-    }else if(t.type==="expense"){
-      if(t.category==="food") food-=t.amount;
-      if(t.category==="flex") flex-=t.amount;
-      if(t.category==="fixed") fixed-=t.amount;
-    }
-  });
-  return {food,flex,fixed,saved};
+function msg(t){toast.textContent=t;toast.classList.add("show");setTimeout(()=>toast.classList.remove("show"),1600)}
+function closeSheet(id){document.getElementById(id).classList.remove("show")}
+function freqLabel(f){return {weekly:"每周",biweekly:"每两周",monthly:"每月",none:"仅一次"}[f]||f}
+function saveRuleLabel(p){return p.saveType==="percent"?`${p.saveValue}%`:`${M(p.saveValue)}`}
+function nextAfter(date,freq){
+  if(freq==="weekly") return addDays(date,7);
+  if(freq==="biweekly") return addDays(date,14);
+  if(freq==="monthly") return addMonth(date);
+  return "";
 }
 
-function currentCycle(){
-  const incomes=state.tx.filter(t=>t.type==="income").sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
-  if(!incomes.length) return null;
-  const latest=incomes[0];
-  const idx=state.tx.indexOf(latest);
-  const spent=state.tx.filter(t=>t.type==="expense" && t.date>=latest.date);
-  return {latest,spent};
+function projectFunded(p){
+  return N(p.initialFund)+sm(S.tx.filter(t=>t.type==="income"),t=>sm((t.alloc?.projects||[]).filter(x=>x.projectId===p.id),x=>x.amount));
+}
+function projectSpent(p){return sm(S.tx.filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id),t=>t.amount)}
+function projectGap(p){return Math.max(0,N(p.budget)-projectFunded(p))}
+
+/*
+  全联动记账引擎
+  1. 每个预算池都允许显示负数，负数代表已经超出原计划。
+  2. 当某一笔支出把对应预算池花穿时，超出的部分会自动动用“当时已有”的储蓄余额。
+  3. 自动动用储蓄不会把预算池的负数抹掉，因为负数本身就是“超计划”的反馈。
+  4. 后续新的收入分配会继续滚入各预算池，所以生活费、自由额度、账单和专项都会持续滚动。
+*/
+function accounting(){
+  const raw={safe:0,bills:0};
+  const projects={};
+  S.projects.forEach(p=>projects[p.id]=N(p.initialFund));
+
+  let saving=0;
+  let autoSavingUsed=0;
+  let manualSavingUsed=0;
+  let uncovered=0;
+  const effects={};
+
+  const ordered=[...S.tx].sort((a,b)=>(String(a.date)+String(a.id)).localeCompare(String(b.date)+String(b.id)));
+
+  ordered.forEach(t=>{
+    if(t.type==="income"){
+      const ea=effectiveIncomeAllocation(t);
+      raw.safe+=N(ea.safe);
+      raw.bills+=N(ea.bills);
+      saving+=N(ea.saving);
+      ea.projects.forEach(x=>{
+        projects[x.projectId]=(projects[x.projectId]||0)+N(x.amount);
+      });
+      return;
+    }
+
+    if(t.type!=="expense")return;
+    const amount=N(t.amount);
+
+    if(t.bucket==="saving"){
+      const before=saving;
+      saving-=amount;
+      manualSavingUsed+=amount;
+      effects[t.id]={autoDraw:0,manualDraw:amount,uncovered:Math.max(0,amount-Math.max(0,before)),overPlan:0};
+      return;
+    }
+
+    const bucket=t.bucket==="living"?"safe":t.bucket;
+    let before=0;
+    if(bucket==="project")before=N(projects[t.refId]||0);
+    else if(bucket==="safe")before=N(raw.safe);
+    else if(bucket==="bill")before=N(raw.bills);
+
+    const overPlan=Math.max(0,amount-Math.max(0,before));
+    const autoDraw=Math.min(overPlan,Math.max(0,saving));
+    const gap=Math.max(0,overPlan-autoDraw);
+
+    saving-=autoDraw;
+    autoSavingUsed+=autoDraw;
+    uncovered+=gap;
+
+    if(bucket==="project")projects[t.refId]=(projects[t.refId]||0)-amount;
+    else if(bucket==="safe")raw.safe-=amount;
+    else if(bucket==="bill")raw.bills-=amount;
+
+    effects[t.id]={autoDraw,manualDraw:0,uncovered:gap,overPlan};
+  });
+
+  return {raw,projects,saving,autoSavingUsed,manualSavingUsed,uncovered,effects};
+}
+function projectAvail(p){
+  return N(accounting().projects[p.id]||0);
+}
+function bal(){
+  const a=accounting();
+  return {safe:a.raw.safe,living:a.raw.safe,bills:a.raw.bills,saving:a.saving};
+}
+
+function txStamp(t){
+  const m=String(t?.id||"").match(/(\d{10,})/);
+  return m?Number(m[1]):0;
+}
+
+function cycleStatsForIncome(incomeTx){
+  const incomes=[...S.tx].filter(t=>t.type==="income")
+    .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
+
+  const pos=incomes.findIndex(x=>x.id===incomeTx.id);
+  const next=pos>=0?incomes[pos+1]:null;
+
+  const afterStart=t=>{
+    if(t.date>incomeTx.date)return true;
+    if(t.date<incomeTx.date)return false;
+    return txStamp(t)>txStamp(incomeTx);
+  };
+  const beforeNext=t=>{
+    if(!next)return true;
+    if(t.date<next.date)return true;
+    if(t.date>next.date)return false;
+    return txStamp(t)<txStamp(next);
+  };
+
+  const expenses=S.tx.filter(t=>t.type==="expense"&&afterStart(t)&&beforeNext(t));
+  const pocketSpent=sm(expenses.filter(t=>t.bucket==="safe"||t.bucket==="living"),t=>N(t.amount));
+  const manualSavingUse=sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount));
+
+  const ea=effectiveIncomeAllocation(incomeTx);
+  const pocketInitial=N(ea.safe);
+  const pocketBalance=pocketInitial-pocketSpent;
+
+  return {
+    income:incomeTx,
+    plannedSaving:N(ea.saving),
+    livingReserved:N(ea.living),
+    pocketInitial,
+    pocketSpent,
+    pocketBalance,
+    manualSavingUse,
+    fixedReserved:N(ea.bills),
+    projectReserved:N(ea.projectTotal),
+    projectedSaving:N(ea.saving)+pocketBalance-manualSavingUse
+  };
+}
+
+function monthlyCycleStats(ym=md()){
+  const incomes=S.tx.filter(t=>t.type==="income"&&md(t.date)===ym);
+  const cycles=incomes.map(cycleStatsForIncome);
+
+  return {
+    cycles,
+    income:sm(incomes,t=>N(t.amount)),
+    livingReserved:sm(cycles,c=>N(c.livingReserved)),
+    fixedReserved:sm(cycles,c=>N(c.fixedReserved)),
+    projectReserved:sm(cycles,c=>N(c.projectReserved)),
+    pocketSpent:sm(cycles,c=>N(c.pocketSpent)),
+    projectedSaving:sm(cycles,c=>N(c.projectedSaving))
+  };
+}
+function currentCycleStats(){
+  const incomes=S.tx.filter(t=>t.type==="income")
+    .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
+  const latest=incomes[incomes.length-1];
+  if(!latest){
+    return {income:null,plannedSaving:0,pocketInitial:0,pocketSpent:0,pocketBalance:0,manualSavingUse:0,projectedSaving:0};
+  }
+  return cycleStatsForIncome(latest);
+}
+
+
+function isRecurringPlan(p){return !!p && p.freq!=="none"}
+function activeRecurringIncomePlans(){return S.incomePlans.filter(p=>isRecurringPlan(p)&&p.nextDate)}
+function nextRecurringIncome(excludeId=""){
+  const arr=activeRecurringIncomePlans().filter(p=>p.id!==excludeId).sort((a,b)=>a.nextDate.localeCompare(b.nextDate));
+  return arr[0]||null;
+}
+function dateRange(start,endExclusive){
+  const out=[];
+  if(!start||!endExclusive||endExclusive<=start)return out;
+
+  const expected=diffDays(start,endExclusive);
+  // Protect against accidentally absurd coverage windows.
+  if(expected>366){
+    return out;
+  }
+
+  let d=start;
+  for(let i=0;i<expected;i++){
+    out.push(d);
+    const next=addDays(d,1);
+    if(next===d)break;
+    d=next;
+  }
+  return out;
+}
+function livingReservationMap(){
+  const result={};
+  const covered=new Set();
+  const incomes=[...S.tx].filter(t=>t.type==="income")
+    .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
+
+  incomes.forEach(t=>{
+    if(t.livingCoverageStart&&t.livingCoverageEnd&&t.livingRateAtRecord!==undefined){
+      const all=dateRange(t.livingCoverageStart,t.livingCoverageEnd);
+      const days=all.filter(d=>!covered.has(d));
+      days.forEach(d=>covered.add(d));
+      result[t.id]={
+        days,
+        totalDays:all.length,
+        skippedDays:all.length-days.length,
+        amount:days.length*N(t.livingRateAtRecord),
+        start:t.livingCoverageStart,
+        end:t.livingCoverageEnd
+      };
+    }else{
+      // Legacy transaction: preserve its historical living allocation as-is.
+      result[t.id]={
+        days:[],
+        totalDays:0,
+        skippedDays:0,
+        amount:N(t.alloc?.living),
+        start:"",
+        end:""
+      };
+    }
+  });
+  return result;
+}
+function currentlyCoveredLivingDays(){
+  const set=new Set();
+  const map=livingReservationMap();
+  Object.values(map).forEach(x=>(x.days||[]).forEach(d=>set.add(d)));
+  return set;
+}
+function livingPreviewForPlan(p,nextDateOverride=""){
+  if(!isRecurringPlan(p)){
+    return {amount:0,days:[],totalDays:0,skippedDays:0,start:"",end:"",extra:true};
+  }
+
+  const start=td();
+  // Living cost is covered only until the NEXT periodic income actually expected.
+  // If another recurring income arrives sooner, that earlier date ends this coverage window.
+  const end=nextDateOverride||nextAfter(start,p.freq);
+  if(!end||end<=start){
+    return {amount:0,days:[],totalDays:0,skippedDays:0,start,end,extra:false};
+  }
+
+  const all=dateRange(start,end);
+  const covered=currentlyCoveredLivingDays();
+  const days=all.filter(d=>!covered.has(d));
+
+  return {
+    amount:days.length*N(S.settings.dailyLiving),
+    days,
+    totalDays:all.length,
+    skippedDays:all.length-days.length,
+    start,
+    end,
+    extra:false
+  };
+}
+function effectiveIncomeAllocation(t){
+  const livingMap=livingReservationMap();
+  const living=N(livingMap[t.id]?.amount);
+
+  const existingBillIds=new Set(S.bills.map(b=>b.id));
+  let bills=0;
+  if(Array.isArray(t.alloc?.billItems)){
+    bills=sm(t.alloc.billItems.filter(x=>existingBillIds.has(x.billId)),x=>N(x.amount));
+  }else{
+    bills=N(t.alloc?.bills);
+  }
+
+  const existingProjectIds=new Set(S.projects.map(p=>p.id));
+  const projects=(t.alloc?.projects||[]).filter(x=>existingProjectIds.has(x.projectId));
+  const projectTotal=sm(projects,x=>N(x.amount));
+  const saving=N(t.alloc?.saving);
+
+  // New-format income is always recomputed from the current surviving plans/reservations.
+  // Legacy income keeps its old safe amount when no coverage metadata exists.
+  const isNew=!!(t.livingCoverageStart||t.livingCoverageEnd||t.planFreqAtRecord!==undefined);
+  const safe=isNew
+    ? N(t.amount)-saving-living-bills-projectTotal
+    : N(t.alloc?.safe)+N(t.alloc?.living)-living;
+
+  return {saving,living,bills,projects,projectTotal,safe};
+}
+
+function activeIncomePlans(){return S.incomePlans.filter(p=>p.nextDate)}
+function nextPlannedIncome(excludeId=""){
+  const arr=activeIncomePlans().filter(p=>p.id!==excludeId).sort((a,b)=>a.nextDate.localeCompare(b.nextDate));
+  return arr[0]||null;
+}
+function planSavings(p,amount){
+  if(!p)return 0;
+  return p.saveType==="percent"?Math.round(amount*N(p.saveValue))/100:N(p.saveValue);
+}
+function monthLastDay(y,m){return new Date(y,m,0).getDate()}
+function billDueDate(b,y,m){
+  const day=Math.min(N(b.dueDay),monthLastDay(y,m));
+  return `${y}-${String(m).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+}
+function billSettled(bid,dueDate){
+  return S.tx.some(t=>{
+    if(t.type!=="expense"||t.bucket!=="bill"||t.refId!==bid)return false;
+    if(t.cycleDueDate)return t.cycleDueDate===dueDate;
+    // 兼容旧流水：旧版没有 cycleDueDate 时，用账单所属月份近似识别。
+    return md(t.date)===md(dueDate);
+  });
+}
+function billReserved(bid,dueDate){
+  return S.tx.some(t=>{
+    if(t.type!=="income")return false;
+    return (t.alloc?.billItems||[]).some(x=>x.billId===bid&&x.dueDate===dueDate);
+  });
+}
+function allBillsBetween(start,end){
+  const s=D(start),e=D(end),months=[];
+  let y=s.getFullYear(),m=s.getMonth()+1;
+  for(let i=0;i<4;i++){
+    months.push([y,m]);
+    if(y===e.getFullYear()&&m===e.getMonth()+1)break;
+    m++;if(m===13){m=1;y++}
+  }
+  const rows=[];
+  S.bills.forEach(b=>months.forEach(([yy,mm])=>{
+    const due=billDueDate(b,yy,mm);
+    if(due>=start&&due<=end){
+      rows.push({...b,dueDate:due,reserved:billReserved(b.id,due),settled:billSettled(b.id,due)});
+    }
+  }));
+  return rows;
+}
+function dueBillsBetween(start,end){
+  // 只返回“尚未预留、尚未核销”的缴纳周期，防止多笔重叠收入重复预留同一账单。
+  return allBillsBetween(start,end).filter(x=>!x.reserved&&!x.settled);
+}
+function openBillCycle(bid){
+  // 优先核销已经预留、尚未支付的最近一个周期。
+  const t=td(),end=addDays(t,65);
+  const reserved=allBillsBetween(addDays(t,-35),end)
+    .filter(x=>x.id===bid&&x.reserved&&!x.settled)
+    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  if(reserved.length)return reserved[0].dueDate;
+
+  // 否则给这笔账单绑定当前或下一个最近缴纳周期。
+  const b=S.bills.find(x=>x.id===bid);
+  if(!b)return "";
+  const now=D(t),y=now.getFullYear(),mo=now.getMonth()+1;
+  const cur=billDueDate(b,y,mo);
+  if(cur>=t&&!billSettled(bid,cur))return cur;
+  const nm=mo===12?1:mo+1,ny=mo===12?y+1:y;
+  return billDueDate(b,ny,nm);
+}
+function upcomingIncomeCyclesUntil(dueDate){
+  const dates=[];
+  S.incomePlans.forEach(p=>{
+    if(!p.nextDate)return;
+    let d=p.nextDate;
+    let guard=0;
+    while(d && d<=dueDate && guard<100){
+      if(d>=td())dates.push(d);
+      d=nextAfter(d,p.freq);
+      guard++;
+      if(p.freq==="none")break;
+    }
+  });
+  return Math.max(1,dates.length);
+}
+function recommendedProjectContrib(p){
+  const gap=projectGap(p);
+  if(gap<=0||!p.dueDate)return 0;
+  return Math.ceil(gap/upcomingIncomeCyclesUntil(p.dueDate)*100)/100;
 }
 
 function render(){
-  const b=balances();
-  foodBal.textContent=money(b.food);
-  flexBal.textContent=money(b.flex);
-  fixedBal.textContent=money(b.fixed);
-  saveBal.textContent=money(b.saved);
+  renderPlan();
+  renderNow();
+  renderHistory();
+  refreshSpendRefs();
+}
+function renderPlan(){
+  planDailyLiving.value=S.settings.dailyLiving||"";
+  planMonthlyGoal.value=S.settings.monthlyGoal||"";
+  incomePlanList.innerHTML=S.incomePlans.length?S.incomePlans.map(p=>`
+    <div class="item" onclick="editIncomePlan('${p.id}')">
+      <div class="row"><div><div class="name">${esc(p.name)}</div>
+      <div class="meta">${p.freq==="none"?(p.nextDate||"额外收入 · 日期可选"):(p.nextDate||"未设日期")} · ${freqLabel(p.freq)} · 储蓄 ${saveRuleLabel(p)} · 点击修改</div></div>
+      <div style="text-align:right"><div class="amount">${M(p.amount)}</div>
+      <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteIncomePlan('${p.id}')">删除</button></div></div>
+    </div>`).join(""):'<div class="note">还没有收入计划。先告诉 App 你什么时候收钱、每次多少钱，以及这笔钱想存多少。</div>';
 
-  const c=currentCycle();
-  if(c){
-    freeHero.textContent=money(Math.max(0,b.flex));
-    cycleBadge.textContent="本周期";
-    const days=c.latest.alloc?.days||state.settings.cycleDays;
-    cycleText.textContent=`最近到账 ${money(c.latest.amount)}，已分配 ${money(c.latest.alloc?.saving||0)} 储蓄；本周期计划覆盖约 ${days} 天。`;
+  billList.innerHTML=S.bills.length?S.bills.map(b=>`
+    <div class="item" onclick="editBill('${b.id}')"><div class="row"><div><div class="name">${esc(b.name)}</div>
+    <div class="meta">每月 ${b.dueDay} 日 · 点击修改</div></div><div style="text-align:right"><div class="amount">${M(b.amount)}</div>
+    <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteBill('${b.id}')">删除</button></div></div></div>`).join("")
+    :'<div class="note">还没有固定账单。</div>';
+
+  projectList.innerHTML=S.projects.length?S.projects.map(p=>{
+    const funded=projectFunded(p),spent=projectSpent(p),gap=projectGap(p);
+    const pct=Math.min(100,Math.max(0,funded/Math.max(1,N(p.budget))*100));
+    return `<div class="item" onclick="editProject('${p.id}')">
+      <div class="row"><div><div class="name">${esc(p.name)}</div>
+      <div class="meta">预算 ${M(p.budget)} · 已备 ${M(funded)} · 已花 ${M(spent)}${p.dueDate?" · "+p.dueDate:""}</div></div>
+      <div style="text-align:right"><div class="amount ${gap>0?"warn":"pos"}">${gap>0?"缺 "+M(gap):"已备妥"}</div>
+      <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteProject('${p.id}')">删除</button></div></div>
+      <div class="progress"><span style="width:${pct}%"></span></div></div>`;
+  }).join(""):'<div class="note">还没有专项计划。</div>';
+}
+function renderNow(){
+  const a=accounting(),b={safe:a.raw.safe,living:a.raw.safe,bills:a.raw.bills,saving:a.saving},cycle=currentCycleStats();
+  const projectTotal=sm(S.projects,p=>N(a.projects[p.id]||0));
+
+  safeNow.textContent=M(b.safe);
+  // “零花钱余额”与顶部“当前零花钱”严格使用同一个数。
+  livingBal.textContent=M(b.safe);
+  billBal.textContent=M(b.bills);
+  savingBal.textContent=M(cycle.projectedSaving);
+  projectBal.textContent=M(projectTotal);
+
+  const paint=(el,v)=>{el.style.color=v<=0?"var(--danger)":"inherit"};
+  paint(safeNow,b.safe);
+  paint(livingBal,b.safe);
+  paint(billBal,b.bills);
+  paint(projectBal,projectTotal);
+  paint(savingBal,cycle.projectedSaving);
+
+  const next=nextRecurringIncome();
+  if(next){
+    const days=diffDays(td(),next.nextDate);
+    whyDays.textContent=`${days} 天`;
+    dailyFree.textContent=days>0?M(b.safe/days):M(b.safe);
+    dailyFree.style.color=(b.safe<=0)?"var(--danger)":"inherit";
+    safeSub.textContent=b.safe<0
+      ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的实际支出会优先自动动用当时可用的储蓄。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
+      :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`;
+    nextIncomeBox.innerHTML=`<div class="row"><div><div class="name">${esc(next.name)}</div><div class="meta">${next.nextDate} · ${freqLabel(next.freq)} · 计划储蓄 ${saveRuleLabel(next)}</div></div><div class="amount pos">${M(next.amount)}</div></div>`;
   }else{
-    freeHero.textContent=money(b.flex);
-    cycleBadge.textContent="等待到账";
-    cycleText.textContent="记录一笔到账后，这里会显示当前可自由支配余额。";
+    whyDays.textContent="—";
+    dailyFree.textContent=M(b.safe);
+    dailyFree.style.color=(b.safe<=0)?"var(--danger)":"inherit";
+    safeSub.textContent=b.safe<0
+      ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。计划页里还没有未来收入日期。`
+      :"计划页里还没有未来收入日期。先完善收入计划，再记录现在。";
+    nextIncomeBox.innerHTML='<div class="note">暂无未来收入计划。</div>';
   }
+  whySafe.textContent=M(b.safe);
+  whySafe.style.color=b.safe<=0?"var(--danger)":"inherit";
 
-  const m=monthKey();
-  const monthTx=state.tx.filter(t=>monthKey(t.date)===m);
-  const income=sum(monthTx.filter(t=>t.type==="income"),t=>t.amount);
-  const spend=sum(monthTx.filter(t=>t.type==="expense"),t=>t.amount);
-  const save=sum(monthTx.filter(t=>t.type==="income"),t=>Number(t.alloc?.saving||0));
-  mIncome.textContent=money(income);
-  mSpend.textContent=money(spend);
-  mSave.textContent=money(save);
-  const pct=Math.min(100,Math.max(0,save/Math.max(1,state.settings.saveGoal)*100));
-  saveProgress.style.width=pct+"%";
-  saveProgressText.textContent=`本月储蓄 ${money(save)} / 目标 ${money(state.settings.saveGoal)}`;
+  const horizon=next?.nextDate||addDays(td(),7);
+  // “近期必须处理”仍显示尚未支付的账单；已经预留的账单会标记为“已预留”，
+  // 但它不会再次进入后续重叠收入的分配。
+  const rows=allBillsBetween(td(),horizon)
+    .filter(x=>!x.settled)
+    .map(x=>`<div class="item"><div class="row"><div><div class="name">${esc(x.name)}</div><div class="meta">${x.dueDate} 到期${x.reserved?" · 已预留，本周期不再重复分配":""}</div></div><div class="amount">${M(x.amount)}</div></div></div>`);
 
-  renderProjects();
-  renderTx();
-  loadSettings();
-  populateProjectSelect();
+  S.projects.forEach(p=>{
+    const gap=projectGap(p),rec=recommendedProjectContrib(p),avail=N(a.projects[p.id]||0);
+    if(avail<0) rows.push(`<div class="item"><div class="row"><div><div class="name">${esc(p.name)} 已超专项</div><div class="meta">当前专项余额 ${M(avail)}，超出部分会联动储蓄余额</div></div><div class="amount neg">${M(avail)}</div></div></div>`);
+    else if(gap>0&&rec>0) rows.push(`<div class="item"><div class="row"><div><div class="name">${esc(p.name)}</div><div class="meta">资金缺口 ${M(gap)} · 建议下次收入预留 ${M(rec)}</div></div><div class="amount warn">${p.dueDate||""}</div></div></div>`);
+  });
+
+  if(a.uncovered>0) rows.unshift(`<div class="item"><div class="row"><div><div class="name">现金流仍有缺口</div><div class="meta">现有储蓄已经无法完全覆盖所有超计划支出</div></div><div class="amount neg">${M(a.uncovered)}</div></div></div>`);
+  upcomingBox.innerHTML=rows.length?rows.join(""):'<div class="note">暂无近期固定账单或专项缺口。</div>';
+
+  const recent=[...S.tx].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id)).slice(0,8);
+  recentTx.innerHTML=recent.length?recent.map(t=>txHtml(t)).join(""):'<div class="note">还没有流水。</div>';
 }
-
-function renderProjects(){
-  const html=state.projects.length?state.projects.map(p=>{
-    const spent=sum(state.tx.filter(t=>t.type==="expense"&&t.category==="project"&&t.projectId===p.id),t=>t.amount);
-    const left=Number(p.budget)-spent;
-    const pct=Math.min(100,Math.max(0,spent/Math.max(1,p.budget)*100));
-    return `<div class="project">
-      <div class="project-head">
-        <div><div class="project-name">${esc(p.name)}</div><div class="project-meta">已花 ${money(spent)} / 预算 ${money(p.budget)}</div></div>
-        <div class="${left>=0?"pos":"neg"}">${left>=0?"剩余 ":"超出 "}${money(Math.abs(left))}</div>
-      </div>
-      <div class="progress"><span style="width:${pct}%"></span></div>
-    </div>`;
-  }).join(""):`<div class="note">还没有专项项目。</div>`;
-  homeProjects.innerHTML=html;
-  projectManage.innerHTML=state.projects.length?state.projects.map(p=>`<div class="project">
-    <div class="project-head"><div><div class="project-name">${esc(p.name)}</div><div class="project-meta">预算 ${money(p.budget)}</div></div>
-    <button class="danger" style="width:auto;padding:7px 10px" onclick="removeProject('${p.id}')">删除</button></div>
-  </div>`).join(""):`<div class="note">还没有专项项目。</div>`;
-}
-
 function txHtml(t,del=false){
   if(t.type==="income"){
-    return `<div class="tx"><div><div class="tx-title">到账</div>
-      <div class="tx-meta">${t.date} · 存 ${money(t.alloc?.saving||0)} · 生活 ${money(t.alloc?.food||0)} · 机动 ${money(t.alloc?.flex||0)}${Number(t.alloc?.fixed||0)>0?" · 固定 "+money(t.alloc.fixed):""}</div></div>
-      <div style="text-align:right"><div class="tx-amt pos">+${money(t.amount)}</div>${del?delBtn(t.id):""}</div></div>`;
+    const p=S.incomePlans.find(x=>x.id===t.planId);
+    const ea=effectiveIncomeAllocation(t); return `<div class="item"><div class="row"><div><div class="name">收入${p?" · "+esc(p.name):""}</div><div class="meta">${t.date} · 当时零花钱 ${M(ea.safe)} · 基础生活 ${M(ea.living)}</div></div><div><div class="amount pos">+${M(t.amount)}</div>${del?delBtn(t.id):""}</div></div></div>`;
   }
-  const label={food:"餐饮/买菜",flex:"机动/零花",fixed:"固定续费",project:"专项支出"}[t.category]||"支出";
-  const p=state.projects.find(x=>x.id===t.projectId);
-  return `<div class="tx"><div><div class="tx-title">${label}${t.note?" · "+esc(t.note):""}</div>
-    <div class="tx-meta">${t.date}${p?" · "+esc(p.name):""}</div></div>
-    <div style="text-align:right"><div class="tx-amt neg">-${money(t.amount)}</div>${del?delBtn(t.id):""}</div></div>`;
+  const map={safe:"零花钱 / 日常支出",living:"零花钱 / 日常支出",bill:"固定账单",project:"专项支出",saving:"储蓄取用"};
+  const ref=t.bucket==="bill"?S.bills.find(x=>x.id===t.refId):S.projects.find(x=>x.id===t.refId);
+  const ef=accounting().effects[t.id]||{};
+  let linked="";
+  if(N(ef.autoDraw)>0) linked+=` · 超计划 ${M(ef.overPlan)}，自动动用储蓄 ${M(ef.autoDraw)}`;
+  if(N(ef.uncovered)>0) linked+=` · 尚有缺口 ${M(ef.uncovered)}`;
+  return `<div class="item"><div class="row"><div><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${ref?" · "+esc(ref.name):""}${linked}</div></div><div><div class="amount neg">-${M(t.amount)}</div>${del?delBtn(t.id):""}</div></div></div>`;
 }
-function delBtn(id){return `<button class="ghost" style="padding:4px 7px;font-size:10px;margin-top:5px" onclick="removeTx('${id}')">删除</button>`}
-function renderTx(){
-  const recent=[...state.tx].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id)).slice(0,8);
-  recentTx.innerHTML=recent.length?recent.map(t=>txHtml(t)).join(""):`<div class="note">还没有流水。</div>`;
-  const mt=state.tx.filter(t=>monthKey(t.date)===monthKey()).sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
-  monthTx.innerHTML=mt.length?mt.map(t=>txHtml(t,true)).join(""):`<div class="note">本月还没有流水。</div>`;
-}
-function populateProjectSelect(){
-  eProject.innerHTML='<option value="">请选择项目</option>'+state.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("");
-}
-function loadSettings(){
-  sSave.value=state.settings.saveGoal;
-  sDaily.value=state.settings.dailyFood;
-  sSave500.value=state.settings.save500;
-  sSave600.value=state.settings.save600;
-  sFixed.value=state.settings.fixedMonthly;
-  sDays.value=state.settings.cycleDays;
+function delBtn(id){return `<button class="ghost" style="padding:4px 7px;font-size:10px;margin-top:5px" onclick="event.stopPropagation();removeTx('${id}')">删除</button>`}
+function renderHistory(){
+  const m=S.tx.filter(t=>md(t.date)===md());
+  const totalSpent=sm(m.filter(t=>t.type==="expense"),t=>N(t.amount));
+  const ms=monthlyCycleStats(md());
+
+  // “本月储蓄净增”按用户定义：
+  // = 本月每一个收入周期的“预计可存”之和。
+  // 固定账单在收入分配时已经从零花钱里扣除并锁定到具体缴纳周期，
+  // 所以这里直接读取每个周期最终的预计可存，避免重复扣除。
+  const inc=ms.income;
+  const fixedReserved=ms.fixedReserved;
+  const pocketSpent=ms.pocketSpent;
+  const net=ms.projectedSaving;
+  const rate=inc>0 ? net/inc*100 : 0;
+
+  mIncome.textContent=M(inc);
+  mSpend.textContent=M(totalSpent);
+  mSaving.textContent=M(net);
+  mRate.textContent=(Math.round(rate*10)/10)+"%";
+
+  mResultIncome.textContent=M(inc);
+  mLivingReserved.textContent=M(ms.livingReserved);
+  mFixedSpent.textContent=M(fixedReserved);
+  mPocketSpent.textContent=M(pocketSpent);
+  mNetSavingDetail.textContent=M(net);
+
+  const tone=net<=0?"var(--danger)":"var(--accent)";
+  mSaving.style.color=tone;
+  mNetSavingDetail.style.color=tone;
+  mRate.style.color=rate<=0?"var(--danger)":"inherit";
+
+  const mt=[...m].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
+  monthTx.innerHTML=mt.length?mt.map(t=>txHtml(t,true)).join(""):'<div class="note">本月还没有流水。</div>';
 }
 
-function openIncome(amount){
-  iAmount.value=amount;
-  iDays.value=state.settings.cycleDays;
-  iSave.value=amount>=600?state.settings.save600:state.settings.save500;
-  iFixed.value=0;
-  recalcIncome();
+/* PLAN actions */
+saveBasePlan.onclick=()=>{
+  S.settings.dailyLiving=N(planDailyLiving.value);
+  S.settings.monthlyGoal=N(planMonthlyGoal.value);
+  save();render();msg("基础计划已保存");
+};
+incomePlanSaveType.onchange=()=>incomePlanSaveLabel.textContent=incomePlanSaveType.value==="percent"?"每次储蓄比例（%）":"每次储蓄金额";
+
+function refreshIncomePlanFreqUI(){
+  const extra=incomePlanFreq.value==="none";
+  incomePlanDate.required=!extra;
+  incomePlanFreqHint.textContent=extra
+    ?"额外收入没有生活周期，到账日期可留空，也不会扣本周期基础生活。"
+    :"周期收入需要到账日期，并承担尚未被其他周期覆盖的基础生活日期。";
+}
+incomePlanFreq.onchange=refreshIncomePlanFreqUI;
+refreshIncomePlanFreqUI();
+
+addIncomePlan.onclick=()=>{
+  const name=incomePlanName.value.trim(),amount=N(incomePlanAmount.value),nextDate=incomePlanDate.value,freq=incomePlanFreq.value,saveType=incomePlanSaveType.value,saveValue=N(incomePlanSaveValue.value);
+  if(!name||amount<=0)return msg("请填写收入名称和金额");
+  if(freq!=="none"&&!nextDate)return msg("周期收入需要填写下一次到账日期");
+  if(saveType==="percent"&&(saveValue<0||saveValue>100))return msg("储蓄比例请输入 0 到 100");
+  S.incomePlans.push({id:"ip"+Date.now(),name,amount,nextDate,freq,saveType,saveValue});
+  incomePlanName.value="";incomePlanAmount.value="";incomePlanDate.value="";incomePlanSaveValue.value="";
+  incomePlanFreq.value="weekly";refreshIncomePlanFreqUI();
+  save();render();msg("收入计划已添加");
+};
+function editIncomePlan(id){
+  const p=S.incomePlans.find(x=>x.id===id);if(!p)return;
+  editIncomePlanId.value=id;editIncomePlanName.value=p.name;editIncomePlanAmount.value=p.amount;editIncomePlanDate.value=p.nextDate;editIncomePlanFreq.value=p.freq;editIncomePlanSaveType.value=p.saveType;editIncomePlanSaveValue.value=p.saveValue;
+  editIncomePlanSheet.classList.add("show");
+}
+saveIncomePlanEdit.onclick=()=>{
+  const p=S.incomePlans.find(x=>x.id===editIncomePlanId.value);if(!p)return;
+  const name=editIncomePlanName.value.trim(),amount=N(editIncomePlanAmount.value),nextDate=editIncomePlanDate.value,freq=editIncomePlanFreq.value,saveType=editIncomePlanSaveType.value,saveValue=N(editIncomePlanSaveValue.value);
+  if(!name||amount<=0)return msg("请填写收入名称和金额");
+  if(freq!=="none"&&!nextDate)return msg("周期收入需要填写下一次到账日期");
+  if(saveType==="percent"&&(saveValue<0||saveValue>100))return msg("储蓄比例请输入 0 到 100");
+  p.name=name;p.amount=amount;p.nextDate=nextDate;p.freq=freq;p.saveType=saveType;p.saveValue=saveValue;
+  save();closeSheet("editIncomePlanSheet");render();msg("收入计划已修改");
+};
+deleteIncomePlan.onclick=()=>{
+  const id=editIncomePlanId.value;if(!confirm("删除这个收入计划？"))return;
+  S.incomePlans=S.incomePlans.filter(x=>x.id!==id);save();closeSheet("editIncomePlanSheet");render();
+};
+
+function quickDeleteIncomePlan(id){
+  if(!confirm("删除这个收入计划？历史流水会保留。"))return;
+  S.incomePlans=S.incomePlans.filter(x=>x.id!==id);save();render();msg("收入计划已删除");
+}
+function quickDeleteBill(id){
+  if(!confirm("删除这个固定账单计划？已预留但尚未核销的金额会自动释放。"))return;
+  S.bills=S.bills.filter(x=>x.id!==id);save();render();msg("固定账单计划已删除");
+}
+function quickDeleteProject(id){
+  if(!confirm("删除这个专项计划？尚未使用的专项预留会自动释放。"))return;
+  S.projects=S.projects.filter(x=>x.id!==id);save();render();msg("专项计划已删除");
+}
+
+
+addBill.onclick=()=>{
+  const name=billName.value.trim(),amount=N(billAmount.value),dueDay=Math.min(31,Math.max(1,N(billDay.value)||1));
+  if(!name||amount<=0)return msg("请填写账单名称和金额");
+  S.bills.push({id:"b"+Date.now(),name,amount,dueDay});
+  billName.value="";billAmount.value="";billDay.value="";save();render();msg("账单已添加");
+};
+function editBill(id){
+  const b=S.bills.find(x=>x.id===id);if(!b)return;
+  editBillId.value=id;editBillName.value=b.name;editBillAmount.value=b.amount;editBillDay.value=b.dueDay;editBillSheet.classList.add("show");
+}
+saveBillEdit.onclick=()=>{
+  const b=S.bills.find(x=>x.id===editBillId.value);if(!b)return;
+  b.name=editBillName.value.trim();b.amount=N(editBillAmount.value);b.dueDay=Math.min(31,Math.max(1,N(editBillDay.value)||1));
+  save();closeSheet("editBillSheet");render();msg("账单已修改");
+};
+deleteBill.onclick=()=>{
+  const id=editBillId.value;
+  if(!confirm("删除这个固定账单计划？已预留但尚未核销的金额会自动释放。"))return;
+  S.bills=S.bills.filter(x=>x.id!==id);save();closeSheet("editBillSheet");render();msg("固定账单计划已删除");
+};
+
+addProject.onclick=()=>{
+  const name=projectName.value.trim(),budget=N(projectBudget.value),dueDate=projectDue.value,initialFund=N(projectInitial.value);
+  if(!name||budget<=0)return msg("请填写专项名称和预算");
+  S.projects.push({id:"p"+Date.now(),name,budget,dueDate,initialFund});
+  projectName.value="";projectBudget.value="";projectDue.value="";projectInitial.value=0;save();render();msg("专项已添加");
+};
+function editProject(id){
+  const p=S.projects.find(x=>x.id===id);if(!p)return;
+  editProjectId.value=id;editProjectName.value=p.name;editProjectBudget.value=p.budget;editProjectDue.value=p.dueDate||"";editProjectInitial.value=p.initialFund||0;editProjectSheet.classList.add("show");
+}
+saveProjectEdit.onclick=()=>{
+  const p=S.projects.find(x=>x.id===editProjectId.value);if(!p)return;
+  p.name=editProjectName.value.trim();p.budget=N(editProjectBudget.value);p.dueDate=editProjectDue.value;p.initialFund=N(editProjectInitial.value);
+  save();closeSheet("editProjectSheet");render();msg("专项已修改");
+};
+deleteProject.onclick=()=>{
+  const id=editProjectId.value;
+  if(!confirm("删除这个专项计划？尚未使用的专项预留会自动释放。"))return;
+  S.projects=S.projects.filter(x=>x.id!==id);save();closeSheet("editProjectSheet");render();msg("专项计划已删除");
+};
+
+/* Income recording */
+function openIncome(){
+  incPlan.innerHTML='<option value="">手动收入</option>'+S.incomePlans.map(p=>`<option value="${p.id}">${esc(p.name)} · ${M(p.amount)}</option>`).join("");
+  const next=nextPlannedIncome();
+  if(next) incPlan.value=next.id;
+  syncIncomeFromPlan();
   incomeSheet.classList.add("show");
 }
-function recalcIncome(){
-  const amount=Number(iAmount.value)||0, days=Number(iDays.value)||0;
-  const saving=Number(iSave.value)||0, fixed=Number(iFixed.value)||0;
-  const food=Math.max(0,days*(Number(state.settings.dailyFood)||0));
-  iFood.value=food;
-  const flex=amount-saving-food-fixed;
-  iFlex.value=Math.max(0,flex);
-  incomeCheck.textContent=flex>=0
-    ? `分配合计 ${money(saving+food+fixed+Math.max(0,flex))}，与到账金额一致。`
-    : `当前分配超出到账金额 ${money(Math.abs(flex))}，请减少储蓄、生活费或固定费用预留。`;
-  incomeCheck.style.color=flex<0?"var(--danger)":"var(--muted)";
-}
-[iAmount,iDays,iSave,iFixed].forEach(x=>x.addEventListener("input",recalcIncome));
+incPlan.onchange=syncIncomeFromPlan;
+function syncIncomeFromPlan(){
+  const p=S.incomePlans.find(x=>x.id===incPlan.value);
+  if(p){
+    incAmount.value=p.amount;
+    incSaving.value=planSavings(p,p.amount);
 
-function closeSheet(id){document.getElementById(id).classList.remove("show")}
-function openExpense(type){
-  eType.value=type;
-  projectRow.style.display=type==="project"?"block":"none";
-  eAmount.value="";eNote.value="";
-  expenseSheet.classList.add("show");
-}
-eType.addEventListener("change",()=>projectRow.style.display=eType.value==="project"?"block":"none");
-
-saveIncomeBtn.onclick=()=>{
-  const amount=Number(iAmount.value)||0;
-  const alloc={
-    days:Number(iDays.value)||0,
-    saving:Number(iSave.value)||0,
-    food:Number(iFood.value)||0,
-    fixed:Number(iFixed.value)||0,
-    flex:Number(iFlex.value)||0
-  };
-  const total=alloc.saving+alloc.food+alloc.fixed+alloc.flex;
-  if(amount<=0){showToast("请输入到账金额");return}
-  if(Math.abs(total-amount)>0.01){showToast("分配金额需要等于到账金额");return}
-  state.tx.push({id:Date.now().toString(36),date:today(),type:"income",amount,alloc});
-  persist();closeSheet("incomeSheet");render();showToast("到账已分配");
-};
-
-saveExpenseBtn.onclick=()=>{
-  const category=eType.value, amount=Number(eAmount.value)||0, note=eNote.value.trim(), projectId=eProject.value;
-  if(amount<=0){showToast("请输入支出金额");return}
-  if(category==="project"&&!projectId){showToast("请选择专项项目");return}
-  state.tx.push({id:Date.now().toString(36),date:today(),type:"expense",category,amount,note,projectId});
-  persist();closeSheet("expenseSheet");render();showToast("已记录");
-};
-
-function removeTx(id){state.tx=state.tx.filter(t=>t.id!==id);persist();render()}
-function removeProject(id){
-  if(!confirm("删除这个专项项目？相关流水会保留，但会失去项目归属。")) return;
-  state.projects=state.projects.filter(p=>p.id!==id);
-  state.tx=state.tx.map(t=>t.projectId===id?{...t,projectId:""}:t);
-  persist();render();
-}
-
-addProjectBtn.onclick=()=>{
-  const name=pName.value.trim(), budget=Number(pBudget.value)||0;
-  if(!name||budget<=0){showToast("请填写项目名称和预算");return}
-  state.projects.push({id:Date.now().toString(36),name,budget});
-  pName.value="";pBudget.value="";persist();render();showToast("专项已添加");
-};
-
-saveSettingsBtn.onclick=()=>{
-  state.settings={
-    saveGoal:Number(sSave.value)||0,
-    dailyFood:Number(sDaily.value)||0,
-    save500:Number(sSave500.value)||0,
-    save600:Number(sSave600.value)||0,
-    fixedMonthly:Number(sFixed.value)||0,
-    cycleDays:Number(sDays.value)||7
-  };
-  persist();render();showToast("设置已保存");
-};
-
-function monthSummary(){
-  const m=monthKey();
-  const tx=state.tx.filter(t=>monthKey(t.date)===m);
-  const income=sum(tx.filter(t=>t.type==="income"),t=>t.amount);
-  const save=sum(tx.filter(t=>t.type==="income"),t=>Number(t.alloc?.saving||0));
-  const food=sum(tx.filter(t=>t.type==="expense"&&t.category==="food"),t=>t.amount);
-  const flex=sum(tx.filter(t=>t.type==="expense"&&t.category==="flex"),t=>t.amount);
-  const fixed=sum(tx.filter(t=>t.type==="expense"&&t.category==="fixed"),t=>t.amount);
-  const projects=state.projects.map(p=>{
-    const spent=sum(tx.filter(t=>t.type==="expense"&&t.category==="project"&&t.projectId===p.id),t=>t.amount);
-    return `${p.name}：本月已花 ${money(spent)} / 总预算 ${money(p.budget)}`;
-  }).join("\n");
-  const b=balances();
-  return `莱雅现金流 · ${m}
-本月收入：${money(income)}
-本月储蓄：${money(save)} / 目标 ${money(state.settings.saveGoal)}
-餐饮支出：${money(food)}
-机动支出：${money(flex)}
-固定续费：${money(fixed)}
-当前生活费余额：${money(b.food)}
-当前机动金余额：${money(b.flex)}
-当前固定费用池：${money(b.fixed)}
-累计储蓄：${money(b.saved)}
-
-专项：
-${projects||"无"}
-
-请根据这些数据帮我评估本月现金流、预算执行情况和下一周期可调整的地方。`;
-}
-async function shareSummary(){
-  const text=monthSummary();
-  if(navigator.share){
-    try{await navigator.share({title:"莱雅现金流本月摘要",text});return}catch(e){}
+    if(isRecurringPlan(p)){
+      const ownNext=nextAfter(td(),p.freq);
+      const other=nextRecurringIncome(p.id);
+      const candidates=[ownNext,other?.nextDate]
+        .filter(d=>d&&d>td())
+        .sort();
+      // The living period ends at the earliest upcoming periodic income,
+      // regardless of which recurring plan that income belongs to.
+      incNextDate.value=candidates[0]||ownNext||"";
+      incNextDate.disabled=false;
+    }else{
+      incNextDate.value="";
+      incNextDate.disabled=true;
+    }
+  }else{
+    incAmount.value="";
+    incSaving.value="";
+    incNextDate.value="";
+    incNextDate.disabled=true;
   }
-  await navigator.clipboard.writeText(text);showToast("摘要已复制");
+  recalcIncome();
 }
-shareBtn.onclick=shareSummary;
-shareSummaryBtn.onclick=shareSummary;
-copySummaryBtn.onclick=async()=>{await navigator.clipboard.writeText(monthSummary());showToast("摘要已复制")};
+function projectSuggestionInputs(){
+  projectSuggest.innerHTML=S.projects.length?S.projects.map(p=>{
+    const gap=projectGap(p),rec=recommendedProjectContrib(p);
+    if(gap<=0||rec<=0)return "";
+    return `<div class="formGrid" style="margin-top:8px"><div><div class="name">${esc(p.name)}</div><div class="meta">缺 ${M(gap)}</div></div><div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="${rec}" min="0"></div></div>`;
+  }).join(""):'<div class="note">暂无需要预留的专项。</div>';
+  if(!projectSuggest.textContent.trim())projectSuggest.innerHTML='<div class="note">暂无需要预留的专项。</div>';
+  document.querySelectorAll(".projectContrib").forEach(x=>x.addEventListener("input",recalcIncomeSummary));
+}
+function recalcIncome(){
+  const p=S.incomePlans.find(x=>x.id===incPlan.value);
+  const lp=livingPreviewForPlan(p,incNextDate.value);
+  incLivingGuide.textContent=M(lp.amount);
 
-exportJsonBtn.onclick=()=>{
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
-  downloadBlob(blob,`莱雅现金流备份_${today()}.json`);
-};
-exportCsvBtn.onclick=()=>{
-  const rows=[["日期","类型","类别","金额","项目","备注","储蓄分配","生活分配","机动分配","固定分配"]];
-  state.tx.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{
-    const p=state.projects.find(x=>x.id===t.projectId);
-    rows.push([
-      t.date,t.type,t.category||"",t.amount,p?.name||"",t.note||"",
-      t.alloc?.saving||"",t.alloc?.food||"",t.alloc?.flex||"",t.alloc?.fixed||""
-    ]);
-  });
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
-  downloadBlob(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),`莱雅现金流_${today()}.csv`);
-};
-function downloadBlob(blob,name){
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  if(lp.extra){
+    incLivingMeta.textContent="额外收入没有周期，本次基础生活扣除为 ¥0。";
+  }else if(!incNextDate.value){
+    incLivingMeta.textContent="请先确认下一次周期收入日期。";
+  }else if(lp.skippedDays>0){
+    incLivingMeta.textContent=`从今天到 ${lp.end} 共 ${lp.totalDays} 天，其中 ${lp.skippedDays} 天已被其他收入周期覆盖，本次只扣 ${lp.days.length} 天。`;
+  }else{
+    incLivingMeta.textContent=`从今天到下一次周期收入 ${lp.end}，共 ${lp.totalDays} 天，本次扣除 ${lp.days.length} 天基础生活。`;
+  }
+
+  const next=incNextDate.value;
+  const bills=(p&&isRecurringPlan(p)&&next)?dueBillsBetween(td(),next):[];
+  incBills.textContent=M(sm(bills,x=>x.amount));
+
+  projectSuggestionInputs();
+  recalcIncomeSummary();
 }
+function recalcIncomeSummary(){
+  const amount=N(incAmount.value),saving=N(incSaving.value),p=S.incomePlans.find(x=>x.id===incPlan.value),next=incNextDate.value;
+  const lp=livingPreviewForPlan(p,incNextDate.value);
+  const living=N(lp.amount);
+  const billsList=(p&&isRecurringPlan(p)&&next)?dueBillsBetween(td(),next):[];
+  const bills=sm(billsList,x=>x.amount);
+  const projects=[...document.querySelectorAll(".projectContrib")].map(x=>({projectId:x.dataset.id,amount:N(x.value)})).filter(x=>x.amount>0);
+  const ps=sm(projects,x=>x.amount);
+
+  const safe=amount-saving-living-bills-ps;
+
+  sumIncome.textContent=M(amount);
+  sumSaving.textContent=M(saving);
+  sumLiving.textContent=M(living);
+  sumBills.textContent=M(bills);
+  sumProjects.textContent=M(ps);
+  sumSafe.textContent=M(safe);
+  sumSafe.style.color=safe<=0?"var(--danger)":"var(--accent)";
+
+  if(safe<0){
+    incomeWarning.textContent=`这笔收入完成计划分配后，零花钱为 ${M(safe)}。负数会保留并标红。`;
+  }else{
+    incomeWarning.textContent="";
+  }
+  saveIncome.disabled=false;
+}
+[incAmount,incSaving,incNextDate].forEach(x=>x.addEventListener("input",()=>x===incNextDate?recalcIncome():recalcIncomeSummary()));
+saveIncome.onclick=()=>{
+  const amount=N(incAmount.value),saving=N(incSaving.value),planId=incPlan.value;
+  if(amount<=0)return msg("请输入到账金额");
+
+  const plan=S.incomePlans.find(x=>x.id===planId);
+  const recurring=!!(plan&&isRecurringPlan(plan));
+  const lp=livingPreviewForPlan(plan,recurring?incNextDate.value:"");
+  const living=N(lp.amount);
+  const next=recurring?incNextDate.value:"";
+
+  const billsList=(recurring&&next)?dueBillsBetween(td(),next):[];
+  const bills=sm(billsList,x=>x.amount);
+  const billItems=billsList.map(x=>({billId:x.id,dueDate:x.dueDate,amount:N(x.amount)}));
+
+  const projects=[...document.querySelectorAll(".projectContrib")].map(x=>({projectId:x.dataset.id,amount:N(x.value)})).filter(x=>x.amount>0);
+  const ps=sm(projects,x=>x.amount);
+  const safe=amount-saving-living-bills-ps;
+
+  const planNextDateBefore=plan?.nextDate||"";
+  const planFreqAtRecord=plan?.freq||"none";
+
+  const tx={
+    id:"i"+Date.now(),
+    date:td(),
+    type:"income",
+    planId,
+    amount,
+    nextIncomeDate:next,
+    planNextDateBefore,
+    planFreqAtRecord,
+    livingCoverageStart:recurring?lp.start:"",
+    livingCoverageEnd:recurring?lp.end:"",
+    livingRateAtRecord:recurring?N(S.settings.dailyLiving):0,
+    alloc:{saving,living,bills,billItems,projects,safe}
+  };
+  S.tx.push(tx);
+
+  if(plan){
+    if(plan.freq==="none"){
+      // One-time income may have no date. Once recorded, clear any optional scheduled date.
+      plan.nextDate="";
+    }else{
+      let nd=nextAfter(plan.nextDate||td(),plan.freq);
+      while(nd&&nd<=td())nd=nextAfter(nd,plan.freq);
+      plan.nextDate=nd;
+    }
+  }
+
+  save();
+  closeSheet("incomeSheet");
+  render();
+  msg(safe<=0?"已记录；零花钱为 0 或负数，已标红":"收入已分配");
+};
+
+/* Spend */
+function openSpend(){spendBucket.value="safe";spendAmount.value="";spendNote.value="";refreshSpendRefs();spendSheet.classList.add("show")}
+function refreshSpendRefs(){
+  const t=spendBucket.value,b=bal();
+  if(t==="bill"){
+    refRow.style.display="block";refLabel.textContent="选择账单";
+    spendRef.innerHTML='<option value="">请选择</option>'+S.bills.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
+  }else if(t==="project"){
+    refRow.style.display="block";refLabel.textContent="选择专项";
+    spendRef.innerHTML='<option value="">请选择</option>'+S.projects.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
+  }else refRow.style.display="none";
+  spendHint.textContent=t==="safe"?`当前零花钱 ${M(b.safe)}；花超后会直接压低“本周期预计可存”。`:t==="bill"?`当前账单预留 ${M(b.bills)}；核销后，同一缴纳周期不会再参与其他重叠收入的分配。`:t==="saving"?`当前储蓄余额 ${M(b.saving)}`:"请选择专项";
+}
+spendBucket.onchange=refreshSpendRefs;
+spendRef.onchange=()=>{
+  if(spendBucket.value==="project"){
+    const p=S.projects.find(x=>x.id===spendRef.value);
+    spendHint.textContent=p?`该专项当前可用 ${M(projectAvail(p))}`:"请选择专项";
+  }
+};
+saveSpend.onclick=()=>{
+  const bucket=spendBucket.value,amount=N(spendAmount.value),refId=spendRef.value,note=spendNote.value.trim(),b=bal();
+  if(amount<=0)return msg("请输入金额");
+  if((bucket==="bill"||bucket==="project")&&!refId)return msg("请选择对应项目");
+  if(bucket==="saving"){
+    if(b.saving<=0)return msg("当前储蓄余额为 0");
+    if(amount>b.saving)return msg("这笔金额超过当前储蓄余额");
+  }
+
+  const id="e"+Date.now();
+  const cycleDueDate=bucket==="bill"?openBillCycle(refId):"";
+  S.tx.push({id,date:td(),type:"expense",bucket,amount,refId,note,cycleDueDate});
+
+  save();
+  const ef=accounting().effects[id]||{};
+  closeSheet("spendSheet");
+  render();
+
+  if(bucket==="bill"){
+    msg(cycleDueDate?`账单已核销 ${cycleDueDate} 周期`:"账单已核销");
+  }else if(N(ef.uncovered)>0){
+    msg(`已超计划；储蓄补了 ${M(ef.autoDraw)}，仍有缺口 ${M(ef.uncovered)}`);
+  }else if(N(ef.autoDraw)>0){
+    msg(`超出计划 ${M(ef.overPlan)}，已自动动用储蓄 ${M(ef.autoDraw)}`);
+  }else if(bucket==="saving"){
+    msg("已从储蓄扣除，结果同步更新");
+  }else{
+    msg("已记录，零花钱与相关余额已同步更新");
+  }
+};
+function removeTx(id){
+  const target=S.tx.find(x=>x.id===id);
+  if(!target)return;
+
+  if(target.type==="income"&&target.planId){
+    const samePlan=S.tx.filter(x=>x.type==="income"&&x.planId===target.planId&&x.id!==id)
+      .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
+    const later=samePlan.filter(x=>{
+      if(x.date>target.date)return true;
+      if(x.date<target.date)return false;
+      return txStamp(x)>txStamp(target);
+    });
+    const plan=S.incomePlans.find(x=>x.id===target.planId);
+
+    // Only roll the plan schedule back when this was the latest recorded occurrence.
+    if(plan&&later.length===0&&target.planNextDateBefore!==undefined){
+      plan.nextDate=target.planNextDateBefore||"";
+    }
+  }
+
+  S.tx=S.tx.filter(x=>x.id!==id);
+  save();
+  render();
+
+  if(target.type==="income"){
+    msg("收入记录已删除；基础生活覆盖和固定账单预留已重新计算");
+  }else{
+    msg("流水已删除，相关余额已重新计算");
+  }
+}
+
+/* Export */
+function summary(){
+  const m=S.tx.filter(t=>md(t.date)===md());
+  const totalSpent=sm(m.filter(t=>t.type==="expense"),t=>N(t.amount));
+  const ms=monthlyCycleStats(md());
+  const inc=ms.income;
+  const net=ms.projectedSaving;
+  const rate=inc>0 ? net/inc*100 : 0;
+
+  const a=accounting();
+  const b={safe:a.raw.safe,bills:a.raw.bills};
+  const cycle=currentCycleStats();
+  const projectTotal=sm(S.projects,p=>N(a.projects[p.id]||0));
+  const ips=S.incomePlans.map(p=>`${p.name}：${M(p.amount)}，下次 ${p.nextDate||"无"}，${freqLabel(p.freq)}，储蓄规则 ${saveRuleLabel(p)}`).join("\n");
+
+  return `SafeSpend 月度摘要 ${md()}
+每日基础生活标准：${M(S.settings.dailyLiving)}
+月度储蓄目标：${M(S.settings.monthlyGoal)}
+本月收入：${M(inc)}
+本月总消费：${M(totalSpent)}
+本月基础生活扣除：${M(ms.livingReserved)}
+本月固定支出 / 预留：${M(ms.fixedReserved)}
+本月专项预留：${M(ms.projectReserved)}
+本月已用零花钱：${M(ms.pocketSpent)}
+本月储蓄净增：${M(net)}
+本月储蓄率：${(Math.round(rate*10)/10)}%
+
+当前零花钱余额：${M(b.safe)}
+本周期计划储蓄：${M(cycle.plannedSaving)}
+本周期预计可存：${M(cycle.projectedSaving)}
+当前账单预留：${M(b.bills)}
+当前专项余额合计：${M(projectTotal)}
+未被储蓄覆盖的现金流缺口：${M(a.uncovered)}
+
+收入计划：
+${ips||"无"}
+
+请帮我评估这一阶段的现金流、基础生活覆盖是否重复、各收入周期预计可存、本月储蓄净增，以及下一周期的零花钱额度。`;
+}
+async function shareText(){
+  const text=summary();
+  if(navigator.share){try{await navigator.share({title:"SafeSpend 月度摘要",text});return}catch(e){}}
+  await navigator.clipboard.writeText(text);msg("摘要已复制");
+}
+shareTop.onclick=shareText;shareSummary.onclick=shareText;copySummary.onclick=async()=>{await navigator.clipboard.writeText(summary());msg("摘要已复制")};
+function dl(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+exportJson.onclick=()=>dl(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}),`SafeSpend备份_${td()}.json`);
+exportCsv.onclick=()=>{
+  const rows=[["日期","类型","来源","金额","备注","关联ID","收入计划ID","零花钱分配","生活分配","账单分配","储蓄分配","专项分配"]];
+  S.tx.forEach(t=>rows.push([t.date,t.type,t.bucket||"",t.amount,t.note||"",t.refId||"",t.planId||"",t.alloc?.safe||"",t.alloc?.living||"",t.alloc?.bills||"",t.alloc?.saving||"",JSON.stringify(t.alloc?.projects||[])]));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
+  dl(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),`SafeSpend流水_${td()}.csv`);
+};
 importFile.onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
-  try{
-    const d=JSON.parse(await f.text());
-    state={...defaults,...d,settings:{...defaults.settings,...(d.settings||{})}};
-    persist();render();showToast("备份已导入");
-  }catch(err){showToast("备份文件格式有误")}
+  try{S=normalize(JSON.parse(await f.text()));save();render();msg("备份已导入")}catch(err){msg("备份格式有误")}
 };
-resetBtn.onclick=()=>{
-  if(confirm("确认清空全部数据？")){
-    state=JSON.parse(JSON.stringify(defaults));persist();render();showToast("已清空");
-  }
-};
+resetAll.onclick=()=>{if(confirm("确认清空全部数据？")){S=JSON.parse(JSON.stringify(defaults));save();render();msg("已清空")}};
 
-document.querySelectorAll(".navbtn").forEach(btn=>btn.onclick=()=>{
-  document.querySelectorAll(".navbtn").forEach(x=>x.classList.remove("active"));
+/* nav + sheet */
+document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active"));
   document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));
-  btn.classList.add("active");document.getElementById(btn.dataset.tab).classList.add("active");
+  b.classList.add("active");document.getElementById(b.dataset.tab).classList.add("active");
 });
 document.querySelectorAll(".sheet").forEach(s=>s.addEventListener("click",e=>{if(e.target===s)s.classList.remove("show")}));
-
-const standalone=window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone===true;
-if(!standalone) installCard.classList.add("show");
-
-if("serviceWorker" in navigator){
-  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
-}
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
 render();
 </script>
 </body>

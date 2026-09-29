@@ -1,7 +1,7 @@
 {
-  "name": "莱雅现金流",
-  "short_name": "现金流",
-  "description": "按到账周期分配生活费、机动金、专项与储蓄。",
+  "name": "SafeSpend 现金流",
+  "short_name": "SafeSpend",
+  "description": "先做计划，再计算当下真正可以安全支出的金额。",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
