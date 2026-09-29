@@ -420,10 +420,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v12";
-const OLD_KEYS=["safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v13";
+const OLD_KEYS=["safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:12,
+  version:13,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
@@ -921,7 +921,7 @@ function renderNow(){
     dailyFree.textContent=days>0?M(b.safe/days):M(b.safe);
     dailyFree.style.color=(b.safe<=0)?"var(--danger)":"inherit";
     safeSub.textContent=b.safe<0
-      ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的实际支出会优先自动动用当时可用的储蓄。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
+      ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期预计可存”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
       :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`;
     nextIncomeBox.innerHTML=`<div class="row"><div><div class="name">${esc(next.name)}</div><div class="meta">${next.nextDate} · ${freqLabel(next.freq)} · 计划储蓄 ${saveRuleLabel(next)}</div></div><div class="amount pos">${M(next.amount)}</div></div>`;
   }else{
@@ -949,7 +949,8 @@ function renderNow(){
     else if(gap>0&&rec>0) rows.push(`<div class="item"><div class="row"><div><div class="name">${esc(p.name)}</div><div class="meta">资金缺口 ${M(gap)} · 建议下次收入预留 ${M(rec)}</div></div><div class="amount warn">${p.dueDate||""}</div></div></div>`);
   });
 
-  if(a.uncovered>0) rows.unshift(`<div class="item"><div class="row"><div><div class="name">现金流仍有缺口</div><div class="meta">现有储蓄已经无法完全覆盖所有超计划支出</div></div><div class="amount neg">${M(a.uncovered)}</div></div></div>`);
+  const cycleGap=Math.max(0,-N(cycle.projectedSaving));
+  if(cycleGap>0) rows.unshift(`<div class="item"><div class="row"><div><div class="name">本周期资金缺口</div><div class="meta">本周期“预计可存”已经低于 0，代表本周期收入连同原计划储蓄都已被用完。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div>`);
   upcomingBox.innerHTML=rows.length?rows.join(""):'<div class="note">暂无近期固定账单或专项缺口。</div>';
 
   const recent=[...S.tx].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id)).slice(0,8);
@@ -962,11 +963,7 @@ function txHtml(t,del=false){
   }
   const map={safe:"零花钱 / 日常支出",living:"零花钱 / 日常支出",bill:"固定账单",project:"专项支出",saving:"储蓄取用"};
   const ref=t.bucket==="bill"?S.bills.find(x=>x.id===t.refId):S.projects.find(x=>x.id===t.refId);
-  const ef=accounting().effects[t.id]||{};
-  let linked="";
-  if(N(ef.autoDraw)>0) linked+=` · 超计划 ${M(ef.overPlan)}，自动动用储蓄 ${M(ef.autoDraw)}`;
-  if(N(ef.uncovered)>0) linked+=` · 尚有缺口 ${M(ef.uncovered)}`;
-  return `<div class="item"><div class="row"><div><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${ref?" · "+esc(ref.name):""}${linked}</div></div><div><div class="amount neg">-${M(t.amount)}</div>${del?delBtn(t.id):""}</div></div></div>`;
+  return `<div class="item"><div class="row"><div><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${ref?" · "+esc(ref.name):""}</div></div><div><div class="amount neg">-${M(t.amount)}</div>${del?delBtn(t.id):""}</div></div></div>`;
 }
 function delBtn(id){return `<button class="ghost" style="padding:4px 7px;font-size:10px;margin-top:5px" onclick="event.stopPropagation();removeTx('${id}')">删除</button>`}
 function renderHistory(){
@@ -1369,7 +1366,7 @@ function summary(){
 本周期预计可存：${M(cycle.projectedSaving)}
 当前账单预留：${M(b.bills)}
 当前专项余额合计：${M(projectTotal)}
-未被储蓄覆盖的现金流缺口：${M(a.uncovered)}
+本周期资金缺口：${M(Math.max(0,-N(cycle.projectedSaving)))}
 
 收入计划：
 ${ips||"无"}
