@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#2F6F5E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="莱雅现金流">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<title>莱雅现金流</title>
+<style>
+:root{
+  --bg:#F6F6F2; --card:#FFFFFF; --text:#1E2422; --muted:#717975;
+  --line:#E6E8E3; --accent:#2F6F5E; --accent2:#E7F0EC;
+  --good:#2F6F5E; --warn:#9A6A1F; --danger:#9B4545;
+  --shadow:0 10px 28px rgba(26,34,31,.055);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif}
+body{min-height:100vh;padding-bottom:calc(82px + env(safe-area-inset-bottom))}
+button,input,select,textarea{font:inherit}
+button{touch-action:manipulation}
+.app{max-width:760px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 14px 24px}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:8px 2px 14px}
+.brand h1{font-size:26px;margin:0;letter-spacing:-.4px}
+.brand div{font-size:12px;color:var(--muted);margin-top:3px}
+.iconbtn{width:42px;height:42px;border:0;border-radius:14px;background:#fff;box-shadow:var(--shadow);font-size:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:var(--shadow)}
+.hero{padding:18px}
+.hero-row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.hero-label{font-size:12px;color:var(--muted)}
+.hero-value{font-size:32px;font-weight:780;letter-spacing:-.6px;margin-top:5px}
+.hero-sub{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5}
+.badge{background:var(--accent2);color:var(--accent);padding:6px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.stat .k{font-size:11px;color:var(--muted)}
+.stat .v{font-size:23px;font-weight:760;margin-top:6px}
+.stat .s{font-size:11px;color:var(--muted);margin-top:4px}
+.section{margin-top:16px}
+.section-title{font-size:16px;font-weight:750;margin:0 0 9px 3px}
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button.primary,button.secondary,button.ghost,button.danger{
+  border:0;border-radius:15px;padding:13px 14px;font-weight:700
+}
+button.primary{background:var(--accent);color:#fff}
+button.secondary{background:var(--accent2);color:var(--accent)}
+button.ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
+button.danger{background:#F8ECEC;color:var(--danger)}
+button:active{transform:scale(.985)}
+input,select,textarea{
+  width:100%;border:1px solid var(--line);border-radius:14px;padding:12px 13px;background:#fff;color:var(--text);outline:none
+}
+input:focus,select:focus,textarea:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,94,.08)}
+label{font-size:11px;color:var(--muted);display:block;margin-bottom:6px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-grid.one{grid-template-columns:1fr}
+.spacer{height:10px}
+.divider{height:1px;background:var(--line);margin:14px 0}
+.envelopes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.env{background:#F7F8F5;border-radius:15px;padding:12px}
+.env .k{font-size:10px;color:var(--muted)}
+.env .v{font-size:18px;font-weight:750;margin-top:5px}
+.env .note{font-size:10px;color:var(--muted);margin-top:3px}
+.progress{height:8px;background:#EFF1ED;border-radius:999px;overflow:hidden;margin-top:10px}
+.progress span{display:block;height:100%;background:var(--accent);border-radius:999px}
+.project{padding:12px 0;border-bottom:1px solid var(--line)}
+.project:last-child{border-bottom:0}
+.project-head{display:flex;justify-content:space-between;gap:10px}
+.project-name{font-weight:720;font-size:14px}
+.project-meta{font-size:11px;color:var(--muted);margin-top:4px}
+.tx{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.tx:last-child{border-bottom:0}
+.tx-title{font-size:14px;font-weight:650}
+.tx-meta{font-size:11px;color:var(--muted);margin-top:4px}
+.tx-amt{font-size:14px;font-weight:760;white-space:nowrap}
+.pos{color:var(--good)} .neg{color:#7E4747}
+.pill{display:inline-block;padding:4px 7px;border-radius:999px;background:#F0F2EF;font-size:10px;color:#5F6863}
+.note{font-size:12px;color:var(--muted);line-height:1.65}
+.install{display:none;margin-bottom:12px}
+.install.show{display:block}
+.install .steps{font-size:12px;line-height:1.75;color:var(--muted);margin-top:7px}
+.bottom{
+  position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.92);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-top:1px solid var(--line);
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  z-index:10
+}
+.bottom-in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.navbtn{border:0;border-radius:13px;background:transparent;color:#68706C;padding:9px 4px;font-size:11px;font-weight:650}
+.navbtn.active{background:var(--accent2);color:var(--accent)}
+.panel{display:none}.panel.active{display:block}
+.sheet{
+  position:fixed;inset:0;background:rgba(24,30,28,.28);z-index:20;display:none;align-items:flex-end
+}
+.sheet.show{display:flex}
+.sheet-card{
+  width:100%;max-width:760px;margin:0 auto;background:var(--bg);
+  border-radius:24px 24px 0 0;padding:18px 14px calc(20px + env(safe-area-inset-bottom));
+  max-height:88vh;overflow:auto
+}
+.sheet-title{font-size:20px;font-weight:760;margin:0 0 14px}
+.sheet-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.toast{
+  position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));
+  transform:translateX(-50%) translateY(12px);background:#24312C;color:#fff;
+  padding:10px 14px;border-radius:12px;font-size:12px;opacity:0;pointer-events:none;transition:.2s;z-index:30
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(min-width:700px){
+  .grid{grid-template-columns:repeat(4,1fr)}
+  .quick{grid-template-columns:repeat(4,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><h1>莱雅现金流</h1><div>先分配，再消费。</div></div>
+    <button class="iconbtn" id="shareBtn" aria-label="分享">↗</button>
+  </div>
+
+  <div class="install card" id="installCard">
+    <div style="font-weight:730">添加到 iPhone 主屏幕</div>
+    <div class="steps">请用 Safari 打开这个网页，点底部“分享”按钮，再选择“添加到主屏幕”。安装后会以独立 App 形式打开，并支持离线使用。</div>
+  </div>
+
+  <section id="home" class="panel active">
+    <div class="card hero">
+      <div class="hero-row">
+        <div>
+          <div class="hero-label">本周期真正可自由花</div>
+          <div class="hero-value" id="freeHero">¥0</div>
+          <div class="hero-sub" id="cycleText">记录一笔到账后，这里会显示本周期可用额度。</div>
+        </div>
+        <div class="badge" id="cycleBadge">等待到账</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card stat"><div class="k">生活费余额</div><div class="v" id="foodBal">¥0</div><div class="s">买菜、吃饭</div></div>
+      <div class="card stat"><div class="k">机动金余额</div><div class="v" id="flexBal">¥0</div><div class="s">零花、课程小额</div></div>
+      <div class="card stat"><div class="k">固定费用池</div><div class="v" id="fixedBal">¥0</div><div class="s">会员、电话费</div></div>
+      <div class="card stat"><div class="k">累计储蓄</div><div class="v" id="saveBal">¥0</div><div class="s">本 App 记录期内</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">快速操作</div>
+      <div class="quick">
+        <button class="primary" onclick="openIncome(500)">到账 ¥500</button>
+        <button class="primary" onclick="openIncome(600)">到账 ¥600</button>
+        <button class="secondary" onclick="openExpense('food')">记餐饮</button>
+        <button class="secondary" onclick="openExpense('flex')">记零花</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">本月</div>
+      <div class="card">
+        <div class="envelopes">
+          <div class="env"><div class="k">本月收入</div><div class="v" id="mIncome">¥0</div></div>
+          <div class="env"><div class="k">本月消费</div><div class="v" id="mSpend">¥0</div></div>
+          <div class="env"><div class="k">本月储蓄</div><div class="v" id="mSave">¥0</div></div>
+        </div>
+        <div class="progress"><span id="saveProgress" style="width:0%"></span></div>
+        <div class="note" id="saveProgressText" style="margin-top:6px">本月储蓄目标 ¥900</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">专项预算</div>
+      <div class="card" id="homeProjects"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">最近流水</div>
+      <div class="card" id="recentTx"></div>
+    </div>
+  </section>
+
+  <section id="ledger" class="panel">
+    <div class="section">
+      <div class="section-title">记一笔</div>
+      <div class="card">
+        <div class="quick">
+          <button class="primary" onclick="openIncome(500)">到账 ¥500</button>
+          <button class="primary" onclick="openIncome(600)">到账 ¥600</button>
+          <button class="secondary" onclick="openExpense('food')">餐饮</button>
+          <button class="secondary" onclick="openExpense('flex')">零花</button>
+          <button class="secondary" onclick="openExpense('fixed')">固定续费</button>
+          <button class="secondary" onclick="openExpense('project')">专项支出</button>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">本月流水</div>
+      <div class="card" id="monthTx"></div>
+    </div>
+  </section>
+
+  <section id="projects" class="panel">
+    <div class="section">
+      <div class="section-title">专项项目</div>
+      <div class="card">
+        <div class="form-grid">
+          <div><label>项目名称</label><input id="pName" placeholder="例如：10月旅行"></div>
+          <div><label>预算</label><input id="pBudget" inputmode="decimal" type="number" placeholder="3500"></div>
+        </div>
+        <div class="spacer"></div>
+        <button class="primary" style="width:100%" id="addProjectBtn">添加专项</button>
+      </div>
+    </div>
+    <div class="section"><div class="card" id="projectManage"></div></div>
+  </section>
+
+  <section id="settings" class="panel">
+    <div class="section">
+      <div class="section-title">默认预算</div>
+      <div class="card">
+        <div class="form-grid">
+          <div><label>月储蓄目标</label><input id="sSave" inputmode="decimal" type="number"></div>
+          <div><label>每日餐标</label><input id="sDaily" inputmode="decimal" type="number"></div>
+          <div><label>500到账默认储蓄</label><input id="sSave500" inputmode="decimal" type="number"></div>
+          <div><label>600到账默认储蓄</label><input id="sSave600" inputmode="decimal" type="number"></div>
+          <div><label>每月固定续费参考</label><input id="sFixed" inputmode="decimal" type="number"></div>
+          <div><label>默认到账周期天数</label><input id="sDays" inputmode="numeric" type="number"></div>
+        </div>
+        <div class="spacer"></div>
+        <button class="primary" style="width:100%" id="saveSettingsBtn">保存设置</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">导出给 ChatGPT</div>
+      <div class="card">
+        <div class="quick">
+          <button class="primary" id="shareSummaryBtn">分享本月摘要</button>
+          <button class="secondary" id="copySummaryBtn">复制本月摘要</button>
+          <button class="ghost" id="exportJsonBtn">导出 JSON 备份</button>
+          <button class="ghost" id="exportCsvBtn">导出 CSV 流水</button>
+        </div>
+        <div class="note" style="margin-top:10px">JSON 用于完整恢复数据；CSV 便于查看流水；“本月摘要”最适合直接发给我继续分析。</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">数据维护</div>
+      <div class="card">
+        <label class="ghost" style="display:block;text-align:center;border:1px solid var(--line);border-radius:15px;padding:13px;font-size:14px;font-weight:700;color:var(--text);cursor:pointer">
+          导入 JSON 备份
+          <input id="importFile" type="file" accept="application/json" style="display:none">
+        </label>
+        <div class="spacer"></div>
+        <button class="danger" style="width:100%" id="resetBtn">清空全部数据</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="bottom">
+  <div class="bottom-in">
+    <button class="navbtn active" data-tab="home">总览</button>
+    <button class="navbtn" data-tab="ledger">记账</button>
+    <button class="navbtn" data-tab="projects">专项</button>
+    <button class="navbtn" data-tab="settings">设置</button>
+  </div>
+</div>
+
+<div class="sheet" id="incomeSheet">
+  <div class="sheet-card">
+    <div class="sheet-title">记录到账并分配</div>
+    <div class="form-grid">
+      <div><label>到账金额</label><input id="iAmount" inputmode="decimal" type="number"></div>
+      <div><label>撑到下次到账</label><input id="iDays" inputmode="numeric" type="number"></div>
+      <div><label>这次直接存下</label><input id="iSave" inputmode="decimal" type="number"></div>
+      <div><label>生活费额度</label><input id="iFood" inputmode="decimal" type="number"></div>
+      <div><label>固定费用预留</label><input id="iFixed" inputmode="decimal" type="number" value="0"></div>
+      <div><label>机动额度</label><input id="iFlex" inputmode="decimal" type="number"></div>
+    </div>
+    <div class="note" id="incomeCheck" style="margin-top:10px"></div>
+    <div class="sheet-actions">
+      <button class="ghost" onclick="closeSheet('incomeSheet')">取消</button>
+      <button class="primary" id="saveIncomeBtn">确认到账</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="expenseSheet">
+  <div class="sheet-card">
+    <div class="sheet-title">记录支出</div>
+    <div class="form-grid one">
+      <div><label>类别</label>
+        <select id="eType">
+          <option value="food">餐饮 / 买菜</option>
+          <option value="flex">机动 / 零花</option>
+          <option value="fixed">固定续费</option>
+          <option value="project">专项支出</option>
+        </select>
+      </div>
+      <div id="projectRow" style="display:none"><label>专项项目</label><select id="eProject"></select></div>
+      <div><label>金额</label><input id="eAmount" inputmode="decimal" type="number" placeholder="例如 86"></div>
+      <div><label>备注</label><input id="eNote" placeholder="例如：买未来5天的菜和肉"></div>
+    </div>
+    <div class="sheet-actions">
+      <button class="ghost" onclick="closeSheet('expenseSheet')">取消</button>
+      <button class="primary" id="saveExpenseBtn">保存支出</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY="laiya_cashflow_pwa_v2";
+const defaults={
+  settings:{saveGoal:900,dailyFood:30,save500:200,save600:300,fixedMonthly:304,cycleDays:7},
+  projects:[
+    {id:"travel_oct",name:"10月旅行",budget:3500},
+    {id:"course_oct",name:"10月课程",budget:1400}
+  ],
+  tx:[]
+};
+let state=load();
+
+function load(){
+  try{
+    const x=JSON.parse(localStorage.getItem(KEY));
+    if(x) return {...defaults,...x,settings:{...defaults.settings,...(x.settings||{})}};
+  }catch(e){}
+  return JSON.parse(JSON.stringify(defaults));
+}
+function persist(){localStorage.setItem(KEY,JSON.stringify(state))}
+function today(){return new Date().toISOString().slice(0,10)}
+function monthKey(d=today()){return d.slice(0,7)}
+function money(v){return "¥"+(Math.round((Number(v)||0)*100)/100).toLocaleString("zh-CN",{maximumFractionDigits:2})}
+function sum(a,fn){return a.reduce((s,x)=>s+(fn?fn(x):Number(x)||0),0)}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function showToast(msg){toast.textContent=msg;toast.classList.add("show");setTimeout(()=>toast.classList.remove("show"),1600)}
+
+function balances(){
+  let food=0,flex=0,fixed=0,saved=0;
+  state.tx.forEach(t=>{
+    if(t.type==="income"){
+      food+=Number(t.alloc?.food||0);
+      flex+=Number(t.alloc?.flex||0);
+      fixed+=Number(t.alloc?.fixed||0);
+      saved+=Number(t.alloc?.saving||0);
+    }else if(t.type==="expense"){
+      if(t.category==="food") food-=t.amount;
+      if(t.category==="flex") flex-=t.amount;
+      if(t.category==="fixed") fixed-=t.amount;
+    }
+  });
+  return {food,flex,fixed,saved};
+}
+
+function currentCycle(){
+  const incomes=state.tx.filter(t=>t.type==="income").sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
+  if(!incomes.length) return null;
+  const latest=incomes[0];
+  const idx=state.tx.indexOf(latest);
+  const spent=state.tx.filter(t=>t.type==="expense" && t.date>=latest.date);
+  return {latest,spent};
+}
+
+function render(){
+  const b=balances();
+  foodBal.textContent=money(b.food);
+  flexBal.textContent=money(b.flex);
+  fixedBal.textContent=money(b.fixed);
+  saveBal.textContent=money(b.saved);
+
+  const c=currentCycle();
+  if(c){
+    freeHero.textContent=money(Math.max(0,b.flex));
+    cycleBadge.textContent="本周期";
+    const days=c.latest.alloc?.days||state.settings.cycleDays;
+    cycleText.textContent=`最近到账 ${money(c.latest.amount)}，已分配 ${money(c.latest.alloc?.saving||0)} 储蓄；本周期计划覆盖约 ${days} 天。`;
+  }else{
+    freeHero.textContent=money(b.flex);
+    cycleBadge.textContent="等待到账";
+    cycleText.textContent="记录一笔到账后，这里会显示当前可自由支配余额。";
+  }
+
+  const m=monthKey();
+  const monthTx=state.tx.filter(t=>monthKey(t.date)===m);
+  const income=sum(monthTx.filter(t=>t.type==="income"),t=>t.amount);
+  const spend=sum(monthTx.filter(t=>t.type==="expense"),t=>t.amount);
+  const save=sum(monthTx.filter(t=>t.type==="income"),t=>Number(t.alloc?.saving||0));
+  mIncome.textContent=money(income);
+  mSpend.textContent=money(spend);
+  mSave.textContent=money(save);
+  const pct=Math.min(100,Math.max(0,save/Math.max(1,state.settings.saveGoal)*100));
+  saveProgress.style.width=pct+"%";
+  saveProgressText.textContent=`本月储蓄 ${money(save)} / 目标 ${money(state.settings.saveGoal)}`;
+
+  renderProjects();
+  renderTx();
+  loadSettings();
+  populateProjectSelect();
+}
+
+function renderProjects(){
+  const html=state.projects.length?state.projects.map(p=>{
+    const spent=sum(state.tx.filter(t=>t.type==="expense"&&t.category==="project"&&t.projectId===p.id),t=>t.amount);
+    const left=Number(p.budget)-spent;
+    const pct=Math.min(100,Math.max(0,spent/Math.max(1,p.budget)*100));
+    return `<div class="project">
+      <div class="project-head">
+        <div><div class="project-name">${esc(p.name)}</div><div class="project-meta">已花 ${money(spent)} / 预算 ${money(p.budget)}</div></div>
+        <div class="${left>=0?"pos":"neg"}">${left>=0?"剩余 ":"超出 "}${money(Math.abs(left))}</div>
+      </div>
+      <div class="progress"><span style="width:${pct}%"></span></div>
+    </div>`;
+  }).join(""):`<div class="note">还没有专项项目。</div>`;
+  homeProjects.innerHTML=html;
+  projectManage.innerHTML=state.projects.length?state.projects.map(p=>`<div class="project">
+    <div class="project-head"><div><div class="project-name">${esc(p.name)}</div><div class="project-meta">预算 ${money(p.budget)}</div></div>
+    <button class="danger" style="width:auto;padding:7px 10px" onclick="removeProject('${p.id}')">删除</button></div>
+  </div>`).join(""):`<div class="note">还没有专项项目。</div>`;
+}
+
+function txHtml(t,del=false){
+  if(t.type==="income"){
+    return `<div class="tx"><div><div class="tx-title">到账</div>
+      <div class="tx-meta">${t.date} · 存 ${money(t.alloc?.saving||0)} · 生活 ${money(t.alloc?.food||0)} · 机动 ${money(t.alloc?.flex||0)}${Number(t.alloc?.fixed||0)>0?" · 固定 "+money(t.alloc.fixed):""}</div></div>
+      <div style="text-align:right"><div class="tx-amt pos">+${money(t.amount)}</div>${del?delBtn(t.id):""}</div></div>`;
+  }
+  const label={food:"餐饮/买菜",flex:"机动/零花",fixed:"固定续费",project:"专项支出"}[t.category]||"支出";
+  const p=state.projects.find(x=>x.id===t.projectId);
+  return `<div class="tx"><div><div class="tx-title">${label}${t.note?" · "+esc(t.note):""}</div>
+    <div class="tx-meta">${t.date}${p?" · "+esc(p.name):""}</div></div>
+    <div style="text-align:right"><div class="tx-amt neg">-${money(t.amount)}</div>${del?delBtn(t.id):""}</div></div>`;
+}
+function delBtn(id){return `<button class="ghost" style="padding:4px 7px;font-size:10px;margin-top:5px" onclick="removeTx('${id}')">删除</button>`}
+function renderTx(){
+  const recent=[...state.tx].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id)).slice(0,8);
+  recentTx.innerHTML=recent.length?recent.map(t=>txHtml(t)).join(""):`<div class="note">还没有流水。</div>`;
+  const mt=state.tx.filter(t=>monthKey(t.date)===monthKey()).sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
+  monthTx.innerHTML=mt.length?mt.map(t=>txHtml(t,true)).join(""):`<div class="note">本月还没有流水。</div>`;
+}
+function populateProjectSelect(){
+  eProject.innerHTML='<option value="">请选择项目</option>'+state.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("");
+}
+function loadSettings(){
+  sSave.value=state.settings.saveGoal;
+  sDaily.value=state.settings.dailyFood;
+  sSave500.value=state.settings.save500;
+  sSave600.value=state.settings.save600;
+  sFixed.value=state.settings.fixedMonthly;
+  sDays.value=state.settings.cycleDays;
+}
+
+function openIncome(amount){
+  iAmount.value=amount;
+  iDays.value=state.settings.cycleDays;
+  iSave.value=amount>=600?state.settings.save600:state.settings.save500;
+  iFixed.value=0;
+  recalcIncome();
+  incomeSheet.classList.add("show");
+}
+function recalcIncome(){
+  const amount=Number(iAmount.value)||0, days=Number(iDays.value)||0;
+  const saving=Number(iSave.value)||0, fixed=Number(iFixed.value)||0;
+  const food=Math.max(0,days*(Number(state.settings.dailyFood)||0));
+  iFood.value=food;
+  const flex=amount-saving-food-fixed;
+  iFlex.value=Math.max(0,flex);
+  incomeCheck.textContent=flex>=0
+    ? `分配合计 ${money(saving+food+fixed+Math.max(0,flex))}，与到账金额一致。`
+    : `当前分配超出到账金额 ${money(Math.abs(flex))}，请减少储蓄、生活费或固定费用预留。`;
+  incomeCheck.style.color=flex<0?"var(--danger)":"var(--muted)";
+}
+[iAmount,iDays,iSave,iFixed].forEach(x=>x.addEventListener("input",recalcIncome));
+
+function closeSheet(id){document.getElementById(id).classList.remove("show")}
+function openExpense(type){
+  eType.value=type;
+  projectRow.style.display=type==="project"?"block":"none";
+  eAmount.value="";eNote.value="";
+  expenseSheet.classList.add("show");
+}
+eType.addEventListener("change",()=>projectRow.style.display=eType.value==="project"?"block":"none");
+
+saveIncomeBtn.onclick=()=>{
+  const amount=Number(iAmount.value)||0;
+  const alloc={
+    days:Number(iDays.value)||0,
+    saving:Number(iSave.value)||0,
+    food:Number(iFood.value)||0,
+    fixed:Number(iFixed.value)||0,
+    flex:Number(iFlex.value)||0
+  };
+  const total=alloc.saving+alloc.food+alloc.fixed+alloc.flex;
+  if(amount<=0){showToast("请输入到账金额");return}
+  if(Math.abs(total-amount)>0.01){showToast("分配金额需要等于到账金额");return}
+  state.tx.push({id:Date.now().toString(36),date:today(),type:"income",amount,alloc});
+  persist();closeSheet("incomeSheet");render();showToast("到账已分配");
+};
+
+saveExpenseBtn.onclick=()=>{
+  const category=eType.value, amount=Number(eAmount.value)||0, note=eNote.value.trim(), projectId=eProject.value;
+  if(amount<=0){showToast("请输入支出金额");return}
+  if(category==="project"&&!projectId){showToast("请选择专项项目");return}
+  state.tx.push({id:Date.now().toString(36),date:today(),type:"expense",category,amount,note,projectId});
+  persist();closeSheet("expenseSheet");render();showToast("已记录");
+};
+
+function removeTx(id){state.tx=state.tx.filter(t=>t.id!==id);persist();render()}
+function removeProject(id){
+  if(!confirm("删除这个专项项目？相关流水会保留，但会失去项目归属。")) return;
+  state.projects=state.projects.filter(p=>p.id!==id);
+  state.tx=state.tx.map(t=>t.projectId===id?{...t,projectId:""}:t);
+  persist();render();
+}
+
+addProjectBtn.onclick=()=>{
+  const name=pName.value.trim(), budget=Number(pBudget.value)||0;
+  if(!name||budget<=0){showToast("请填写项目名称和预算");return}
+  state.projects.push({id:Date.now().toString(36),name,budget});
+  pName.value="";pBudget.value="";persist();render();showToast("专项已添加");
+};
+
+saveSettingsBtn.onclick=()=>{
+  state.settings={
+    saveGoal:Number(sSave.value)||0,
+    dailyFood:Number(sDaily.value)||0,
+    save500:Number(sSave500.value)||0,
+    save600:Number(sSave600.value)||0,
+    fixedMonthly:Number(sFixed.value)||0,
+    cycleDays:Number(sDays.value)||7
+  };
+  persist();render();showToast("设置已保存");
+};
+
+function monthSummary(){
+  const m=monthKey();
+  const tx=state.tx.filter(t=>monthKey(t.date)===m);
+  const income=sum(tx.filter(t=>t.type==="income"),t=>t.amount);
+  const save=sum(tx.filter(t=>t.type==="income"),t=>Number(t.alloc?.saving||0));
+  const food=sum(tx.filter(t=>t.type==="expense"&&t.category==="food"),t=>t.amount);
+  const flex=sum(tx.filter(t=>t.type==="expense"&&t.category==="flex"),t=>t.amount);
+  const fixed=sum(tx.filter(t=>t.type==="expense"&&t.category==="fixed"),t=>t.amount);
+  const projects=state.projects.map(p=>{
+    const spent=sum(tx.filter(t=>t.type==="expense"&&t.category==="project"&&t.projectId===p.id),t=>t.amount);
+    return `${p.name}：本月已花 ${money(spent)} / 总预算 ${money(p.budget)}`;
+  }).join("\n");
+  const b=balances();
+  return `莱雅现金流 · ${m}
+本月收入：${money(income)}
+本月储蓄：${money(save)} / 目标 ${money(state.settings.saveGoal)}
+餐饮支出：${money(food)}
+机动支出：${money(flex)}
+固定续费：${money(fixed)}
+当前生活费余额：${money(b.food)}
+当前机动金余额：${money(b.flex)}
+当前固定费用池：${money(b.fixed)}
+累计储蓄：${money(b.saved)}
+
+专项：
+${projects||"无"}
+
+请根据这些数据帮我评估本月现金流、预算执行情况和下一周期可调整的地方。`;
+}
+async function shareSummary(){
+  const text=monthSummary();
+  if(navigator.share){
+    try{await navigator.share({title:"莱雅现金流本月摘要",text});return}catch(e){}
+  }
+  await navigator.clipboard.writeText(text);showToast("摘要已复制");
+}
+shareBtn.onclick=shareSummary;
+shareSummaryBtn.onclick=shareSummary;
+copySummaryBtn.onclick=async()=>{await navigator.clipboard.writeText(monthSummary());showToast("摘要已复制")};
+
+exportJsonBtn.onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  downloadBlob(blob,`莱雅现金流备份_${today()}.json`);
+};
+exportCsvBtn.onclick=()=>{
+  const rows=[["日期","类型","类别","金额","项目","备注","储蓄分配","生活分配","机动分配","固定分配"]];
+  state.tx.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{
+    const p=state.projects.find(x=>x.id===t.projectId);
+    rows.push([
+      t.date,t.type,t.category||"",t.amount,p?.name||"",t.note||"",
+      t.alloc?.saving||"",t.alloc?.food||"",t.alloc?.flex||"",t.alloc?.fixed||""
+    ]);
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
+  downloadBlob(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),`莱雅现金流_${today()}.csv`);
+};
+function downloadBlob(blob,name){
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+importFile.onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    state={...defaults,...d,settings:{...defaults.settings,...(d.settings||{})}};
+    persist();render();showToast("备份已导入");
+  }catch(err){showToast("备份文件格式有误")}
+};
+resetBtn.onclick=()=>{
+  if(confirm("确认清空全部数据？")){
+    state=JSON.parse(JSON.stringify(defaults));persist();render();showToast("已清空");
+  }
+};
+
+document.querySelectorAll(".navbtn").forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll(".navbtn").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));
+  btn.classList.add("active");document.getElementById(btn.dataset.tab).classList.add("active");
+});
+document.querySelectorAll(".sheet").forEach(s=>s.addEventListener("click",e=>{if(e.target===s)s.classList.remove("show")}));
+
+const standalone=window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone===true;
+if(!standalone) installCard.classList.add("show");
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+render();
+</script>
+</body>
+</html>
