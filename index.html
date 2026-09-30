@@ -244,7 +244,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
                 <option value="monthly">每月</option>
                 <option value="none">额外收入（仅一次）</option>
               </select>
-              <div class="small" id="incomePlanFreqHint" style="margin-top:6px">周期收入会承担基础生活参考。</div>
+              <div class="small" id="incomePlanFreqHint" style="margin-top:6px"></div>
             </div>
             <div><label>每次储蓄方式</label>
               <select id="incomePlanSaveType">
@@ -564,10 +564,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v17";
-const OLD_KEYS=["safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v18";
+const OLD_KEYS=["safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:17,
+  version:18,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
@@ -1208,7 +1208,7 @@ function refreshIncomePlanFreqUI(){
   incomePlanDate.required=!extra;
   incomePlanFreqHint.textContent=extra
     ?"额外收入没有生活周期，到账日期可留空，也不会扣本周期基础生活。"
-    :"周期收入需要到账日期，并承担尚未被其他周期覆盖的基础生活日期。";
+    :"";
 }
 incomePlanFreq.onchange=refreshIncomePlanFreqUI;
 refreshIncomePlanFreqUI();
