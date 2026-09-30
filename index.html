@@ -200,6 +200,27 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   cursor:pointer;
 }
 .doneBtn:active{background:#E8EAE6;transform:scale(.98)}
+.skipBtn{
+  border:1px solid #E1E3DF;
+  background:#FAFAF8;
+  color:#8A8F8B;
+  border-radius:999px;
+  padding:7px 11px;
+  font-size:11px;
+  font-weight:650;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.skipBtn:active{background:#F0F1EE;transform:scale(.98)}
+.billActions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  flex-wrap:wrap;
+  margin-top:6px;
+}
+
 .billDue.overdue{color:var(--danger);font-weight:700}
 
 @media(max-width:560px){
@@ -592,10 +613,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v21";
-const OLD_KEYS=["safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v22";
+const OLD_KEYS=["safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:21,
+  version:22,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
@@ -962,7 +983,7 @@ function effectiveIncomeAllocation(t){
   if(Array.isArray(t.alloc?.billItems)){
     bills=sm(t.alloc.billItems.filter(x=>{
       const b=existingBills.get(x.billId);
-      return !!b && billCycleIsActive(b,x.dueDate);
+      return !!b && billCycleIsActive(b,x.dueDate) && !billSkipped(x.billId,x.dueDate);
     }),x=>N(x.amount));
   }else{
     bills=N(t.alloc?.bills);
@@ -1014,7 +1035,16 @@ function billDueDate(b,y,m){
   const day=Math.min(N(b.dueDay),monthLastDay(y,m));
   return `${y}-${String(m).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
 }
+function billSkipped(bid,dueDate){
+  return S.tx.some(t=>
+    t.type==="bill_skip" &&
+    t.billId===bid &&
+    t.cycleDueDate===dueDate
+  );
+}
 function billSettled(bid,dueDate){
+  if(billSkipped(bid,dueDate))return true;
+
   return S.tx.some(t=>{
     if(t.type!=="expense")return false;
 
@@ -1138,6 +1168,33 @@ function markBillHandled(bid,dueDate){
   }
 }
 
+function markBillNoNeed(bid,dueDate){
+  const b=S.bills.find(x=>x.id===bid);
+  if(!b)return msg("这笔固定账单已经不存在");
+  if(billSettled(bid,dueDate))return msg("这个缴纳周期已经关闭");
+
+  S.tx.push({
+    id:"bs"+Date.now(),
+    date:td(),
+    type:"bill_skip",
+    billId:bid,
+    cycleDueDate:dueDate,
+    note:b.name,
+    amount:0
+  });
+
+  save();
+  render();
+
+  const next=actionableBillCycle(bid);
+  if(next){
+    msg(`${b.name} ${dueDate} 本周期无需处理，已切换到 ${next.dueDate}`);
+  }else{
+    msg(`${b.name} ${dueDate} 已标记为无需处理`);
+  }
+}
+
+
 function render(){
   renderPlan();
   renderNow();
@@ -1227,9 +1284,12 @@ function renderNow(){
         <div class="name">${esc(x.name)}</div>
         <div class="meta"><span class="billDue ${overdue?"overdue":""}">${x.dueDate} · ${status}</span>${x.reserved?" · 已预留":""}</div>
       </div>
-      <div style="text-align:right;display:flex;align-items:center;gap:9px">
+      <div style="text-align:right;min-width:118px">
         <div class="amount">${M(x.amount)}</div>
-        <button class="doneBtn" onclick="event.stopPropagation();markBillHandled('${x.id}','${x.dueDate}')">已处理</button>
+        <div class="billActions">
+          <button class="doneBtn" onclick="event.stopPropagation();markBillHandled('${x.id}','${x.dueDate}')">已处理</button>
+          <button class="skipBtn" onclick="event.stopPropagation();markBillNoNeed('${x.id}','${x.dueDate}')">无需处理</button>
+        </div>
       </div>
     </div></div>`;
   });
@@ -1272,6 +1332,11 @@ function txHtml(t,del=false){
     return `<div class="item"><div class="row"><div><div class="name">${title}</div><div class="meta">${t.coveredDate||t.date} · 今日预留 ${M(t.allowance)} · 实际 ${M(t.actualSpent)}</div></div><div><div class="amount ${release>=0?"pos":"neg"}">${release>=0?"+":""}${M(release)}</div>${del?delBtn(t.id):""}</div></div></div>`;
   }
   const map={safe:"零花钱 / 日常支出",living:"零花钱 / 日常支出",bill:"固定账单",project:"专项支出",saving:"储蓄取用"};
+
+  if(t.type==="bill_skip"){
+    const b=S.bills.find(x=>x.id===t.billId);
+    return `<div class="item"><div class="row"><div><div class="name">固定账单 · ${esc(b?.name||t.note||"无需处理")}</div><div class="meta">${t.date}${t.cycleDueDate?" · "+t.cycleDueDate+" 周期无需处理":""}</div></div><div><div class="amount" style="color:var(--muted)">无需支付</div>${del?delBtn(t.id):""}</div></div></div>`;
+  }
 
   if(t.settledBillId){
     const b=S.bills.find(x=>x.id===t.settledBillId);
@@ -1756,6 +1821,8 @@ function removeTx(id){
     msg("收入记录已删除；基础生活覆盖和固定账单预留已重新计算");
   }else if(target.type==="living_settlement"){
     msg("基础生活结算已撤销，今日预留已恢复");
+  }else if(target.type==="bill_skip"){
+    msg("“无需处理”已撤销，该账单周期已恢复");
   }else{
     msg("流水已删除，相关余额已重新计算");
   }
@@ -1843,6 +1910,19 @@ function syncDateDisplays(){
   });
 }
 function enhanceDateInputs(){
+  const ua=navigator.userAgent||"";
+  const isIOS=/iPhone|iPad|iPod/i.test(ua);
+
+  // The custom transparent native date layer is only used on iOS to normalize
+  // the visible date text. Android keeps the real native date control visible
+  // so tapping/filling/selecting a date remains fully reliable.
+  if(!isIOS){
+    document.querySelectorAll('input[type="date"]').forEach(input=>{
+      input.dataset.dateEnhanced="native";
+    });
+    return;
+  }
+
   document.querySelectorAll('input[type="date"]').forEach(input=>{
     if(input.dataset.dateEnhanced==="1")return;
     input.dataset.dateEnhanced="1";
