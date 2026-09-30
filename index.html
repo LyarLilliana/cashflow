@@ -96,19 +96,49 @@ input[type="date"]{
   border-radius:14px;
   background:#fff;
   color:var(--text);
+  font:inherit;
   font-size:16px;
+  font-weight:400;
+  letter-spacing:0;
   line-height:20px;
+  text-align:left;
   overflow:hidden;
   -webkit-appearance:none;
   appearance:none;
+  -webkit-text-fill-color:var(--text);
 }
 input[type="date"]::-webkit-date-and-time-value{
   min-width:0;
+  width:100%;
   text-align:left;
+  color:var(--text);
+  font:inherit;
+  font-size:inherit;
+  font-weight:400;
+  line-height:20px;
+  padding:0;
+  margin:0;
+}
+input[type="date"]::-webkit-datetime-edit{
+  padding:0;
+  margin:0;
+  color:var(--text);
+  font:inherit;
+}
+input[type="date"]::-webkit-datetime-edit-fields-wrapper{
+  padding:0;
+}
+input[type="date"]::-webkit-datetime-edit-year-field,
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field{
+  color:var(--text);
+  font:inherit;
+  padding:0;
 }
 input[type="date"]::-webkit-calendar-picker-indicator{
   margin:0;
   padding:4px;
+  opacity:.65;
 }
 .formGrid button{
   width:100%;
@@ -541,10 +571,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v17";
-const OLD_KEYS=["safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v18";
+const OLD_KEYS=["safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:17,
+  version:18,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
