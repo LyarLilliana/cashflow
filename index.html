@@ -189,17 +189,17 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 .subCard{background:#F7F8F5;border-radius:16px;padding:13px;margin-top:10px}
 
 .doneBtn{
-  border:1px solid var(--line);
-  background:#EEF5F2;
-  color:var(--accent);
+  border:1px solid #D9DDD8;
+  background:#F3F4F1;
+  color:#777D79;
   border-radius:999px;
   padding:7px 11px;
   font-size:11px;
-  font-weight:750;
+  font-weight:700;
   white-space:nowrap;
   cursor:pointer;
 }
-.doneBtn:active{transform:scale(.98)}
+.doneBtn:active{background:#E8EAE6;transform:scale(.98)}
 .billDue.overdue{color:var(--danger);font-weight:700}
 
 @media(max-width:560px){
@@ -283,8 +283,15 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div><label>名称</label><input id="billName" placeholder="例如 iCloud"></div>
           <div><label>每月金额</label><input id="billAmount" inputmode="decimal" type="number" placeholder="68"></div>
           <div><label>每月扣款日</label><input id="billDay" inputmode="numeric" type="number" min="1" max="31" placeholder="5"></div>
-          <div><label>&nbsp;</label><button class="primary" id="addBill">添加账单</button></div>
+          <div><label>开始纳入</label>
+            <select id="billStartMode">
+              <option value="current">当前周期</option>
+              <option value="next">下个周期</option>
+            </select>
+          </div>
         </div>
+        <div style="height:10px"></div>
+        <button class="primary" style="width:100%" id="addBill">添加账单</button>
       </div>
       <div class="card" style="margin-top:10px" id="billList"></div>
     </div>
@@ -515,6 +522,12 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div><label>名称</label><input id="editBillName"></div>
       <div><label>金额</label><input id="editBillAmount" inputmode="decimal" type="number"></div>
       <div><label>扣款日</label><input id="editBillDay" inputmode="numeric" type="number"></div>
+      <div><label>开始纳入</label>
+        <select id="editBillStartMode">
+          <option value="current">当前周期</option>
+          <option value="next">下个周期</option>
+        </select>
+      </div>
     </div>
     <div class="actions">
       <button class="danger" id="deleteBill">删除</button>
@@ -579,10 +592,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v20";
-const OLD_KEYS=["safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v21";
+const OLD_KEYS=["safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:20,
+  version:21,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
@@ -944,10 +957,13 @@ function effectiveIncomeAllocation(t){
   const livingMap=livingReservationMap();
   const living=N(livingMap[t.id]?.amount);
 
-  const existingBillIds=new Set(S.bills.map(b=>b.id));
+  const existingBills=new Map(S.bills.map(b=>[b.id,b]));
   let bills=0;
   if(Array.isArray(t.alloc?.billItems)){
-    bills=sm(t.alloc.billItems.filter(x=>existingBillIds.has(x.billId)),x=>N(x.amount));
+    bills=sm(t.alloc.billItems.filter(x=>{
+      const b=existingBills.get(x.billId);
+      return !!b && billCycleIsActive(b,x.dueDate);
+    }),x=>N(x.amount));
   }else{
     bills=N(t.alloc?.bills);
   }
@@ -977,6 +993,23 @@ function planSavings(p,amount){
   return p.saveType==="percent"?Math.round(amount*N(p.saveValue))/100:N(p.saveValue);
 }
 function monthLastDay(y,m){return new Date(y,m,0).getDate()}
+function monthKeyFromDate(date=td(),offset=0){
+  const d=D(date);
+  d.setDate(1);
+  d.setMonth(d.getMonth()+offset);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
+}
+function billStartMonthForMode(mode){
+  return mode==="next"?monthKeyFromDate(td(),1):monthKeyFromDate(td(),0);
+}
+function billCycleIsActive(b,dueDate){
+  return !b.startMonth || md(dueDate)>=b.startMonth;
+}
+function billStartModeForEdit(b){
+  if(!b.startMonth)return "current";
+  return b.startMonth>md(td())?"next":"current";
+}
+
 function billDueDate(b,y,m){
   const day=Math.min(N(b.dueDay),monthLastDay(y,m));
   return `${y}-${String(m).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
@@ -1016,7 +1049,7 @@ function allBillsBetween(start,end){
   const rows=[];
   S.bills.forEach(b=>months.forEach(([yy,mm])=>{
     const due=billDueDate(b,yy,mm);
-    if(due>=start&&due<=end){
+    if(due>=start&&due<=end&&billCycleIsActive(b,due)){
       rows.push({...b,dueDate:due,reserved:billReserved(b.id,due),settled:billSettled(b.id,due)});
     }
   }));
@@ -1124,7 +1157,7 @@ function renderPlan(){
 
   billList.innerHTML=S.bills.length?S.bills.map(b=>`
     <div class="item" onclick="editBill('${b.id}')"><div class="row"><div><div class="name">${esc(b.name)}</div>
-    <div class="meta">每月 ${b.dueDay} 日 · 点击修改</div></div><div style="text-align:right"><div class="amount">${M(b.amount)}</div>
+    <div class="meta">每月 ${b.dueDay} 日 · ${b.startMonth&&b.startMonth>md(td())?"下个周期开始":"当前已纳入"} · 点击修改</div></div><div style="text-align:right"><div class="amount">${M(b.amount)}</div>
     <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteBill('${b.id}')">删除</button></div></div></div>`).join("")
     :'<div class="note">还没有固定账单。</div>';
 
@@ -1344,18 +1377,65 @@ function quickDeleteProject(id){
 
 addBill.onclick=()=>{
   const name=billName.value.trim(),amount=N(billAmount.value),dueDay=Math.min(31,Math.max(1,N(billDay.value)||1));
+  const startMode=billStartMode.value;
   if(!name||amount<=0)return msg("请填写账单名称和金额");
-  S.bills.push({id:"b"+Date.now(),name,amount,dueDay});
-  billName.value="";billAmount.value="";billDay.value="";save();render();msg("账单已添加");
+
+  S.bills.push({
+    id:"b"+Date.now(),
+    name,
+    amount,
+    dueDay,
+    startMonth:billStartMonthForMode(startMode)
+  });
+
+  billName.value="";
+  billAmount.value="";
+  billDay.value="";
+  billStartMode.value="current";
+  save();
+  render();
+  msg(startMode==="next"?"账单已添加，从下个周期开始纳入":"账单已添加，从当前周期开始纳入");
 };
+
 function editBill(id){
   const b=S.bills.find(x=>x.id===id);if(!b)return;
-  editBillId.value=id;editBillName.value=b.name;editBillAmount.value=b.amount;editBillDay.value=b.dueDay;editBillSheet.classList.add("show");
+
+  editBillId.value=id;
+  editBillName.value=b.name;
+  editBillAmount.value=b.amount;
+  editBillDay.value=b.dueDay;
+
+  const mode=billStartModeForEdit(b);
+  editBillStartMode.value=mode;
+  editBillStartMode.dataset.original=mode;
+  editBillStartMode.dataset.originalStartMonth=b.startMonth||"";
+
+  editBillSheet.classList.add("show");
 }
+
 saveBillEdit.onclick=()=>{
   const b=S.bills.find(x=>x.id===editBillId.value);if(!b)return;
-  b.name=editBillName.value.trim();b.amount=N(editBillAmount.value);b.dueDay=Math.min(31,Math.max(1,N(editBillDay.value)||1));
-  save();closeSheet("editBillSheet");render();msg("账单已修改");
+
+  const newMode=editBillStartMode.value;
+  const originalMode=editBillStartMode.dataset.original||"current";
+
+  b.name=editBillName.value.trim();
+  b.amount=N(editBillAmount.value);
+  b.dueDay=Math.min(31,Math.max(1,N(editBillDay.value)||1));
+
+  if(newMode!==originalMode){
+    b.startMonth=billStartMonthForMode(newMode);
+  }else if(!b.startMonth){
+    // Legacy bill: keep historical behavior unless the user explicitly changes the start mode.
+    b.startMonth="";
+  }
+
+  save();
+  closeSheet("editBillSheet");
+  render();
+  msg(newMode==="next"&&newMode!==originalMode
+    ?"账单已修改，本周期不再纳入，从下个周期开始"
+    :"账单已修改");
 };
 deleteBill.onclick=()=>{
   const id=editBillId.value;

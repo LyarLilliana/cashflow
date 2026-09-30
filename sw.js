@@ -1,4 +1,4 @@
-const CACHE = "safespend-v4-7-bill-done-cycle";
+const CACHE = "safespend-v4-8-bill-start-cycle";
 const ASSETS = [
   "./","./index.html","./manifest.webmanifest",
   "./apple-touch-icon.png","./icon-192.png","./icon-512.png"
