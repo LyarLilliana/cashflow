@@ -1,4 +1,4 @@
-const CACHE = "safespend-v4-9-skip-android-date";
+const CACHE = "safespend-v5-1-project-cycle-plan";
 const ASSETS = [
   "./","./index.html","./manifest.webmanifest",
   "./apple-touch-icon.png","./icon-192.png","./icon-512.png"
