@@ -52,7 +52,7 @@ button.danger{background:#F8ECEC;color:var(--danger)}
   align-items:end;
 }
 .formGrid.one{grid-template-columns:minmax(0,1fr)}
-.formGrid>div{min-width:0;width:100%}
+.formGrid>div{min-width:0;width:100%;max-width:100%;overflow:hidden}
 label{
   display:block;
   min-height:16px;
@@ -80,14 +80,27 @@ input,select{
 }
 select{padding-right:34px}
 input[type="date"]{
-  width:100%;
-  min-width:0;
-  max-width:100%;
+  display:block;
+  box-sizing:border-box;
+  width:100% !important;
+  inline-size:100% !important;
+  min-width:0 !important;
+  min-inline-size:0 !important;
+  max-width:100% !important;
+  max-inline-size:100% !important;
   height:46px;
   min-height:46px;
-  padding:0 11px;
+  padding:0 13px;
+  margin:0;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#fff;
+  color:var(--text);
   font-size:16px;
-  line-height:46px;
+  line-height:20px;
+  overflow:hidden;
+  -webkit-appearance:none;
+  appearance:none;
 }
 input[type="date"]::-webkit-date-and-time-value{
   min-width:0;
@@ -144,11 +157,21 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 @media(max-width:560px){
   .formGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .formGrid.one{grid-template-columns:minmax(0,1fr)}
-  .formGrid>div{width:100%;min-width:0}
-  input,select,input[type="date"],.formGrid button{width:100%;max-width:100%}
+  .formGrid>div{width:100%;min-width:0;max-width:100%;overflow:hidden}
+  input,select,input[type="date"],.formGrid button{
+    width:100% !important;
+    inline-size:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+  }
   label{font-size:10.5px;white-space:normal}
-  input,select,input[type="date"]{font-size:15px;padding-left:10px;padding-right:10px}
-  input[type="date"]{letter-spacing:-.2px}
+  input,select,input[type="date"]{
+    height:46px;
+    min-height:46px;
+    font-size:15px;
+    padding-left:10px;
+    padding-right:10px;
+  }
 }@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.quick{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
@@ -198,7 +221,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
                 <option value="monthly">每月</option>
                 <option value="none">额外收入（仅一次）</option>
               </select>
-              <div class="small" id="incomePlanFreqHint" style="margin-top:6px">周期收入会承担基础生活参考。</div>
+              
             </div>
             <div><label>每次储蓄方式</label>
               <select id="incomePlanSaveType">
@@ -518,10 +541,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v16";
-const OLD_KEYS=["safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v17";
+const OLD_KEYS=["safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:16,
+  version:17,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
@@ -1160,9 +1183,6 @@ incomePlanSaveType.onchange=()=>incomePlanSaveLabel.textContent=incomePlanSaveTy
 function refreshIncomePlanFreqUI(){
   const extra=incomePlanFreq.value==="none";
   incomePlanDate.required=!extra;
-  incomePlanFreqHint.textContent=extra
-    ?"额外收入没有生活周期，到账日期可留空，也不会扣本周期基础生活。"
-    :"周期收入需要到账日期，并承担尚未被其他周期覆盖的基础生活日期。";
 }
 incomePlanFreq.onchange=refreshIncomePlanFreqUI;
 refreshIncomePlanFreqUI();
