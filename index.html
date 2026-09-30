@@ -142,11 +142,14 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .subCard{background:#F7F8F5;border-radius:16px;padding:13px;margin-top:10px}
 @media(max-width:560px){
-  .formGrid,.formGrid.one{grid-template-columns:minmax(0,1fr)}
+  .formGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .formGrid.one{grid-template-columns:minmax(0,1fr)}
   .formGrid>div{width:100%;min-width:0}
   input,select,input[type="date"],.formGrid button{width:100%;max-width:100%}
-}
-@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.quick{grid-template-columns:repeat(4,1fr)}}
+  label{font-size:10.5px;white-space:normal}
+  input,select,input[type="date"]{font-size:15px;padding-left:10px;padding-right:10px}
+  input[type="date"]{letter-spacing:-.2px}
+}@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.quick{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
 <body>
@@ -187,7 +190,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div class="formGrid">
             <div><label>收入名称</label><input id="incomePlanName" placeholder="例如 每周生活费"></div>
             <div><label>每次金额</label><input id="incomePlanAmount" inputmode="decimal" type="number" placeholder="500"></div>
-            <div><label>下一次到账日期（周期收入必填）</label><input id="incomePlanDate" type="date"></div>
+            <div><label>下一次到账日期</label><input id="incomePlanDate" type="date"></div>
             <div><label>重复方式</label>
               <select id="incomePlanFreq">
                 <option value="weekly">每周</option>
@@ -418,7 +421,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     <div class="formGrid">
       <div><label>名称</label><input id="editIncomePlanName"></div>
       <div><label>金额</label><input id="editIncomePlanAmount" inputmode="decimal" type="number"></div>
-      <div><label>下一次到账日期（周期收入必填）</label><input id="editIncomePlanDate" type="date"></div>
+      <div><label>下一次到账日期</label><input id="editIncomePlanDate" type="date"></div>
       <div><label>重复方式</label>
         <select id="editIncomePlanFreq">
           <option value="weekly">每周</option>
@@ -515,10 +518,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v15";
-const OLD_KEYS=["safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v16";
+const OLD_KEYS=["safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:15,
+  version:16,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
