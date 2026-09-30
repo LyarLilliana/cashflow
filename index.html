@@ -45,11 +45,63 @@ button.secondary{background:var(--accentSoft);color:var(--accent)}
 button.ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
 button.danger{background:#F8ECEC;color:var(--danger)}
 .quick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.formGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.formGrid.one{grid-template-columns:1fr}
-label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px}
+.formGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  align-items:end;
+}
+.formGrid.one{grid-template-columns:minmax(0,1fr)}
+.formGrid>div{min-width:0;width:100%}
+label{
+  display:block;
+  min-height:16px;
+  font-size:11px;
+  line-height:16px;
+  color:var(--muted);
+  margin-bottom:6px
+}
 input,select{
-  width:100%;border:1px solid var(--line);border-radius:14px;padding:12px 13px;background:#fff;color:var(--text);outline:none
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:46px;
+  min-height:46px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:0 13px;
+  background:#fff;
+  color:var(--text);
+  outline:none;
+  font-size:16px;
+  line-height:20px
+}
+select{padding-right:34px}
+input[type="date"]{
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:46px;
+  min-height:46px;
+  padding:0 11px;
+  font-size:16px;
+  line-height:46px;
+}
+input[type="date"]::-webkit-date-and-time-value{
+  min-width:0;
+  text-align:left;
+}
+input[type="date"]::-webkit-calendar-picker-indicator{
+  margin:0;
+  padding:4px;
+}
+.formGrid button{
+  width:100%;
+  height:46px;
+  min-height:46px;
+  padding:0 14px;
 }
 input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,94,.08)}
 .note{font-size:12px;color:var(--muted);line-height:1.6}
@@ -89,6 +141,11 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .subCard{background:#F7F8F5;border-radius:16px;padding:13px;margin-top:10px}
+@media(max-width:560px){
+  .formGrid,.formGrid.one{grid-template-columns:minmax(0,1fr)}
+  .formGrid>div{width:100%;min-width:0}
+  input,select,input[type="date"],.formGrid button{width:100%;max-width:100%}
+}
 @media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.quick{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
@@ -162,7 +219,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div><label>名称</label><input id="billName" placeholder="例如 iCloud"></div>
           <div><label>每月金额</label><input id="billAmount" inputmode="decimal" type="number" placeholder="68"></div>
           <div><label>每月扣款日</label><input id="billDay" inputmode="numeric" type="number" min="1" max="31" placeholder="5"></div>
-          <div style="display:flex;align-items:end"><button class="primary" style="width:100%" id="addBill">添加账单</button></div>
+          <div><label>&nbsp;</label><button class="primary" id="addBill">添加账单</button></div>
         </div>
       </div>
       <div class="card" style="margin-top:10px" id="billList"></div>
@@ -458,10 +515,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v14";
-const OLD_KEYS=["safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v15";
+const OLD_KEYS=["safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:14,
+  version:15,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
