@@ -34,7 +34,76 @@ button{touch-action:manipulation}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
 .stat .k{font-size:11px;color:var(--muted)} .stat .v{font-size:22px;font-weight:760;margin-top:6px}
 .stat .s{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.35}
-.section{margin-top:16px}.sectionTitle{font-size:16px;font-weight:760;margin:0 0 9px 3px}
+.section{margin-top:16px}
+.sectionTitle{font-size:16px;font-weight:760;margin:0}
+.sectionHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:0 0 9px 3px;
+}
+.sectionToggle{
+  border:1px solid var(--line);
+  background:#F7F8F5;
+  color:var(--muted);
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:10.5px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.sectionToggle:active{background:#ECEFEA;transform:scale(.98)}
+.section.collapsed .sectionHeader{margin-bottom:0}
+.sectionBody[hidden]{display:none!important}
+
+.historyFilter{padding:12px}
+.historyFilterGrid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:10px;
+}
+.historyQuick{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:7px;
+  margin-top:9px;
+}
+.historyQuick button{
+  min-height:38px;
+  border:1px solid var(--line);
+  background:#F7F8F5;
+  color:var(--text);
+  border-radius:12px;
+  font-size:11px;
+  font-weight:700;
+}
+.historyQuick button.active{
+  background:var(--accentSoft);
+  border-color:#C9DDD5;
+  color:var(--accent);
+}
+.historyFilterMeta{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  margin-top:10px;
+  font-size:11px;
+  color:var(--muted);
+}
+.historyMore{
+  width:100%;
+  margin-top:10px;
+  min-height:42px;
+  border:1px solid var(--line);
+  background:#F7F8F5;
+  color:var(--text);
+  border-radius:14px;
+  font-size:12px;
+  font-weight:700;
+}
+
 .step{display:flex;gap:10px;align-items:flex-start}
 .stepNo{width:25px;height:25px;border-radius:50%;background:var(--accentSoft);color:var(--accent);font-weight:800;display:grid;place-items:center;font-size:12px;flex:none}
 button.primary,button.secondary,button.ghost,button.danger{
@@ -480,8 +549,30 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       </div>
     </div>
     <div class="section">
-      <div class="sectionTitle">本月流水</div>
-      <div class="card txList" id="monthTx"></div>
+      <div class="sectionTitle">流水记录</div>
+      <div class="card historyFilter">
+        <div class="historyFilterGrid">
+          <div>
+            <label>开始日期</label>
+            <input id="historyStartDate" type="date">
+          </div>
+          <div>
+            <label>结束日期</label>
+            <input id="historyEndDate" type="date">
+          </div>
+        </div>
+        <div class="historyQuick">
+          <button id="historyTodayBtn">今天</button>
+          <button id="historyMonthBtn" class="active">本月</button>
+          <button id="historyAllBtn">全部</button>
+        </div>
+        <div class="historyFilterMeta">
+          <span id="historyRangeText">本月流水</span>
+          <span id="historyCountText">0 条</span>
+        </div>
+      </div>
+      <div class="card txList" style="margin-top:10px" id="monthTx"></div>
+      <button class="historyMore" id="historyMoreBtn" style="display:none">显示更多</button>
     </div>
   </section>
 
@@ -736,10 +827,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v29";
-const OLD_KEYS=["safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v30";
+const OLD_KEYS=["safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:29,
+  version:30,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
@@ -1852,6 +1943,171 @@ function txHtml(t,del=false){
   return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${ref?" · "+esc(ref.name):""}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${del?delBtn(t.id):""}</div></div></div>`;
 }
 function delBtn(id){return `<button class="txDelete" onclick="event.stopPropagation();removeTx('${id}')">删除</button>`}
+
+const HISTORY_PAGE_SIZE=30;
+let historyVisibleCount=HISTORY_PAGE_SIZE;
+let historyMode="month";
+
+function monthBounds(date=td()){
+  const d=D(date);
+  const y=d.getFullYear(),m=d.getMonth()+1;
+  const last=new Date(y,m,0,12,0,0,0).getDate();
+  return {
+    start:`${y}-${pad2(m)}-01`,
+    end:`${y}-${pad2(m)}-${pad2(last)}`
+  };
+}
+
+function setHistoryMode(mode){
+  historyMode=mode;
+  historyVisibleCount=HISTORY_PAGE_SIZE;
+
+  historyTodayBtn.classList.toggle("active",mode==="today");
+  historyMonthBtn.classList.toggle("active",mode==="month");
+  historyAllBtn.classList.toggle("active",mode==="all");
+
+  if(mode==="today"){
+    historyStartDate.value=td();
+    historyEndDate.value=td();
+  }else if(mode==="month"){
+    const r=monthBounds();
+    historyStartDate.value=r.start;
+    historyEndDate.value=r.end;
+  }else if(mode==="all"){
+    historyStartDate.value="";
+    historyEndDate.value="";
+  }
+
+  syncDateDisplays();
+  renderHistoryTransactions();
+}
+
+function historyFilteredTx(){
+  const start=historyStartDate.value;
+  const end=historyEndDate.value;
+
+  return [...S.tx]
+    .filter(t=>{
+      const d=t.date||"";
+      if(start&&d<start)return false;
+      if(end&&d>end)return false;
+      return true;
+    })
+    .sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
+}
+
+function historyRangeLabel(){
+  const start=historyStartDate.value;
+  const end=historyEndDate.value;
+
+  if(!start&&!end)return "全部流水";
+  if(start&&end&&start===end)return start;
+  if(start&&end)return `${start} 至 ${end}`;
+  if(start)return `${start} 起`;
+  return `截至 ${end}`;
+}
+
+function renderHistoryTransactions(){
+  const rows=historyFilteredTx();
+  const shown=rows.slice(0,historyVisibleCount);
+
+  historyRangeText.textContent=historyRangeLabel();
+  historyCountText.textContent=rows.length>historyVisibleCount
+    ?`已显示 ${shown.length} / ${rows.length} 条`
+    :`${rows.length} 条`;
+
+  monthTx.innerHTML=shown.length
+    ?shown.map(t=>txHtml(t,true)).join("")
+    :'<div class="note">这个日期范围内还没有流水。</div>';
+
+  historyMoreBtn.style.display=rows.length>historyVisibleCount?"block":"none";
+}
+
+historyStartDate.addEventListener("change",()=>{
+  historyMode="custom";
+  historyVisibleCount=HISTORY_PAGE_SIZE;
+  historyTodayBtn.classList.remove("active");
+  historyMonthBtn.classList.remove("active");
+  historyAllBtn.classList.remove("active");
+  renderHistoryTransactions();
+});
+historyEndDate.addEventListener("change",()=>{
+  historyMode="custom";
+  historyVisibleCount=HISTORY_PAGE_SIZE;
+  historyTodayBtn.classList.remove("active");
+  historyMonthBtn.classList.remove("active");
+  historyAllBtn.classList.remove("active");
+  renderHistoryTransactions();
+});
+historyTodayBtn.onclick=()=>setHistoryMode("today");
+historyMonthBtn.onclick=()=>setHistoryMode("month");
+historyAllBtn.onclick=()=>setHistoryMode("all");
+historyMoreBtn.onclick=()=>{
+  historyVisibleCount+=HISTORY_PAGE_SIZE;
+  renderHistoryTransactions();
+};
+
+const SECTION_UI_KEY="safespend_section_ui_v1";
+function readSectionUI(){
+  try{return JSON.parse(localStorage.getItem(SECTION_UI_KEY)||"{}")}catch(e){return {}}
+}
+function writeSectionUI(v){
+  try{localStorage.setItem(SECTION_UI_KEY,JSON.stringify(v))}catch(e){}
+}
+function enhanceCollapsibleSections(){
+  const state=readSectionUI();
+
+  document.querySelectorAll(".panel > .section").forEach((sec,index)=>{
+    if(sec.dataset.foldReady==="1")return;
+
+    const title=Array.from(sec.children).find(x=>x.classList?.contains("sectionTitle"));
+    if(!title)return;
+
+    const panel=sec.closest(".panel");
+    const key=`${panel?.id||"panel"}:${title.textContent.trim()}:${index}`;
+    sec.dataset.foldReady="1";
+    sec.dataset.foldKey=key;
+
+    const header=document.createElement("div");
+    header.className="sectionHeader";
+
+    const toggle=document.createElement("button");
+    toggle.type="button";
+    toggle.className="sectionToggle";
+
+    const body=document.createElement("div");
+    body.className="sectionBody";
+
+    const children=Array.from(sec.children);
+    children.forEach(child=>{
+      if(child!==title)body.appendChild(child);
+    });
+
+    sec.insertBefore(header,sec.firstChild);
+    header.appendChild(title);
+    header.appendChild(toggle);
+    sec.appendChild(body);
+
+    const apply=collapsed=>{
+      sec.classList.toggle("collapsed",collapsed);
+      body.hidden=collapsed;
+      toggle.textContent=collapsed?"展开":"收起";
+      toggle.setAttribute("aria-expanded",collapsed?"false":"true");
+    };
+
+    apply(!!state[key]);
+
+    toggle.onclick=e=>{
+      e.stopPropagation();
+      const collapsed=!sec.classList.contains("collapsed");
+      apply(collapsed);
+      const next=readSectionUI();
+      next[key]=collapsed;
+      writeSectionUI(next);
+    };
+  });
+}
+
 function renderHistory(){
   const m=S.tx.filter(t=>md(t.date)===md());
   const normalSpent=sm(m.filter(t=>t.type==="expense"),t=>N(t.amount));
@@ -1881,8 +2137,7 @@ function renderHistory(){
   mNetSavingDetail.style.color=tone;
   mRate.style.color=rate<=0?"var(--danger)":"inherit";
 
-  const mt=[...m].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
-  monthTx.innerHTML=mt.length?mt.map(t=>txHtml(t,true)).join(""):'<div class="note">本月还没有流水。</div>';
+  renderHistoryTransactions();
 }
 
 /* PLAN actions */
@@ -2540,6 +2795,10 @@ document.addEventListener("click",()=>setTimeout(syncDateDisplays,0));
 document.addEventListener("focusin",()=>setTimeout(syncDateDisplays,0));
 
 enhanceDateInputs();
+enhanceCollapsibleSections();
+
+// 默认从“本月”开始查看历史流水；需要时可切到今天、全部或自定义日期。
+if(!historyStartDate.value&&!historyEndDate.value)setHistoryMode("month");
 
 render();
 </script>
