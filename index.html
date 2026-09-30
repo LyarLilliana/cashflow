@@ -435,9 +435,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
     <div class="grid">
       <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div><div class="s">与上方“当前零花钱”完全一致</div></div>
-      <div class="card stat"><div class="k">本周期账单预留</div><div class="v" id="billBal">¥0</div><div class="s">当前收入周期内已为待付固定账单留出的金额</div></div>
+      <div class="card stat"><div class="k">本周期账单</div><div class="v" id="billBal">¥0</div><div class="s" id="billBalSub">本周期尚待支付的固定账单</div></div>
       <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div><div class="s">已为专项准备好的钱</div></div>
-      <div class="card stat"><div class="k">本周期预计可存</div><div class="v" id="savingBal">¥0</div><div class="s">计划储蓄 + 本周期剩余零花钱；零花钱超支会自动扣减</div></div>
+      <div class="card stat"><div class="k">本周期预计可存</div><div class="v" id="savingBal">¥0</div><div class="s">已确定进入储蓄的钱；周期结束时剩余零花钱再自动并入</div></div>
     </div>
 
     <div class="section">
@@ -720,7 +720,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="explainRow total"><span>本周期预计可存</span><strong id="transferProjectedSaving">¥0</strong></div>
     </div>
     <div class="note" style="margin-top:9px">
-      这是资金分类调整：零花钱减少、储蓄增加，但本周期预计可存总额不会因为“转一下”而凭空增加。
+      转入多少，本周期预计可存就增加多少。周期结束时仍没花完的零花钱，会再自动并入最终可存金额。
     </div>
     <div class="actions">
       <button class="ghost" onclick="closeSheet('pocketTransferSheet')">取消</button>
@@ -732,10 +732,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v25";
-const OLD_KEYS=["safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v26";
+const OLD_KEYS=["safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:25,
+  version:26,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
@@ -916,16 +916,32 @@ function bal(){
   return {safe:a.raw.safe,living:a.raw.safe,bills:a.raw.bills,saving:a.saving};
 }
 
+
+function isCycleIncomeTx(t){
+  if(!t||t.type!=="income")return false;
+
+  // New-format transactions explicitly remember whether the source plan was recurring.
+  if(t.planFreqAtRecord!==undefined)return t.planFreqAtRecord!=="none";
+
+  // Legacy transactions: use the linked plan when available.
+  const p=S.incomePlans.find(x=>x.id===t.planId);
+  if(p)return isRecurringPlan(p);
+
+  // Unknown legacy income is treated as a cycle income for backward compatibility.
+  return true;
+}
+
 function txStamp(t){
   const m=String(t?.id||"").match(/(\d{10,})/);
   return m?Number(m[1]):0;
 }
 
 function cycleStatsForIncome(incomeTx){
-  const incomes=[...S.tx].filter(t=>t.type==="income")
+  const cycleIncomes=[...S.tx].filter(isCycleIncomeTx)
     .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
-  const pos=incomes.findIndex(x=>x.id===incomeTx.id);
-  const next=pos>=0?incomes[pos+1]:null;
+
+  const pos=cycleIncomes.findIndex(x=>x.id===incomeTx.id);
+  const next=pos>=0?cycleIncomes[pos+1]:null;
 
   const afterStart=t=>{
     if(t.date>incomeTx.date)return true;
@@ -943,54 +959,88 @@ function cycleStatsForIncome(incomeTx){
   const expenses=cycleTx.filter(t=>t.type==="expense");
   const settlements=cycleTx.filter(t=>t.type==="living_settlement");
   const transfers=cycleTx.filter(t=>t.type==="pocket_to_saving");
+  const extraIncomes=cycleTx.filter(t=>t.type==="income"&&!isCycleIncomeTx(t));
+
+  const baseAlloc=effectiveIncomeAllocation(incomeTx);
+  const extraAllocs=extraIncomes.map(t=>effectiveIncomeAllocation(t));
+
+  const plannedSaving=N(baseAlloc.saving)+sm(extraAllocs,x=>N(x.saving));
+  const pocketInitial=N(baseAlloc.safe)+sm(extraAllocs,x=>N(x.safe));
+  const fixedReserved=N(baseAlloc.bills)+sm(extraAllocs,x=>N(x.bills));
+  const projectReserved=N(baseAlloc.projectTotal)+sm(extraAllocs,x=>N(x.projectTotal));
 
   const pocketSpent=sm(expenses.filter(t=>t.bucket==="safe"||t.bucket==="living"),t=>N(t.amount));
   const manualSavingUse=sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount));
   const livingRelease=sm(settlements,t=>N(t.allowance)-N(t.actualSpent));
   const pocketToSaving=sm(transfers,t=>N(t.amount));
 
-  const ea=effectiveIncomeAllocation(incomeTx);
-  const pocketInitial=N(ea.safe);
   const pocketBalance=pocketInitial-pocketSpent+livingRelease-pocketToSaving;
+
+  // Current open cycle:
+  // positive pocket money remains spendable, so it is not counted as saved yet.
+  // Explicit pocket->saving transfers increase expected saving immediately.
+  // A negative pocket balance immediately reduces the amount expected to be saved.
+  //
+  // Closed cycle:
+  // once the next recurring income starts a new cycle, any positive pocket balance
+  // left in the old cycle is automatically treated as final saved money.
+  const isClosed=!!next;
+  const lockedSaving=plannedSaving+pocketToSaving-manualSavingUse;
+  const closingPocketAdjustment=isClosed?pocketBalance:Math.min(0,pocketBalance);
+  const projectedSaving=lockedSaving+closingPocketAdjustment;
 
   return {
     income:incomeTx,
-    plannedSaving:N(ea.saving),
+    nextCycleIncome:next,
+    isClosed,
+    plannedSaving,
     pocketToSaving,
-    livingReserved:N(ea.living),
+    lockedSaving,
+    endPocketSaved:isClosed?Math.max(0,pocketBalance):0,
+    livingReserved:N(baseAlloc.living)+sm(extraAllocs,x=>N(x.living)),
     livingRelease,
     pocketInitial,
     pocketSpent,
     pocketBalance,
     manualSavingUse,
-    fixedReserved:N(ea.bills),
-    projectReserved:N(ea.projectTotal),
-    projectedSaving:N(ea.saving)+pocketToSaving+pocketBalance-manualSavingUse
+    fixedReserved,
+    projectReserved,
+    projectedSaving
   };
 }
 
 function monthlyCycleStats(ym=md()){
-  const incomes=S.tx.filter(t=>t.type==="income"&&md(t.date)===ym);
-  const cycles=incomes.map(cycleStatsForIncome);
+  const allIncomes=S.tx.filter(t=>t.type==="income"&&md(t.date)===ym);
+  const cycleIncomes=S.tx.filter(t=>isCycleIncomeTx(t)&&md(t.date)===ym);
+  const cycles=cycleIncomes.map(cycleStatsForIncome);
   const settlements=S.tx.filter(t=>t.type==="living_settlement"&&md(t.coveredDate||t.date)===ym);
+
   return {
     cycles,
-    income:sm(incomes,t=>N(t.amount)),
+    income:sm(allIncomes,t=>N(t.amount)),
     livingReserved:sm(cycles,c=>N(c.livingReserved)),
     livingActualSpent:sm(settlements,t=>N(t.actualSpent)),
     livingReleased:sm(settlements,t=>N(t.allowance)-N(t.actualSpent)),
     fixedReserved:sm(cycles,c=>N(c.fixedReserved)),
     projectReserved:sm(cycles,c=>N(c.projectReserved)),
     pocketSpent:sm(cycles,c=>N(c.pocketSpent)),
+    pocketToSaving:sm(cycles,c=>N(c.pocketToSaving)),
     projectedSaving:sm(cycles,c=>N(c.projectedSaving))
   };
 }
 function currentCycleStats(){
-  const incomes=S.tx.filter(t=>t.type==="income")
+  const incomes=S.tx.filter(isCycleIncomeTx)
     .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
   const latest=incomes[incomes.length-1];
+
   if(!latest){
-    return {income:null,plannedSaving:0,pocketInitial:0,pocketSpent:0,pocketBalance:0,manualSavingUse:0,projectedSaving:0};
+    return {
+      income:null,nextCycleIncome:null,isClosed:false,
+      plannedSaving:0,pocketToSaving:0,lockedSaving:0,endPocketSaved:0,
+      pocketInitial:0,pocketSpent:0,pocketBalance:0,manualSavingUse:0,
+      livingReserved:0,livingRelease:0,fixedReserved:0,projectReserved:0,
+      projectedSaving:0
+    };
   }
   return cycleStatsForIncome(latest);
 }
@@ -1247,17 +1297,41 @@ function openBillCycle(bid){
   return billDueDate(b,ny,nm);
 }
 
-function currentCycleBillRows(){
+function currentCycleBillStatus(){
   const cycle=currentCycleStats();
-  const end=cycle.income?.nextIncomeDate || nextRecurringIncome()?.nextDate || "";
-  if(!end||end<td())return [];
-  return allBillsBetween(td(),end)
-    .filter(x=>x.reserved&&!x.settled)
+  const income=cycle.income;
+
+  if(!income){
+    return {start:"",end:"",all:[],outstanding:[],total:0,outstandingAmount:0,complete:false,none:true};
+  }
+
+  const start=income.date;
+  const end=income.nextIncomeDate || nextRecurringIncome()?.nextDate || "";
+  if(!end||end<=start){
+    return {start,end,all:[],outstanding:[],total:0,outstandingAmount:0,complete:false,none:true};
+  }
+
+  // Current cycle follows the same convention as living cost:
+  // start date is included, next income date is excluded.
+  const all=allBillsBetween(start,end)
+    .filter(x=>x.dueDate>=start&&x.dueDate<end)
     .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+
+  const outstanding=all.filter(x=>!x.settled);
+
+  return {
+    start,
+    end,
+    all,
+    outstanding,
+    total:sm(all,x=>N(x.amount)),
+    outstandingAmount:sm(outstanding,x=>N(x.amount)),
+    complete:all.length>0&&outstanding.length===0,
+    none:all.length===0
+  };
 }
-function currentCycleBillReserve(){
-  return sm(currentCycleBillRows(),x=>N(x.amount));
-}
+function currentCycleBillRows(){return currentCycleBillStatus().outstanding}
+function currentCycleBillReserve(){return currentCycleBillStatus().outstandingAmount}
 
 function upcomingRecurringIncomeEventsUntil(dueDate){
   if(!dueDate)return [];
@@ -1478,15 +1552,28 @@ function renderNow(){
   safeNow.textContent=M(b.safe);
   // “零花钱余额”与顶部“当前零花钱”严格使用同一个数。
   livingBal.textContent=M(b.safe);
-  const cycleBillReserve=currentCycleBillReserve();
-  billBal.textContent=M(cycleBillReserve);
+  const billStatus=currentCycleBillStatus();
+
+  if(billStatus.complete){
+    billBal.textContent="已完成";
+    billBalSub.textContent=`本周期 ${billStatus.all.length} 笔固定账单均已处理`;
+    billBal.style.color="var(--accent)";
+  }else if(billStatus.none){
+    billBal.textContent="暂无";
+    billBalSub.textContent="本周期没有需要支付的固定账单";
+    billBal.style.color="var(--muted)";
+  }else{
+    billBal.textContent=M(billStatus.outstandingAmount);
+    billBalSub.textContent=`尚有 ${billStatus.outstanding.length} / ${billStatus.all.length} 笔待处理`;
+    billBal.style.color="inherit";
+  }
+
   savingBal.textContent=M(cycle.projectedSaving);
   projectBal.textContent=M(projectTotal);
 
   const paint=(el,v)=>{el.style.color=v<=0?"var(--danger)":"inherit"};
   paint(safeNow,b.safe);
   paint(livingBal,b.safe);
-  paint(billBal,cycleBillReserve);
   paint(projectBal,projectTotal);
   paint(savingBal,cycle.projectedSaving);
 
@@ -1498,7 +1585,7 @@ function renderNow(){
     dailyFree.style.color=(b.safe<=0)?"var(--danger)":"inherit";
     safeSub.textContent=b.safe<0
       ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期预计可存”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
-      :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`;
+      :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
     nextIncomeBox.innerHTML=`<div class="row"><div><div class="name">${esc(next.name)}</div><div class="meta">${next.nextDate} · ${freqLabel(next.freq)} · 计划储蓄 ${saveRuleLabel(next)}</div></div><div class="amount pos">${M(next.amount)}</div></div>`;
   }else{
     whyDays.textContent="—";
@@ -2110,15 +2197,19 @@ function openPocketTransfer(){
   transferPocketNow.textContent=M(b.safe);
   transferPocketAfter.textContent=M(b.safe);
   transferProjectedSaving.textContent=M(cycle.projectedSaving);
+  transferProjectedSaving.style.color=cycle.projectedSaving<=0?"var(--danger)":"var(--accent)";
   pocketTransferSheet.classList.add("show");
 }
 function recalcPocketTransfer(){
   const b=bal(),cycle=currentCycleStats();
   const amount=Math.max(0,N(transferPocketAmount.value));
-  transferPocketAfter.textContent=M(b.safe-amount);
-  transferPocketAfter.style.color=(b.safe-amount)<0?"var(--danger)":"inherit";
-  // Reclassification only: projected saving total is unchanged.
-  transferProjectedSaving.textContent=M(cycle.projectedSaving);
+  const validAmount=Math.min(amount,Math.max(0,b.safe));
+
+  transferPocketAfter.textContent=M(b.safe-validAmount);
+  transferPocketAfter.style.color=(b.safe-validAmount)<0?"var(--danger)":"inherit";
+
+  transferProjectedSaving.textContent=M(cycle.projectedSaving+validAmount);
+  transferProjectedSaving.style.color=(cycle.projectedSaving+validAmount)<=0?"var(--danger)":"var(--accent)";
 }
 transferPocketAmount.addEventListener("input",recalcPocketTransfer);
 
@@ -2153,7 +2244,12 @@ function refreshSpendRefs(){
     refRow.style.display="block";refLabel.textContent="选择专项";
     spendRef.innerHTML='<option value="">请选择</option>'+S.projects.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
   }else refRow.style.display="none";
-  spendHint.textContent=t==="safe"?`当前零花钱 ${M(b.safe)}；花超后会直接压低“本周期预计可存”。`:t==="bill"?`本周期账单预留 ${M(currentCycleBillReserve())}；这里只显示当前收入周期内已留出的固定账单金额。`:t==="saving"?`当前储蓄余额 ${M(b.saving)}`:"请选择专项";
+  const bs=currentCycleBillStatus();
+  spendHint.textContent=t==="safe"
+    ?`当前零花钱 ${M(b.safe)}；花超后会直接压低“本周期预计可存”。`
+    :t==="bill"
+      ?(bs.complete?"本周期固定账单已全部完成":bs.none?"本周期没有固定账单":`本周期固定账单尚待支付 ${M(bs.outstandingAmount)}，共 ${bs.outstanding.length} 笔。`)
+      :t==="saving"?`当前储蓄余额 ${M(b.saving)}`:"请选择专项";
 }
 spendBucket.onchange=refreshSpendRefs;
 spendRef.onchange=()=>{
@@ -2257,13 +2353,14 @@ function summary(){
 本月固定支出 / 预留：${M(ms.fixedReserved)}
 本月专项预留：${M(ms.projectReserved)}
 本月已用零花钱：${M(ms.pocketSpent)}
+本月零花钱转储蓄：${M(ms.pocketToSaving)}
 本月储蓄净增：${M(net)}
 本月储蓄率：${(Math.round(rate*10)/10)}%
 
 当前零花钱余额：${M(b.safe)}
 本周期计划储蓄：${M(cycle.plannedSaving)}
 本周期预计可存：${M(cycle.projectedSaving)}
-本周期账单预留：${M(currentCycleBillReserve())}
+本周期账单待支付：${currentCycleBillStatus().complete?"已完成":currentCycleBillStatus().none?"暂无":M(currentCycleBillStatus().outstandingAmount)}
 当前专项余额合计：${M(projectTotal)}
 本周期资金缺口：${M(Math.max(0,-N(cycle.projectedSaving)))}
 
