@@ -1,4 +1,4 @@
-const CACHE = "safespend-v4-5-date-text-style";
+const CACHE = "safespend-v4-4-uniform-date";
 const ASSETS = [
   "./","./index.html","./manifest.webmanifest",
   "./apple-touch-icon.png","./icon-192.png","./icon-512.png"
