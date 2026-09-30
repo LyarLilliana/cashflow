@@ -1,4 +1,4 @@
-const CACHE = "safespend-v4-6-aligned-form";
+const CACHE = "safespend-v4-7-bill-done-cycle";
 const ASSETS = [
   "./","./index.html","./manifest.webmanifest",
   "./apple-touch-icon.png","./icon-192.png","./icon-512.png"
