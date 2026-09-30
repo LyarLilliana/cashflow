@@ -194,6 +194,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <button class="primary" style="flex:1" onclick="openIncome()">记录收入</button>
         <button class="secondary" style="flex:1" onclick="openSpend()">记一笔支出</button>
       </div>
+      <div style="margin-top:9px">
+        <button class="ghost" style="width:100%" id="livingSettleBtn" onclick="openLivingSettlement()">结算今日基础生活</button>
+      </div>
       <div class="explain">
         <div class="explainRow"><span>零花钱余额</span><strong id="whySafe">¥0</strong></div>
         <div class="explainRow"><span>距离下一次周期收入</span><strong id="whyDays">—</strong></div>
@@ -417,13 +420,48 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   </div>
 </div>
 
+
+<div class="sheet" id="livingSheet">
+  <div class="sheetCard">
+    <div class="sheetTitle">结算今日基础生活</div>
+    <div class="subCard">
+      <div class="row">
+        <div>
+          <div class="name">今日基础生活预留</div>
+          <div class="meta" id="livingSettleMeta">读取中…</div>
+        </div>
+        <div class="amount" id="livingAllowance">¥0</div>
+      </div>
+    </div>
+    <div style="height:10px"></div>
+    <div class="formGrid one">
+      <div>
+        <label>今天实际用于基础生活的金额</label>
+        <input id="livingActualSpent" inputmode="decimal" type="number" min="0" value="0">
+      </div>
+    </div>
+    <div class="explain">
+      <div class="explainRow"><span>今日预留</span><strong id="livingSumAllowance">¥0</strong></div>
+      <div class="explainRow"><span>实际基础生活支出</span><strong id="livingSumSpent">¥0</strong></div>
+      <div class="explainRow total"><span id="livingReleaseLabel">转入零花钱</span><strong id="livingReleaseAmount">¥0</strong></div>
+    </div>
+    <div class="note" style="margin-top:9px">
+      今天没花这笔基础生活预算时填 0，整笔预留会转入零花钱。只花了一部分时，结余转入零花钱；超过今日标准时，超出的部分减少零花钱。
+    </div>
+    <div class="actions">
+      <button class="ghost" onclick="closeSheet('livingSheet')">取消</button>
+      <button class="primary" id="saveLivingSettlement">确认结算</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v13";
-const OLD_KEYS=["safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v14";
+const OLD_KEYS=["safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:13,
+  version:14,
   settings:{dailyLiving:0,monthlyGoal:0},
   incomePlans:[],
   bills:[],
@@ -544,6 +582,13 @@ function accounting(){
       return;
     }
 
+    if(t.type==="living_settlement"){
+      const allowance=N(t.allowance),actual=N(t.actualSpent);
+      raw.safe += allowance-actual;
+      effects[t.id]={livingRelease:allowance-actual};
+      return;
+    }
+
     if(t.type!=="expense")return;
     const amount=N(t.amount);
 
@@ -594,7 +639,6 @@ function txStamp(t){
 function cycleStatsForIncome(incomeTx){
   const incomes=[...S.tx].filter(t=>t.type==="income")
     .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
-
   const pos=incomes.findIndex(x=>x.id===incomeTx.id);
   const next=pos>=0?incomes[pos+1]:null;
 
@@ -610,18 +654,23 @@ function cycleStatsForIncome(incomeTx){
     return txStamp(t)<txStamp(next);
   };
 
-  const expenses=S.tx.filter(t=>t.type==="expense"&&afterStart(t)&&beforeNext(t));
+  const cycleTx=S.tx.filter(t=>afterStart(t)&&beforeNext(t));
+  const expenses=cycleTx.filter(t=>t.type==="expense");
+  const settlements=cycleTx.filter(t=>t.type==="living_settlement");
+
   const pocketSpent=sm(expenses.filter(t=>t.bucket==="safe"||t.bucket==="living"),t=>N(t.amount));
   const manualSavingUse=sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount));
+  const livingRelease=sm(settlements,t=>N(t.allowance)-N(t.actualSpent));
 
   const ea=effectiveIncomeAllocation(incomeTx);
   const pocketInitial=N(ea.safe);
-  const pocketBalance=pocketInitial-pocketSpent;
+  const pocketBalance=pocketInitial-pocketSpent+livingRelease;
 
   return {
     income:incomeTx,
     plannedSaving:N(ea.saving),
     livingReserved:N(ea.living),
+    livingRelease,
     pocketInitial,
     pocketSpent,
     pocketBalance,
@@ -635,11 +684,13 @@ function cycleStatsForIncome(incomeTx){
 function monthlyCycleStats(ym=md()){
   const incomes=S.tx.filter(t=>t.type==="income"&&md(t.date)===ym);
   const cycles=incomes.map(cycleStatsForIncome);
-
+  const settlements=S.tx.filter(t=>t.type==="living_settlement"&&md(t.coveredDate||t.date)===ym);
   return {
     cycles,
     income:sm(incomes,t=>N(t.amount)),
     livingReserved:sm(cycles,c=>N(c.livingReserved)),
+    livingActualSpent:sm(settlements,t=>N(t.actualSpent)),
+    livingReleased:sm(settlements,t=>N(t.allowance)-N(t.actualSpent)),
     fixedReserved:sm(cycles,c=>N(c.fixedReserved)),
     projectReserved:sm(cycles,c=>N(c.projectReserved)),
     pocketSpent:sm(cycles,c=>N(c.pocketSpent)),
@@ -715,6 +766,26 @@ function livingReservationMap(){
   });
   return result;
 }
+
+function livingDayInfo(date=td()){
+  const map=livingReservationMap();
+  for(const [incomeId,info] of Object.entries(map)){
+    if((info.days||[]).includes(date)){
+      const income=S.tx.find(t=>t.id===incomeId);
+      return {
+        covered:true,
+        incomeId,
+        allowance:N(income?.livingRateAtRecord ?? S.settings.dailyLiving),
+        income
+      };
+    }
+  }
+  return {covered:false,incomeId:"",allowance:0,income:null};
+}
+function livingSettlementForDate(date=td()){
+  return S.tx.find(t=>t.type==="living_settlement"&&t.coveredDate===date)||null;
+}
+
 function currentlyCoveredLivingDays(){
   const set=new Set();
   const map=livingReservationMap();
@@ -953,6 +1024,20 @@ function renderNow(){
   if(cycleGap>0) rows.unshift(`<div class="item"><div class="row"><div><div class="name">本周期资金缺口</div><div class="meta">本周期“预计可存”已经低于 0，代表本周期收入连同原计划储蓄都已被用完。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div>`);
   upcomingBox.innerHTML=rows.length?rows.join(""):'<div class="note">暂无近期固定账单或专项缺口。</div>';
 
+  const dayInfo=livingDayInfo(td());
+  const settled=livingSettlementForDate(td());
+  if(settled){
+    const release=N(settled.allowance)-N(settled.actualSpent);
+    livingSettleBtn.textContent=`今日基础生活已结算 · ${release>=0?"+":""}${M(release)} 零花钱`;
+    livingSettleBtn.disabled=true;
+  }else if(dayInfo.covered){
+    livingSettleBtn.textContent=`结算今日基础生活 · 预留 ${M(dayInfo.allowance)}`;
+    livingSettleBtn.disabled=false;
+  }else{
+    livingSettleBtn.textContent="今日没有基础生活预留";
+    livingSettleBtn.disabled=true;
+  }
+
   const recent=[...S.tx].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id)).slice(0,8);
   recentTx.innerHTML=recent.length?recent.map(t=>txHtml(t)).join(""):'<div class="note">还没有流水。</div>';
 }
@@ -961,6 +1046,11 @@ function txHtml(t,del=false){
     const p=S.incomePlans.find(x=>x.id===t.planId);
     const ea=effectiveIncomeAllocation(t); return `<div class="item"><div class="row"><div><div class="name">收入${p?" · "+esc(p.name):""}</div><div class="meta">${t.date} · 当时零花钱 ${M(ea.safe)} · 基础生活 ${M(ea.living)}</div></div><div><div class="amount pos">+${M(t.amount)}</div>${del?delBtn(t.id):""}</div></div></div>`;
   }
+  if(t.type==="living_settlement"){
+    const release=N(t.allowance)-N(t.actualSpent);
+    const title=release>=0?"基础生活结余转零花钱":"基础生活超出今日标准";
+    return `<div class="item"><div class="row"><div><div class="name">${title}</div><div class="meta">${t.coveredDate||t.date} · 今日预留 ${M(t.allowance)} · 实际 ${M(t.actualSpent)}</div></div><div><div class="amount ${release>=0?"pos":"neg"}">${release>=0?"+":""}${M(release)}</div>${del?delBtn(t.id):""}</div></div></div>`;
+  }
   const map={safe:"零花钱 / 日常支出",living:"零花钱 / 日常支出",bill:"固定账单",project:"专项支出",saving:"储蓄取用"};
   const ref=t.bucket==="bill"?S.bills.find(x=>x.id===t.refId):S.projects.find(x=>x.id===t.refId);
   return `<div class="item"><div class="row"><div><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${ref?" · "+esc(ref.name):""}</div></div><div><div class="amount neg">-${M(t.amount)}</div>${del?delBtn(t.id):""}</div></div></div>`;
@@ -968,18 +1058,16 @@ function txHtml(t,del=false){
 function delBtn(id){return `<button class="ghost" style="padding:4px 7px;font-size:10px;margin-top:5px" onclick="event.stopPropagation();removeTx('${id}')">删除</button>`}
 function renderHistory(){
   const m=S.tx.filter(t=>md(t.date)===md());
-  const totalSpent=sm(m.filter(t=>t.type==="expense"),t=>N(t.amount));
+  const normalSpent=sm(m.filter(t=>t.type==="expense"),t=>N(t.amount));
+  const livingActual=sm(m.filter(t=>t.type==="living_settlement"),t=>N(t.actualSpent));
+  const totalSpent=normalSpent+livingActual;
   const ms=monthlyCycleStats(md());
 
-  // “本月储蓄净增”按用户定义：
-  // = 本月每一个收入周期的“预计可存”之和。
-  // 固定账单在收入分配时已经从零花钱里扣除并锁定到具体缴纳周期，
-  // 所以这里直接读取每个周期最终的预计可存，避免重复扣除。
   const inc=ms.income;
   const fixedReserved=ms.fixedReserved;
   const pocketSpent=ms.pocketSpent;
   const net=ms.projectedSaving;
-  const rate=inc>0 ? net/inc*100 : 0;
+  const rate=inc>0?net/inc*100:0;
 
   mIncome.textContent=M(inc);
   mSpend.textContent=M(totalSpent);
@@ -1253,6 +1341,71 @@ saveIncome.onclick=()=>{
   msg(safe<=0?"已记录；零花钱为 0 或负数，已标红":"收入已分配");
 };
 
+
+/* Daily living settlement */
+function openLivingSettlement(){
+  const info=livingDayInfo(td());
+  const existing=livingSettlementForDate(td());
+  if(existing)return msg("今天的基础生活已经结算过了");
+  if(!info.covered||info.allowance<=0)return msg("今天没有需要结算的基础生活预留");
+
+  livingActualSpent.value=0;
+  livingAllowance.textContent=M(info.allowance);
+  livingSumAllowance.textContent=M(info.allowance);
+  livingSettleMeta.textContent=`${td()} · 今日标准 ${M(info.allowance)}`;
+  recalcLivingSettlement();
+  livingSheet.classList.add("show");
+}
+function recalcLivingSettlement(){
+  const info=livingDayInfo(td());
+  const allowance=N(info.allowance);
+  const actual=Math.max(0,N(livingActualSpent.value));
+  const release=allowance-actual;
+
+  livingSumAllowance.textContent=M(allowance);
+  livingSumSpent.textContent=M(actual);
+
+  if(release>=0){
+    livingReleaseLabel.textContent="转入零花钱";
+    livingReleaseAmount.textContent="+"+M(release);
+    livingReleaseAmount.style.color="var(--accent)";
+  }else{
+    livingReleaseLabel.textContent="超出今日标准，减少零花钱";
+    livingReleaseAmount.textContent=M(release);
+    livingReleaseAmount.style.color="var(--danger)";
+  }
+}
+livingActualSpent.addEventListener("input",recalcLivingSettlement);
+
+saveLivingSettlement.onclick=()=>{
+  const info=livingDayInfo(td());
+  if(!info.covered||info.allowance<=0)return msg("今天没有基础生活预留");
+  if(livingSettlementForDate(td()))return msg("今天已经结算过了");
+
+  const actual=Math.max(0,N(livingActualSpent.value));
+  const allowance=N(info.allowance);
+  const release=allowance-actual;
+
+  S.tx.push({
+    id:"ls"+Date.now(),
+    date:td(),
+    type:"living_settlement",
+    coveredDate:td(),
+    sourceIncomeId:info.incomeId,
+    allowance,
+    actualSpent:actual
+  });
+
+  save();
+  closeSheet("livingSheet");
+  render();
+
+  if(release>0)msg(`已把 ${M(release)} 转入零花钱`);
+  else if(release===0)msg("今日基础生活已刚好用完");
+  else msg(`超出今日标准 ${M(Math.abs(release))}，已减少零花钱`);
+};
+
+
 /* Spend */
 function openSpend(){spendBucket.value="safe";spendAmount.value="";spendNote.value="";refreshSpendRefs();spendSheet.classList.add("show")}
 function refreshSpendRefs(){
@@ -1329,6 +1482,8 @@ function removeTx(id){
 
   if(target.type==="income"){
     msg("收入记录已删除；基础生活覆盖和固定账单预留已重新计算");
+  }else if(target.type==="living_settlement"){
+    msg("基础生活结算已撤销，今日预留已恢复");
   }else{
     msg("流水已删除，相关余额已重新计算");
   }
@@ -1337,11 +1492,13 @@ function removeTx(id){
 /* Export */
 function summary(){
   const m=S.tx.filter(t=>md(t.date)===md());
-  const totalSpent=sm(m.filter(t=>t.type==="expense"),t=>N(t.amount));
+  const normalSpent=sm(m.filter(t=>t.type==="expense"),t=>N(t.amount));
+  const livingActual=sm(m.filter(t=>t.type==="living_settlement"),t=>N(t.actualSpent));
+  const totalSpent=normalSpent+livingActual;
   const ms=monthlyCycleStats(md());
   const inc=ms.income;
   const net=ms.projectedSaving;
-  const rate=inc>0 ? net/inc*100 : 0;
+  const rate=inc>0?net/inc*100:0;
 
   const a=accounting();
   const b={safe:a.raw.safe,bills:a.raw.bills};
@@ -1354,7 +1511,9 @@ function summary(){
 月度储蓄目标：${M(S.settings.monthlyGoal)}
 本月收入：${M(inc)}
 本月总消费：${M(totalSpent)}
-本月基础生活扣除：${M(ms.livingReserved)}
+本月基础生活预留：${M(ms.livingReserved)}
+本月基础生活实际支出：${M(ms.livingActualSpent)}
+本月基础生活结余转零花钱：${M(ms.livingReleased)}
 本月固定支出 / 预留：${M(ms.fixedReserved)}
 本月专项预留：${M(ms.projectReserved)}
 本月已用零花钱：${M(ms.pocketSpent)}
@@ -1371,7 +1530,7 @@ function summary(){
 收入计划：
 ${ips||"无"}
 
-请帮我评估这一阶段的现金流、基础生活覆盖是否重复、各收入周期预计可存、本月储蓄净增，以及下一周期的零花钱额度。`;
+请帮我评估这一阶段的现金流、基础生活预算利用情况、零花钱、本周期预计可存和本月储蓄净增。`;
 }
 async function shareText(){
   const text=summary();

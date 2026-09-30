@@ -1,7 +1,7 @@
 {
   "name": "SafeSpend 现金流",
   "short_name": "SafeSpend",
-  "description": "先做计划，再计算当下真正可以安全支出的金额。",
+  "description": "按收入周期规划基础生活、零花钱、固定账单、专项和预计可存。",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
