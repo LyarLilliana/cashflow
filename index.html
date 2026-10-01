@@ -70,6 +70,31 @@ button{touch-action:manipulation}
   margin-top:9px;
 }
 
+
+#savingRangeQuick{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+.bankReminderSavedHead{
+  color:var(--muted);
+}
+.bankReminderSavedHead .reminderSettingLabel{
+  font-size:10px;
+  font-weight:650;
+  color:var(--muted);
+}
+.bankReminderSavedHead .reminderModifyBtn{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  border-radius:999px;
+  padding:4px 7px;
+  min-height:0;
+  font-size:10px;
+  font-weight:650;
+}
+.bankReminderSavedHead .reminderModifyBtn:active{
+  background:#F0F1EE;
+}
 #resultRangeQuick{
   grid-template-columns:repeat(4,minmax(0,1fr));
 }
@@ -971,7 +996,8 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           </div>
         </div>
 
-        <div class="historyQuick">
+        <div class="historyQuick" id="savingRangeQuick">
+          <button id="savingCycleBtn">当前周期</button>
           <button id="savingMonthBtn" class="active">本月</button>
           <button id="savingYearBtn">本年</button>
           <button id="savingAllBtn">全部</button>
@@ -992,13 +1018,15 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
       <div class="card" style="margin-top:10px">
         <div class="name">这段时间的钱是怎么存下来的</div>
-        <div class="meta">只把真正增加或减少储蓄本金的变化算进净增；日常储蓄转银行只是换位置。</div>
+        <div class="meta">周期收入、单次额外收入、手动额外储蓄等都会联动到这里；日常储蓄转银行只改变资金位置，不重复增加总储蓄。</div>
         <div class="divider"></div>
 
-        <div class="explainRow"><span>收入 / 周期结余转入</span><strong id="savingIncomePart">¥0</strong></div>
+        <div class="explainRow"><span>周期收入储蓄</span><strong id="savingRecurringIncomePart">¥0</strong></div>
+        <div class="explainRow"><span>单次额外收入储蓄</span><strong id="savingOneOffIncomePart">¥0</strong></div>
+        <div class="explainRow"><span>周期结束结余转储蓄</span><strong id="savingCycleClosePart">¥0</strong></div>
         <div class="explainRow"><span>零花钱转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
         <div class="explainRow"><span>专项结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
-        <div class="explainRow"><span>额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
+        <div class="explainRow"><span>手动额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
         <div class="explainRow"><span>外部直接存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
         <div class="explainRow"><span>储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
         <div class="explainRow"><span>日常储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
@@ -1019,11 +1047,8 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="divider"></div>
 
         <div class="bankReminderSavedHead">
-          <div>
-            <div class="name">转存额度</div>
-            <div class="meta">达到设定额度后会在这里提示银行转存。</div>
-          </div>
-          <button class="secondary" id="bankReminderEditBtn" hidden>修改提醒额度</button>
+          <div class="reminderSettingLabel">转存额度</div>
+          <button class="reminderModifyBtn" id="bankReminderEditBtn" hidden>修改</button>
         </div>
 
         <div id="bankReminderEditor">
@@ -1524,10 +1549,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v46";
-const OLD_KEYS=["safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v48";
+const OLD_KEYS=["safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:46,
+  version:48,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -3000,13 +3025,11 @@ function txHtml(t,del=false){
     const p=S.incomePlans.find(x=>x.id===t.planId);
     const ea=effectiveIncomeAllocation(t);
 
-    const isExtra=t.incomeKind==="extra" || (!p&&t.planFreqAtRecord==="none");
-    const isPlannedExtra=p&&p.freq==="none";
-    const title=isExtra
-      ?`单次额外收入${t.incomeNote?" · "+esc(t.incomeNote):""}`
-      :isPlannedExtra
-        ?`单次额外收入 · ${esc(p.name)}`
-        :`收入${p?" · "+esc(p.name):""}`;
+    const oneOff=!isCycleIncomeTx(t);
+    const sourceName=p?.name||t.planNameAtRecord||t.incomeNote||"";
+    const title=oneOff
+      ?`单次额外收入${sourceName?" · "+esc(sourceName):""}`
+      :`收入${sourceName?" · "+esc(sourceName):""}`;
 
     const projectText=(ea.projects||[]).map(x=>{
       const pr=S.projects.find(pp=>pp.id===x.projectId);
@@ -3480,7 +3503,20 @@ function savingStatsForRange(start="",end=""){
   };
 
   const incomes=S.tx.filter(t=>t.type==="income"&&inRange(t.date));
-  const planned=sm(incomes,t=>N(effectiveIncomeAllocation(t).saving));
+  const recurringIncomes=incomes.filter(t=>isCycleIncomeTx(t));
+  const oneOffIncomes=incomes.filter(t=>!isCycleIncomeTx(t));
+
+  const recurringIncomeSaving=sm(
+    recurringIncomes,
+    t=>N(effectiveIncomeAllocation(t).saving)
+  );
+  const oneOffIncomeSaving=sm(
+    oneOffIncomes,
+    t=>N(effectiveIncomeAllocation(t).saving)
+  );
+
+  // Keep the legacy aggregate for calculations elsewhere.
+  const planned=recurringIncomeSaving+oneOffIncomeSaving;
 
   const savingTransfers=S.tx.filter(t=>t.type==="pocket_to_saving"&&inRange(t.date));
   const transfers=sm(savingTransfers,t=>N(t.amount));
@@ -3542,6 +3578,8 @@ function savingStatsForRange(start="",end=""){
     cycles:[],
     count:cycleCount,
     planned,
+    recurringIncomeSaving,
+    oneOffIncomeSaving,
     transfers,
     pocketToProject,
     pocketClosed,
@@ -3567,13 +3605,18 @@ let savingRangePreset="month";
 function setSavingRangePreset(mode){
   savingRangePreset=mode;
 
+  savingCycleBtn.classList.toggle("active",mode==="cycle");
   savingMonthBtn.classList.toggle("active",mode==="month");
   savingYearBtn.classList.toggle("active",mode==="year");
   savingAllBtn.classList.toggle("active",mode==="all");
 
   const today=td();
 
-  if(mode==="month"){
+  if(mode==="cycle"){
+    const r=currentCycleResultBounds();
+    savingStartDate.value=r.start;
+    savingEndDate.value=r.end;
+  }else if(mode==="month"){
     const r=monthBounds(today);
     savingStartDate.value=r.start;
     savingEndDate.value=r.end;
@@ -3593,6 +3636,14 @@ function setSavingRangePreset(mode){
 function savingRangeBounds(){
   const start=savingStartDate.value||"";
   const end=savingEndDate.value||"";
+
+  if(savingRangePreset==="cycle"&&start){
+    return {
+      start,
+      end,
+      label:`当前周期 · ${start}${end&&end!==start?" 至 "+end:""}`
+    };
+  }
 
   if(!start&&!end)return {start:"",end:"",label:"全部期间储蓄变化"};
 
@@ -3635,11 +3686,22 @@ function savingChangeEvents(){
       const amount=N(effectiveIncomeAllocation(t).saving);
       if(amount>0){
         const plan=S.incomePlans.find(p=>p.id===t.planId);
+        const oneOff=!isCycleIncomeTx(t);
+        const sourceName=
+          plan?.name
+          ||t.planNameAtRecord
+          ||t.incomeNote
+          ||"";
+
         events.push({
           id:`incomeSaving_${t.id}`,
           date,
-          name:plan?`收入储蓄 · ${plan.name}`:"收入储蓄",
-          meta:"收入到账时直接进入储蓄",
+          name:oneOff
+            ?`单次额外收入储蓄${sourceName?" · "+sourceName:""}`
+            :`周期收入储蓄${sourceName?" · "+sourceName:""}`,
+          meta:oneOff
+            ?"单次收入到账时按本次储蓄分配转入"
+            :"周期收入到账时按储蓄计划转入",
           amount,
           impact:amount,
           mode:"pos"
@@ -3675,8 +3737,8 @@ function savingChangeEvents(){
     if(t.type==="extra_saving"){
       events.push({
         id:t.id,date,
-        name:t.note?`额外储蓄 · ${t.note}`:"额外储蓄",
-        meta:"直接增加日常储蓄",
+        name:t.note?`手动额外储蓄 · ${t.note}`:"手动额外储蓄",
+        meta:"通过“记额外储蓄”直接增加日常储蓄",
         amount:N(t.amount),
         impact:N(t.amount),
         mode:"pos"
@@ -3785,8 +3847,9 @@ function renderSavingStats(){
   const events=filteredSavingChangeEvents(range.start,range.end);
   savingChangeCount.textContent=`${events.length} 条变化`;
 
-  const incomePart=N(s.planned)+N(s.pocketClosed);
-  savingIncomePart.textContent=M(incomePart);
+  savingRecurringIncomePart.textContent=M(s.recurringIncomeSaving);
+  savingOneOffIncomePart.textContent=M(s.oneOffIncomeSaving);
+  savingCycleClosePart.textContent=M(s.pocketClosed);
   savingTransferPart.textContent=M(s.transfers);
   savingProjectSurplusPart.textContent=M(s.projectSurplus);
   savingExtraPart.textContent=M(s.extra);
@@ -3817,6 +3880,7 @@ function renderSavingStats(){
 
 savingStartDate.addEventListener("change",()=>{
   savingRangePreset="custom";
+  savingCycleBtn.classList.remove("active");
   savingMonthBtn.classList.remove("active");
   savingYearBtn.classList.remove("active");
   savingAllBtn.classList.remove("active");
@@ -3825,12 +3889,14 @@ savingStartDate.addEventListener("change",()=>{
 
 savingEndDate.addEventListener("change",()=>{
   savingRangePreset="custom";
+  savingCycleBtn.classList.remove("active");
   savingMonthBtn.classList.remove("active");
   savingYearBtn.classList.remove("active");
   savingAllBtn.classList.remove("active");
   renderSavingStats();
 });
 
+savingCycleBtn.onclick=()=>setSavingRangePreset("cycle");
 savingMonthBtn.onclick=()=>setSavingRangePreset("month");
 savingYearBtn.onclick=()=>setSavingRangePreset("year");
 savingAllBtn.onclick=()=>setSavingRangePreset("all");
@@ -4353,7 +4419,7 @@ function recalcIncome(){
   incLivingGuide.textContent=M(lp.amount);
 
   if(lp.extra){
-    incLivingMeta.textContent="单次额外收入没有周期，本次基础生活扣除为 ¥0。";
+    incLivingMeta.textContent="单次额外收入没有独立生活周期；本次基础生活扣除为 ¥0。设置的“本次优先储蓄”会直接联动到储蓄资产、储蓄变化和结果统计。";
   }else if(!incNextDate.value){
     incLivingMeta.textContent="请先确认下一次周期收入日期。";
   }else if(lp.skippedDays>0){
@@ -4426,6 +4492,7 @@ saveIncome.onclick=()=>{
     date:td(),
     type:"income",
     planId,
+    planNameAtRecord:plan?.name||"",
     incomeKind:isExtra?"extra":(recurring?"recurring":"planned_extra"),
     incomeNote,
     amount,
