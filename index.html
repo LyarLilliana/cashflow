@@ -198,6 +198,92 @@ button{touch-action:manipulation}
   color:var(--muted);
 }
 
+
+.savingAssetBreakdown{
+  margin-top:10px;
+}
+.savingChangeSummary{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-top:10px;
+}
+.savingChangeSummary .card{
+  margin:0;
+}
+.savingChangeList{
+  margin-top:10px;
+}
+.savingChangeRow{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding:11px 0;
+  border-top:1px solid var(--line);
+}
+.savingChangeRow:first-child{
+  border-top:0;
+  padding-top:0;
+}
+.savingChangeRow:last-child{
+  padding-bottom:0;
+}
+.savingChangeLeft{
+  min-width:0;
+}
+.savingChangeName{
+  font-size:11px;
+  font-weight:750;
+}
+.savingChangeMeta{
+  margin-top:3px;
+  color:var(--muted);
+  font-size:9.5px;
+  line-height:1.4;
+}
+.savingChangeAmount{
+  flex:none;
+  text-align:right;
+  font-size:11px;
+  font-weight:800;
+}
+.savingChangeAmount.pos{color:var(--accent)}
+.savingChangeAmount.neg{color:var(--danger)}
+.savingChangeAmount.move{color:var(--muted)}
+.savingGoalGrid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:9px;
+}
+.savingGoalGrid button{
+  width:100%;
+  height:46px;
+  min-height:46px;
+  border-radius:14px;
+}
+.savingGoalValue{
+  font-size:22px;
+  font-weight:850;
+  letter-spacing:-.02em;
+  margin-top:4px;
+}
+.savingGoalProgress{
+  height:10px;
+  border-radius:999px;
+  overflow:hidden;
+  background:#ECEFEA;
+  margin-top:12px;
+}
+.savingGoalProgress span{
+  display:block;
+  height:100%;
+  background:var(--accent);
+  border-radius:999px;
+}
+@media(max-width:560px){
+  .savingChangeSummary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 .bankReminderForm{
   display:grid;
   grid-template-columns:minmax(0,1fr);
@@ -811,11 +897,13 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
   <!-- SAVINGS -->
   <section id="savings" class="panel">
+
+    <!-- 1. CURRENT ASSETS -->
     <div class="section">
-      <div class="sectionTitle">储蓄总览</div>
+      <div class="sectionTitle">当前储蓄资产</div>
 
       <div class="card savingHeroCard">
-        <div class="k">当前储蓄资产</div>
+        <div class="k">现在属于储蓄的资产</div>
         <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
         <div class="s">日常储蓄余额 + 银行存款本金 + 预估累计利息</div>
 
@@ -825,34 +913,92 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         </div>
       </div>
 
-      <div class="grid" style="margin-top:10px">
-        <div class="card stat">
-          <div class="k">本周期预计可存</div>
-          <div class="v" id="savingPrincipalTotal">¥0</div>
-          <div class="s">与“现在”页口径一致，随转储蓄和储蓄取用实时变化</div>
-        </div>
-        <div class="card stat">
-          <div class="k">银行存款本金</div>
-          <div class="v" id="savingBankPrincipal">¥0</div>
-          <div class="s">已登记的银行存款本金</div>
-        </div>
-        <div class="card stat">
-          <div class="k">预估累计利息</div>
-          <div class="v" id="savingBankInterest">¥0</div>
-          <div class="s">按录入利率逐日估算</div>
-        </div>
-        <div class="card stat">
-          <div class="k">日常储蓄余额</div>
-          <div class="v" id="savingFreePrincipal">¥0</div>
-          <div class="s">尚未转入银行、当前可用的储蓄余额</div>
+      <div class="card savingAssetBreakdown">
+        <div class="explainRow"><span>日常储蓄余额</span><strong id="savingFreePrincipal">¥0</strong></div>
+        <div class="explainRow"><span>银行存款本金</span><strong id="savingBankPrincipal">¥0</strong></div>
+        <div class="explainRow"><span>预估累计利息</span><strong id="savingBankInterest">¥0</strong></div>
+        <div class="note" style="margin-top:9px">
+          上方总额就是这三部分相加；预估利息会随银行存款记录中的利率和时间变化。
         </div>
       </div>
     </div>
 
+    <!-- 2. SAVINGS CHANGES -->
     <div class="section">
-      <div class="sectionTitle">银行转存提醒</div>
+      <div class="sectionTitle">储蓄变化</div>
+
+      <div class="savingChangeSummary">
+        <div class="card stat">
+          <div class="k">本月新增储蓄</div>
+          <div class="v" id="savingMonthGrowth">¥0</div>
+          <div class="s">本月储蓄本金净增加</div>
+        </div>
+        <div class="card stat">
+          <div class="k">本年新增储蓄</div>
+          <div class="v" id="savingYearGrowth">¥0</div>
+          <div class="s">本年储蓄本金净增加</div>
+        </div>
+      </div>
+
+      <div class="card historyFilter" style="margin-top:10px">
+        <div class="historyFilterGrid">
+          <div>
+            <label>开始日期</label>
+            <input id="savingStartDate" type="date">
+          </div>
+          <div>
+            <label>结束日期</label>
+            <input id="savingEndDate" type="date">
+          </div>
+        </div>
+
+        <div class="historyQuick">
+          <button id="savingMonthBtn" class="active">本月</button>
+          <button id="savingYearBtn">本年</button>
+          <button id="savingAllBtn">全部</button>
+        </div>
+
+        <div class="historyFilterMeta">
+          <span id="savingPeriodLabel">本月储蓄变化</span>
+          <span id="savingChangeCount">0 条变化</span>
+        </div>
+
+        <div class="savingPeriodHead" style="margin-top:10px">
+          <div>
+            <div class="small">这个范围新增储蓄</div>
+            <div class="savingPeriodValue" id="savingPeriodValue">¥0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <div class="name">这段时间的钱是怎么存下来的</div>
+        <div class="meta">只把真正增加或减少储蓄本金的变化算进净增；日常储蓄转银行只是换位置。</div>
+        <div class="divider"></div>
+
+        <div class="explainRow"><span>收入 / 周期结余转入</span><strong id="savingIncomePart">¥0</strong></div>
+        <div class="explainRow"><span>零花钱转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
+        <div class="explainRow"><span>专项结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
+        <div class="explainRow"><span>额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
+        <div class="explainRow"><span>外部直接存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
+        <div class="explainRow"><span>储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
+        <div class="explainRow"><span>日常储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
+        <div class="explainRow total"><span>期间新增储蓄本金</span><strong id="savingGrowthTotal">¥0</strong></div>
+      </div>
+
+      <div class="card savingChangeList" id="savingChangeList"></div>
+    </div>
+
+    <!-- 3. BANK DEPOSITS -->
+    <div class="section">
+      <div class="sectionTitle">银行存款</div>
 
       <div class="card">
+        <div class="name">银行转存提醒</div>
+        <div class="meta">日常储蓄累计到你设定的额度时，提醒你分笔存入银行。</div>
+
+        <div class="divider"></div>
+
         <div class="bankReminderForm">
           <div>
             <label>提醒额度</label>
@@ -883,101 +1029,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           </div>
         </div>
 
-        <div class="note" id="bankReminderHint" style="margin-top:10px">
-          这里统计的是尚未进入银行的日常储蓄，包括计划储蓄、零花钱转储蓄、周期结束结余、专项结余和额外储蓄，扣除已经用掉或转入银行的部分。
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="sectionTitle">储蓄统计</div>
-
-      <div class="card savingHeroCard">
-        <div class="k">累计储蓄净增</div>
-        <div class="savingHeroValue" id="savingAllTime">¥0</div>
-        <div class="s">按全部历史流水累计的储蓄本金净变化，不含预估利息</div>
+        <div class="note" id="bankReminderHint" style="margin-top:10px"></div>
       </div>
 
-      <div class="card historyFilter" style="margin-top:10px">
-        <div class="historyFilterGrid">
-          <div>
-            <label>开始日期</label>
-            <input id="savingStartDate" type="date">
-          </div>
-          <div>
-            <label>结束日期</label>
-            <input id="savingEndDate" type="date">
-          </div>
-        </div>
-
-        <div class="historyQuick">
-          <button id="savingMonthBtn" class="active">本月</button>
-          <button id="savingYearBtn">本年</button>
-          <button id="savingAllBtn">全部</button>
-        </div>
-
-        <div class="historyFilterMeta">
-          <span id="savingPeriodLabel">本月储蓄增长</span>
-          <span id="savingCycleCount">0 个收入周期</span>
-        </div>
-
-        <div class="savingPeriodHead" style="margin-top:10px">
-          <div>
-            <div class="small">储蓄增长</div>
-            <div class="savingPeriodValue" id="savingPeriodValue">¥0</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:10px">
-        <div class="name">日常储蓄</div>
-        <div class="meta">收入周期省下的钱、专项结余和额外储蓄都归在这里。</div>
-        <div class="divider"></div>
-
-        <div class="explainRow"><span>计划储蓄</span><strong id="savingPlannedPart">¥0</strong></div>
-        <div class="explainRow"><span>零花钱主动转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
-        <div class="explainRow"><span>零花钱转专项</span><strong id="savingPocketProjectPart">¥0</strong></div>
-        <div class="explainRow"><span>周期结束剩余零花钱</span><strong id="savingPocketPart">¥0</strong></div>
-        <div class="explainRow"><span>专项结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
-        <div class="explainRow"><span>额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
-        <div class="explainRow"><span>储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
-        <div class="explainRow"><span>转入银行存款</span><strong id="savingBankTransferPart">¥0</strong></div>
-        <div class="explainRow total"><span>日常储蓄净变动</span><strong id="savingOrdinaryNet">¥0</strong></div>
-      </div>
-
-      <div class="card" style="margin-top:10px">
-        <div class="name">银行存款储蓄</div>
-        <div class="meta">单独按银行存款的本金与预估利息统计。</div>
-        <div class="divider"></div>
-
-        <div class="explainRow"><span>期间新存本金</span><strong id="savingBankStartedPart">¥0</strong></div>
-        <div class="explainRow"><span>其中从日常储蓄转入</span><strong id="savingBankExistingPart">¥0</strong></div>
-        <div class="explainRow"><span>其中外部新增储蓄</span><strong id="savingBankExternalPart">¥0</strong></div>
-        <div class="explainRow"><span>预估利息增长</span><strong id="savingInterestPart">¥0</strong></div>
-        <div class="explainRow total"><span>银行存款增加</span><strong id="savingBankGrowth">¥0</strong></div>
-      </div>
-
-      <div class="card" style="margin-top:10px">
-        <div class="explainRow total"><span>本统计范围总储蓄增长</span><strong id="savingGrowthTotal">¥0</strong></div>
-        <div class="note" style="margin-top:9px">
-          从日常储蓄转入银行只是资金位置变化，不会重复增加总储蓄；银行利息按录入利率逐日估算。
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="sectionTitle">周期储蓄结算</div>
-      <div class="card" id="savingCycleList"></div>
-    </div>
-
-    <div class="section">
-      <div class="sectionTitle">额外储蓄</div>
-      <div class="card" id="extraSavingList"></div>
-    </div>
-
-    <div class="section">
-      <div class="sectionTitle">银行存款</div>
-      <div class="card" id="bankDepositList"></div>
+      <div class="card" id="bankDepositList" style="margin-top:10px"></div>
     </div>
   </section>
 
@@ -988,16 +1043,24 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="grid">
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
-        <div class="card stat"><div class="k">预计储蓄增长</div><div class="v" id="mExpectedSaving">¥0</div><div class="s">本月已确认净增 + 本周期预计在本月结束时沉淀的剩余零花钱</div></div>
-        <div class="card stat"><div class="k">已确认储蓄净增</div><div class="v" id="mSaving">¥0</div><div class="s">按本月实际发生的储蓄动作实时统计</div></div>
+        <div class="card stat"><div class="k">本月预计储蓄增长</div><div class="v" id="mExpectedSaving">¥0</div><div class="s">只统计预计会在本月内形成的储蓄增长</div></div>
+        <div class="card stat"><div class="k">本月已确认储蓄净增</div><div class="v" id="mSaving">¥0</div><div class="s">只统计本月已经实际发生的储蓄变化</div></div>
       </div>
       <div class="card" style="margin-top:10px">
         <div class="explainRow"><span>本月收入</span><strong id="mResultIncome">¥0</strong></div>
-        <div class="explainRow"><span>本月基础生活扣除</span><strong id="mLivingReserved">¥0</strong></div>
-        <div class="explainRow"><span>本月固定支出 / 预留</span><strong id="mFixedSpent">¥0</strong></div>
-        <div class="explainRow"><span>本月已用零花钱</span><strong id="mPocketSpent">¥0</strong></div>
+
+        <div class="divider"></div>
+        <div class="small" style="margin-bottom:5px">本月实际支出</div>
+        <div class="explainRow"><span>基础生活实际支出</span><strong id="mLivingActualSpend">¥0</strong></div>
+        <div class="explainRow"><span>零花钱 / 日常支出</span><strong id="mDailyActualSpend">¥0</strong></div>
+        <div class="explainRow"><span>固定账单实际支付</span><strong id="mBillActualSpend">¥0</strong></div>
+        <div class="explainRow"><span>专项实际支出</span><strong id="mProjectActualSpend">¥0</strong></div>
+        <div class="explainRow"><span>从储蓄直接支出</span><strong id="mSavingActualSpend">¥0</strong></div>
+        <div class="explainRow total"><span>本月消费合计</span><strong id="mActualSpendTotal">¥0</strong></div>
+
+        <div class="divider"></div>
         <div class="explainRow"><span>本月储蓄率</span><strong id="mRate">0%</strong></div>
-        <div class="explainRow"><span>本周期预计可存</span><strong id="mCycleProjectedSaving">¥0</strong></div>
+        <div class="explainRow"><span>本月预计储蓄增长</span><strong id="mExpectedSavingDetail">¥0</strong></div>
         <div class="explainRow total"><span>本月已确认储蓄净增</span><strong id="mNetSavingDetail">¥0</strong></div>
       </div>
     </div>
@@ -1419,10 +1482,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v38";
-const OLD_KEYS=["safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v44";
+const OLD_KEYS=["safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:38,
+  version:44,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -2543,21 +2606,22 @@ function projectFinanceDetailHtml(p,a){
     <div class="projectFinanceNumbers">
       <div class="projectFinanceNumber"><span>总预算</span><strong>${M(budget)}</strong></div>
       <div class="projectFinanceNumber"><span>已备资金</span><strong>${M(funded)}</strong></div>
-      <div class="projectFinanceNumber"><span>已经花掉</span><strong>${M(spent)}</strong></div>
       <div class="projectFinanceNumber"><span>专项剩余</span><strong>${M(available)}</strong></div>
+      <div class="projectFinanceNumber"><span>已经花掉</span><strong>${M(spent)}</strong></div>
     </div>
 
     ${budget>0?`<div class="projectMoneyBar">
-      <span class="projectMoneySpent" style="width:${spentPct}%"></span>
       <span class="projectMoneyAvailable" style="width:${availablePct}%"></span>
+      <span class="projectMoneySpent" style="width:${spentPct}%"></span>
       <span class="projectMoneyGap" style="width:${gapPct}%"></span>
     </div>
     <div class="projectMoneyLegend">
-      <span><i style="background:#B98576"></i>已花 ${M(spent)}</span>
       <span><i style="background:var(--accent)"></i>剩余 ${M(available)}</span>
-      ${gapWithin>0?`<span><i style="background:#DDE1DC"></i>待补 ${M(gap)}</span>`:""}
+      <span><i style="background:#B98576"></i>已花 ${M(spent)}</span>
+      ${gapWithin>0?`<span><i style="background:#DDE1DC"></i>还差 ${M(gap)}</span>`:""}
       ${overBudget>0?`<span style="color:var(--danger)">超预算 ${M(overBudget)}</span>`:""}
-    </div>`:""}
+    </div>
+    <div class="projectLedgerMeta" style="margin-top:5px">绿色 + 暖色 = 已经备到的资金；最右侧灰色 = 尚未补足。</div>`:""}
 
     <details class="projectLedger">
       <summary><span>支出明细 · ${expenses.length} 笔</span></summary>
@@ -3385,10 +3449,10 @@ function savingRangeBounds(){
   const start=savingStartDate.value||"";
   const end=savingEndDate.value||"";
 
-  if(!start&&!end)return {start:"",end:"",label:"全部期间储蓄增长"};
+  if(!start&&!end)return {start:"",end:"",label:"全部期间储蓄变化"};
 
   if(start&&end&&start===end){
-    return {start,end,label:`${start} 储蓄增长`};
+    return {start,end,label:`${start} 储蓄变化`};
   }
 
   if(start&&end){
@@ -3399,11 +3463,11 @@ function savingRangeBounds(){
     const sameMonth=start.slice(0,7)===end.slice(0,7);
 
     if(monthStart&&monthEnd&&sameMonth){
-      return {start,end,label:`${start.slice(0,7)} 储蓄增长`};
+      return {start,end,label:`${start.slice(0,7)} 储蓄变化`};
     }
 
     if(start.endsWith("-01-01")&&end.endsWith("-12-31")&&start.slice(0,4)===end.slice(0,4)){
-      return {start,end,label:`${start.slice(0,4)} 年储蓄增长`};
+      return {start,end,label:`${start.slice(0,4)} 年储蓄变化`};
     }
 
     return {start,end,label:`${start} 至 ${end}`};
@@ -3415,45 +3479,195 @@ function savingRangeBounds(){
 
 
 
+function savingChangeEvents(){
+  const events=[];
+  const effects=accounting().effects;
+
+  S.tx.forEach(t=>{
+    const date=t.date||"";
+
+    if(t.type==="income"){
+      const amount=N(effectiveIncomeAllocation(t).saving);
+      if(amount>0){
+        const plan=S.incomePlans.find(p=>p.id===t.planId);
+        events.push({
+          id:`incomeSaving_${t.id}`,
+          date,
+          name:plan?`收入储蓄 · ${plan.name}`:"收入储蓄",
+          meta:"收入到账时直接进入储蓄",
+          amount,
+          impact:amount,
+          mode:"pos"
+        });
+      }
+      return;
+    }
+
+    if(t.type==="pocket_to_saving"){
+      events.push({
+        id:t.id,date,
+        name:"零花钱转储蓄",
+        meta:"从可自由支配零花钱转入",
+        amount:N(t.amount),
+        impact:N(t.amount),
+        mode:"pos"
+      });
+      return;
+    }
+
+    if(t.type==="project_settlement"){
+      events.push({
+        id:t.id,date,
+        name:`专项结余转储蓄${t.projectName?" · "+t.projectName:""}`,
+        meta:"专项结算后的剩余资金",
+        amount:N(t.amount),
+        impact:N(t.amount),
+        mode:"pos"
+      });
+      return;
+    }
+
+    if(t.type==="extra_saving"){
+      events.push({
+        id:t.id,date,
+        name:t.note?`额外储蓄 · ${t.note}`:"额外储蓄",
+        meta:"直接增加日常储蓄",
+        amount:N(t.amount),
+        impact:N(t.amount),
+        mode:"pos"
+      });
+      return;
+    }
+
+    if(t.type==="expense"){
+      let used=0;
+      let meta="";
+
+      if(t.bucket==="saving"){
+        used=N(t.amount);
+        meta="从储蓄直接支付";
+      }else if(t.bucket==="project"&&(t.projectOverrunSource==="saving"||!t.projectOverrunSource)){
+        used=N(t.projectOverrunAmount||effects[t.id]?.overPlan);
+        if(used>0)meta="专项超出部分由储蓄支付";
+      }else if(t.bucket!=="project"){
+        used=N(effects[t.id]?.autoDraw);
+        if(used>0)meta="预算不足后自动动用储蓄";
+      }
+
+      if(used>0){
+        events.push({
+          id:`savingUse_${t.id}`,date,
+          name:t.note?`储蓄取用 · ${t.note}`:"储蓄取用",
+          meta,
+          amount:used,
+          impact:-used,
+          mode:"neg"
+        });
+      }
+    }
+  });
+
+  virtualCycleCloseEvents().forEach(t=>{
+    events.push({
+      id:t.id,
+      date:t.date,
+      name:"周期结余转储蓄",
+      meta:"上一收入周期剩余零花钱自动沉淀",
+      amount:N(t.amount),
+      impact:N(t.amount),
+      mode:"pos"
+    });
+  });
+
+  activeBankDeposits().forEach(d=>{
+    if(d.source==="existing"){
+      events.push({
+        id:`bankExisting_${d.id}`,
+        date:d.startDate||"",
+        name:`日常储蓄转银行 · ${d.name||"银行存款"}`,
+        meta:"资金位置变化，不重复增加总储蓄",
+        amount:N(d.principal),
+        impact:0,
+        mode:"move"
+      });
+    }else if(d.source==="external"){
+      events.push({
+        id:`bankExternal_${d.id}`,
+        date:d.startDate||"",
+        name:`外部新增银行存款 · ${d.name||"银行存款"}`,
+        meta:"外部新增储蓄直接进入银行",
+        amount:N(d.principal),
+        impact:N(d.principal),
+        mode:"pos"
+      });
+    }
+  });
+
+  return events.sort((a,b)=>{
+    if(String(a.date)!==String(b.date))return String(b.date).localeCompare(String(a.date));
+    return String(b.id).localeCompare(String(a.id));
+  });
+}
+
+function filteredSavingChangeEvents(start="",end=""){
+  return savingChangeEvents().filter(ev=>{
+    if(start&&ev.date<start)return false;
+    if(end&&ev.date>end)return false;
+    return true;
+  });
+}
+
 function renderSavingStats(){
-  const all=savingStatsForRange();
   const range=savingRangeBounds();
   const s=savingStatsForRange(range.start,range.end);
 
-  savingAllTime.textContent=M(all.principalNet);
-  savingAllTime.style.color=all.principalNet<0?"var(--danger)":"var(--accent)";
+  const month=monthBounds(td());
+  const monthStats=savingStatsForRange(month.start,month.end);
+
+  const y=td().slice(0,4);
+  const yearStats=savingStatsForRange(`${y}-01-01`,`${y}-12-31`);
+
+  savingMonthGrowth.textContent=M(monthStats.principalNet);
+  savingMonthGrowth.style.color=monthStats.principalNet<0?"var(--danger)":"var(--accent)";
+
+  savingYearGrowth.textContent=M(yearStats.principalNet);
+  savingYearGrowth.style.color=yearStats.principalNet<0?"var(--danger)":"var(--accent)";
 
   savingPeriodLabel.textContent=range.label;
-  savingPeriodValue.textContent=M(s.growth);
-  savingPeriodValue.style.color=s.growth<0?"var(--danger)":"var(--accent)";
-  savingCycleCount.textContent=`${s.count} 个收入周期`;
+  savingPeriodValue.textContent=M(s.principalNet);
+  savingPeriodValue.style.color=s.principalNet<0?"var(--danger)":"var(--accent)";
 
-  savingPlannedPart.textContent=M(s.planned);
+  const events=filteredSavingChangeEvents(range.start,range.end);
+  savingChangeCount.textContent=`${events.length} 条变化`;
+
+  const incomePart=N(s.planned)+N(s.pocketClosed);
+  savingIncomePart.textContent=M(incomePart);
   savingTransferPart.textContent=M(s.transfers);
-  savingPocketProjectPart.textContent=M(s.pocketToProject);
-  savingPocketPart.textContent=M(s.pocketClosed);
   savingProjectSurplusPart.textContent=M(s.projectSurplus);
   savingExtraPart.textContent=M(s.extra);
+  savingExternalBankPart.textContent=M(s.bankExternal);
 
   savingUsePart.textContent=s.deductions>0?`-${M(s.deductions)}`:M(0);
   savingUsePart.style.color=s.deductions>0?"var(--danger)":"inherit";
 
-  savingBankTransferPart.textContent=s.bankExisting>0?`-${M(s.bankExisting)}`:M(0);
+  savingBankTransferPart.textContent=s.bankExisting>0?`${M(s.bankExisting)} → 银行`:M(0);
   savingBankTransferPart.style.color=s.bankExisting>0?"var(--muted)":"inherit";
 
-  savingOrdinaryNet.textContent=M(s.ordinaryNet);
-  savingOrdinaryNet.style.color=s.ordinaryNet<0?"var(--danger)":"var(--accent)";
+  savingGrowthTotal.textContent=M(s.principalNet);
+  savingGrowthTotal.style.color=s.principalNet<0?"var(--danger)":"var(--accent)";
 
-  savingBankStartedPart.textContent=M(s.bankStarted);
-  savingBankExistingPart.textContent=M(s.bankExisting);
-  savingBankExternalPart.textContent=M(s.bankExternal);
-  savingInterestPart.textContent=M(s.interest);
-
-  savingBankGrowth.textContent=M(s.bankGrowth);
-  savingBankGrowth.style.color=s.bankGrowth<0?"var(--danger)":"var(--accent)";
-
-  savingGrowthTotal.textContent=M(s.growth);
-  savingGrowthTotal.style.color=s.growth<0?"var(--danger)":"var(--accent)";
+  savingChangeList.innerHTML=events.length
+    ?events.slice(0,30).map(ev=>`
+      <div class="savingChangeRow">
+        <div class="savingChangeLeft">
+          <div class="savingChangeName">${esc(ev.name)}</div>
+          <div class="savingChangeMeta">${ev.date}${ev.meta?" · "+esc(ev.meta):""}</div>
+        </div>
+        <div class="savingChangeAmount ${ev.mode}">
+          ${ev.mode==="pos"?"+":ev.mode==="neg"?"-":"→ "}${M(ev.amount)}
+        </div>
+      </div>`).join("")
+    :'<div class="note">这个时间范围内还没有储蓄变化。</div>';
 }
 
 savingStartDate.addEventListener("change",()=>{
@@ -3486,6 +3700,7 @@ saveBankReminderThreshold.onclick=()=>{
 
 bankReminderDepositBtn.onclick=openBankDepositFromReminder;
 bankReminderNowBtn.onclick=openBankDepositFromReminder;
+
 
 
 
@@ -3524,7 +3739,7 @@ function renderBankDepositReminder(){
     bankReminderGap.textContent="—";
     bankReminderProgress.style.width="0%";
     bankReminderReady.style.display="none";
-    bankReminderHint.textContent="设置一个额度，例如 ¥5,000。日常储蓄达到这个金额后，App 会提醒你把钱存入银行。";
+    bankReminderHint.textContent="设置一个额度，例如 ¥5,000。日常储蓄达到这个金额后，会提醒你分笔存入银行。";
   }else if(r.ready){
     bankReminderGapLabel.textContent="已超过提醒额度";
     bankReminderGap.textContent=M(r.current-r.threshold);
@@ -3562,19 +3777,15 @@ function openBankDepositFromReminder(){
   refreshBankDepositForm();
 }
 
+
 function renderSavings(){
   renderSavingStats();
   renderBankDepositReminder();
 
-  const all=savingStatsForRange();
   const bankPrincipal=bankPrincipalTotal();
   const interest=bankInterestTotal();
   const ordinary=ordinarySavingsAvailable();
-  const cycle=currentCycleStats();
   const total=ordinary+bankPrincipal+interest;
-
-  savingPrincipalTotal.textContent=M(cycle.projectedSaving);
-  savingPrincipalTotal.style.color=cycle.projectedSaving<0?"var(--danger)":"inherit";
 
   savingBankPrincipal.textContent=M(bankPrincipal);
   savingBankInterest.textContent=M(interest);
@@ -3583,50 +3794,6 @@ function renderSavings(){
 
   savingGrandTotal.textContent=M(total);
   savingGrandTotal.style.color=total<0?"var(--danger)":"var(--accent)";
-
-  const cycles=[...allSavingsCycles()].sort((a,b)=>
-    (b.income?.date||"").localeCompare(a.income?.date||"")
-  );
-
-  savingCycleList.innerHTML=cycles.length?cycles.slice(0,24).map(c=>{
-    const start=c.income?.date||"";
-    const end=c.nextCycleIncome?.date?addDays(c.nextCycleIncome.date,-1):"进行中";
-    const deduction=N(c.manualSavingUse)+Math.max(0,-N(c.pocketBalance));
-    return `<div class="savingAccountItem">
-      <div class="savingAccountTop">
-        <div>
-          <div class="name">${start}${end&&end!=="进行中"?" ～ "+end:" · 进行中"}</div>
-          <div class="meta">${c.isClosed?"已结算":"当前周期"} · 收入 ${M(c.incomeTotal)}</div>
-        </div>
-        <div class="savingAccountValue ${c.projectedSaving<0?"neg":"pos"}">${M(c.projectedSaving)}</div>
-      </div>
-      <div class="savingMiniGrid">
-        <div>计划储蓄<strong>${M(c.plannedSaving)}</strong></div>
-        <div>主动转储蓄<strong>${M(c.pocketToSaving)}</strong></div>
-        <div>专项结余转储蓄<strong>${M(c.projectSettlementSaving)}</strong></div>
-        <div>周期结束零花钱<strong>${c.isClosed?M(c.endPocketSaved):"待结算"}</strong></div>
-        <div>扣减<strong>${deduction>0?"-"+M(deduction):M(0)}</strong></div>
-      </div>
-    </div>`;
-  }).join(""):'<div class="note">还没有收入周期储蓄记录。</div>';
-
-  const extra=[...S.tx]
-    .filter(t=>t.type==="extra_saving")
-    .sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
-
-  extraSavingList.innerHTML=extra.length?extra.slice(0,30).map(t=>`
-    <div class="savingAccountItem">
-      <div class="savingAccountTop">
-        <div>
-          <div class="name">${t.note?esc(t.note):"额外储蓄"}</div>
-          <div class="meta">${t.date} · 额外储蓄</div>
-        </div>
-        <div style="text-align:right">
-          <div class="savingAccountValue pos">+${M(t.amount)}</div>
-          <button class="txDelete" style="margin-top:7px" onclick="removeTx('${t.id}')">删除</button>
-        </div>
-      </div>
-    </div>`).join(""):'<div class="note">还没有额外储蓄记录。</div>';
 
   const deposits=[...activeBankDeposits()].sort((a,b)=>
     String(b.startDate||"").localeCompare(String(a.startDate||""))
@@ -3678,40 +3845,99 @@ function renderSavings(){
         <button onclick="editBankDeposit('${d.id}')">修改</button>
       </div>
     </div>`;
-  }).join(""):'<div class="note">还没有银行存款。可以分别记录活期和不同期限的定期存款，并按录入利率每天估算应计利息。</div>';
+  }).join(""):'<div class="note">还没有银行存款。可以记录活期或不同期限的定期存款，并按录入利率估算利息。</div>';
+
+}
+
+function actualSpendingDate(t){
+  if(!t)return "";
+  if(t.type==="living_settlement")return t.coveredDate||t.date||"";
+  return t.date||"";
+}
+
+function actualSpendingAmount(t){
+  if(!t)return 0;
+  if(t.type==="expense")return Math.max(0,N(t.amount));
+  if(t.type==="living_settlement")return Math.max(0,N(t.actualSpent));
+  return 0;
+}
+
+function spendingBreakdownForMonth(ym=md()){
+  const rows=S.tx.filter(t=>{
+    const amount=actualSpendingAmount(t);
+    if(amount<=0)return false;
+    return md(actualSpendingDate(t))===ym;
+  });
+
+  let living=0,daily=0,bill=0,project=0,saving=0;
+
+  rows.forEach(t=>{
+    const amount=actualSpendingAmount(t);
+
+    if(t.type==="living_settlement"){
+      living+=amount;
+      return;
+    }
+
+    // A bill paid directly from pocket money still belongs to "fixed bills",
+    // even though its accounting bucket is safe.
+    if(t.settledBillId || t.bucket==="bill"){
+      bill+=amount;
+      return;
+    }
+
+    if(t.bucket==="project"){
+      project+=amount;
+      return;
+    }
+
+    if(t.bucket==="saving"){
+      saving+=amount;
+      return;
+    }
+
+    // Everything else recorded as an actual expense is ordinary/day-to-day spend.
+    daily+=amount;
+  });
+
+  const total=living+daily+bill+project+saving;
+  return {rows,living,daily,bill,project,saving,total};
 }
 
 function renderHistory(){
-  const m=S.tx.filter(t=>md(t.date)===md());
-  const normalSpent=sm(m.filter(t=>t.type==="expense"),t=>N(t.amount));
-  const livingActual=sm(m.filter(t=>t.type==="living_settlement"),t=>N(t.actualSpent));
-  const totalSpent=normalSpent+livingActual;
-  const ms=monthlyCycleStats(md());
-  const cycle=currentCycleStats();
+  const ym=md();
+  const spend=spendingBreakdownForMonth(ym);
+  const ms=monthlyCycleStats(ym);
 
   const inc=ms.income;
-  const fixedReserved=ms.fixedReserved;
-  const pocketSpent=ms.pocketSpent;
   const confirmed=ms.projectedSaving;
   const expected=ms.expectedSaving;
   const rate=inc>0?confirmed/inc*100:0;
 
+  // “本月结果”里的所有数字都严格以当前自然月为统计边界。
+  // 不再混入“当前收入周期”的跨月数字。
   mIncome.textContent=M(inc);
-  mSpend.textContent=M(totalSpent);
+  mSpend.textContent=M(spend.total);
   mExpectedSaving.textContent=M(expected);
   mSaving.textContent=M(confirmed);
   mRate.textContent=(Math.round(rate*10)/10)+"%";
 
   mResultIncome.textContent=M(inc);
-  mLivingReserved.textContent=M(ms.livingReserved);
-  mFixedSpent.textContent=M(fixedReserved);
-  mPocketSpent.textContent=M(pocketSpent);
-  mCycleProjectedSaving.textContent=M(cycle.projectedSaving);
+  mLivingActualSpend.textContent=M(spend.living);
+  mDailyActualSpend.textContent=M(spend.daily);
+  mBillActualSpend.textContent=M(spend.bill);
+  mProjectActualSpend.textContent=M(spend.project);
+  mSavingActualSpend.textContent=M(spend.saving);
+  mActualSpendTotal.textContent=M(spend.total);
+
+  mExpectedSavingDetail.textContent=M(expected);
   mNetSavingDetail.textContent=M(confirmed);
 
+  mSpend.style.color=spend.total>0?"inherit":"var(--muted)";
+  mActualSpendTotal.style.color=spend.total>0?"var(--text)":"var(--muted)";
   mExpectedSaving.style.color=expected<0?"var(--danger)":"var(--accent)";
+  mExpectedSavingDetail.style.color=expected<0?"var(--danger)":"var(--accent)";
   mSaving.style.color=confirmed<0?"var(--danger)":"var(--accent)";
-  mCycleProjectedSaving.style.color=cycle.projectedSaving<0?"var(--danger)":"var(--accent)";
   mNetSavingDetail.style.color=confirmed<0?"var(--danger)":"var(--accent)";
   mRate.style.color=rate<0?"var(--danger)":"inherit";
 
@@ -4623,10 +4849,8 @@ function removeTx(id){
 
 /* Export */
 function summary(){
-  const m=S.tx.filter(t=>md(t.date)===md());
-  const normalSpent=sm(m.filter(t=>t.type==="expense"),t=>N(t.amount));
-  const livingActual=sm(m.filter(t=>t.type==="living_settlement"),t=>N(t.actualSpent));
-  const totalSpent=normalSpent+livingActual;
+  const spend=spendingBreakdownForMonth(md());
+  const totalSpent=spend.total;
   const ms=monthlyCycleStats(md());
   const inc=ms.income;
   const net=ms.projectedSaving;
@@ -4643,6 +4867,11 @@ function summary(){
 月度储蓄目标：${M(S.settings.monthlyGoal)}
 本月收入：${M(inc)}
 本月总消费：${M(totalSpent)}
+其中基础生活实际支出：${M(spend.living)}
+其中零花钱 / 日常支出：${M(spend.daily)}
+其中固定账单实际支付：${M(spend.bill)}
+其中专项实际支出：${M(spend.project)}
+其中从储蓄直接支出：${M(spend.saving)}
 本月基础生活预留：${M(ms.livingReserved)}
 本月基础生活实际支出：${M(ms.livingActualSpent)}
 本月基础生活结余转零花钱：${M(ms.livingReleased)}
