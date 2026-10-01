@@ -898,50 +898,34 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="s">按全部历史流水累计的储蓄本金净变化，不含预估利息</div>
       </div>
 
-      <div class="card" style="margin-top:10px">
-        <div class="savingFilterRow">
+      <div class="card historyFilter" style="margin-top:10px">
+        <div class="historyFilterGrid">
           <div>
-            <label>统计范围</label>
-            <select id="savingRangeMode">
-              <option value="month">本月</option>
-              <option value="specificMonth">指定月份</option>
-              <option value="year">本年</option>
-              <option value="specificYear">指定年份</option>
-              <option value="custom">自定义日期</option>
-              <option value="all">全部</option>
-            </select>
+            <label>开始日期</label>
+            <input id="savingStartDate" type="date">
           </div>
-
-          <div id="savingMonthWrap" style="display:none">
-            <label>月份</label>
-            <input id="savingMonthInput" type="month">
-          </div>
-
-          <div id="savingYearWrap" style="display:none">
-            <label>年份</label>
-            <select id="savingYearSelect"></select>
-          </div>
-
-          <div id="savingCustomWrap" style="display:none;grid-column:1/-1">
-            <div class="historyFilterGrid">
-              <div>
-                <label>开始日期</label>
-                <input id="savingStartDate" type="date">
-              </div>
-              <div>
-                <label>结束日期</label>
-                <input id="savingEndDate" type="date">
-              </div>
-            </div>
+          <div>
+            <label>结束日期</label>
+            <input id="savingEndDate" type="date">
           </div>
         </div>
 
-        <div class="savingPeriodHead">
+        <div class="historyQuick">
+          <button id="savingMonthBtn" class="active">本月</button>
+          <button id="savingYearBtn">本年</button>
+          <button id="savingAllBtn">全部</button>
+        </div>
+
+        <div class="historyFilterMeta">
+          <span id="savingPeriodLabel">本月储蓄增长</span>
+          <span id="savingCycleCount">0 个收入周期</span>
+        </div>
+
+        <div class="savingPeriodHead" style="margin-top:10px">
           <div>
-            <div class="small" id="savingPeriodLabel">本月储蓄增长</div>
+            <div class="small">储蓄增长</div>
             <div class="savingPeriodValue" id="savingPeriodValue">¥0</div>
           </div>
-          <div class="savingCycleCount" id="savingCycleCount">0 个收入周期</div>
         </div>
       </div>
 
@@ -1435,10 +1419,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v37";
-const OLD_KEYS=["safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v38";
+const OLD_KEYS=["safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:37,
+  version:38,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -3369,75 +3353,69 @@ function savingStatsForRange(start="",end=""){
   };
 }
 
-function savingRangeBounds(){
-  const mode=savingRangeMode.value;
+let savingRangePreset="month";
+
+function setSavingRangePreset(mode){
+  savingRangePreset=mode;
+
+  savingMonthBtn.classList.toggle("active",mode==="month");
+  savingYearBtn.classList.toggle("active",mode==="year");
+  savingAllBtn.classList.toggle("active",mode==="all");
+
   const today=td();
 
   if(mode==="month"){
     const r=monthBounds(today);
-    return {start:r.start,end:r.end,label:`${today.slice(0,7)} 储蓄增长`};
-  }
-
-  if(mode==="specificMonth"){
-    const ym=savingMonthInput.value||today.slice(0,7);
-    const [y,m]=ym.split("-").map(Number);
-    const last=new Date(y,m,0,12).getDate();
-    return {
-      start:`${y}-${pad2(m)}-01`,
-      end:`${y}-${pad2(m)}-${pad2(last)}`,
-      label:`${ym} 储蓄增长`
-    };
-  }
-
-  if(mode==="year"){
+    savingStartDate.value=r.start;
+    savingEndDate.value=r.end;
+  }else if(mode==="year"){
     const y=today.slice(0,4);
-    return {start:`${y}-01-01`,end:`${y}-12-31`,label:`${y} 年储蓄增长`};
+    savingStartDate.value=`${y}-01-01`;
+    savingEndDate.value=`${y}-12-31`;
+  }else if(mode==="all"){
+    savingStartDate.value="";
+    savingEndDate.value="";
   }
 
-  if(mode==="specificYear"){
-    const y=savingYearSelect.value||today.slice(0,4);
-    return {start:`${y}-01-01`,end:`${y}-12-31`,label:`${y} 年储蓄增长`};
-  }
-
-  if(mode==="custom"){
-    const start=savingStartDate.value||"";
-    const end=savingEndDate.value||"";
-    const label=start&&end
-      ?`${start} 至 ${end}`
-      :start
-        ?`${start} 起`
-        :end
-          ?`截至 ${end}`
-          :"自定义日期";
-    return {start,end,label};
-  }
-
-  return {start:"",end:"",label:"全部期间储蓄增长"};
+  syncDateDisplays();
+  renderSavingStats();
 }
 
-function populateSavingYears(){
-  const current=savingYearSelect.value;
-  const years=availableSavingYears();
-  savingYearSelect.innerHTML=years.map(y=>`<option value="${y}">${y} 年</option>`).join("");
-  if(current&&years.includes(current))savingYearSelect.value=current;
-  else savingYearSelect.value=td().slice(0,4);
+function savingRangeBounds(){
+  const start=savingStartDate.value||"";
+  const end=savingEndDate.value||"";
+
+  if(!start&&!end)return {start:"",end:"",label:"全部期间储蓄增长"};
+
+  if(start&&end&&start===end){
+    return {start,end,label:`${start} 储蓄增长`};
+  }
+
+  if(start&&end){
+    const monthStart=/^\d{4}-\d{2}-01$/.test(start);
+    const [ey,em,ed]=end.split("-").map(Number);
+    const last=new Date(ey,em,0,12).getDate();
+    const monthEnd=ed===last;
+    const sameMonth=start.slice(0,7)===end.slice(0,7);
+
+    if(monthStart&&monthEnd&&sameMonth){
+      return {start,end,label:`${start.slice(0,7)} 储蓄增长`};
+    }
+
+    if(start.endsWith("-01-01")&&end.endsWith("-12-31")&&start.slice(0,4)===end.slice(0,4)){
+      return {start,end,label:`${start.slice(0,4)} 年储蓄增长`};
+    }
+
+    return {start,end,label:`${start} 至 ${end}`};
+  }
+
+  if(start)return {start,end:"",label:`${start} 起`};
+  return {start:"",end,label:`截至 ${end}`};
 }
+
+
 
 function renderSavingStats(){
-  populateSavingYears();
-
-  if(!savingMonthInput.value)savingMonthInput.value=td().slice(0,7);
-  if(!savingStartDate.value||!savingEndDate.value){
-    const r=monthBounds();
-    if(!savingStartDate.value)savingStartDate.value=r.start;
-    if(!savingEndDate.value)savingEndDate.value=r.end;
-  }
-
-  const mode=savingRangeMode.value;
-  savingMonthWrap.style.display=mode==="specificMonth"?"block":"none";
-  savingYearWrap.style.display=mode==="specificYear"?"block":"none";
-  savingCustomWrap.style.display=mode==="custom"?"block":"none";
-
   const all=savingStatsForRange();
   const range=savingRangeBounds();
   const s=savingStatsForRange(range.start,range.end);
@@ -3478,11 +3456,25 @@ function renderSavingStats(){
   savingGrowthTotal.style.color=s.growth<0?"var(--danger)":"var(--accent)";
 }
 
-savingRangeMode.addEventListener("change",renderSavingStats);
-savingMonthInput.addEventListener("change",renderSavingStats);
-savingYearSelect.addEventListener("change",renderSavingStats);
-savingStartDate.addEventListener("change",renderSavingStats);
-savingEndDate.addEventListener("change",renderSavingStats);
+savingStartDate.addEventListener("change",()=>{
+  savingRangePreset="custom";
+  savingMonthBtn.classList.remove("active");
+  savingYearBtn.classList.remove("active");
+  savingAllBtn.classList.remove("active");
+  renderSavingStats();
+});
+
+savingEndDate.addEventListener("change",()=>{
+  savingRangePreset="custom";
+  savingMonthBtn.classList.remove("active");
+  savingYearBtn.classList.remove("active");
+  savingAllBtn.classList.remove("active");
+  renderSavingStats();
+});
+
+savingMonthBtn.onclick=()=>setSavingRangePreset("month");
+savingYearBtn.onclick=()=>setSavingRangePreset("year");
+savingAllBtn.onclick=()=>setSavingRangePreset("all");
 
 saveBankReminderThreshold.onclick=()=>{
   const amount=Math.max(0,N(bankReminderThreshold.value));
@@ -4755,8 +4747,11 @@ document.addEventListener("focusin",()=>setTimeout(syncDateDisplays,0));
 enhanceDateInputs();
 enhanceCollapsibleSections();
 
-// 默认从“本月”开始查看历史流水；需要时可切到今天、全部或自定义日期。
+// 默认从“本月”开始查看历史流水。
 if(!historyStartDate.value&&!historyEndDate.value)setHistoryMode("month");
+
+// 储蓄统计也默认本月，样式与流水筛选保持一致。
+if(!savingStartDate.value&&!savingEndDate.value)setSavingRangePreset("month");
 
 render();
 </script>
