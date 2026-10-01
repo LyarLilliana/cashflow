@@ -763,29 +763,53 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 .progress{height:8px;background:#EEF1EC;border-radius:999px;overflow:hidden;margin-top:10px}
 .progress span{display:block;height:100%;background:var(--accent);border-radius:999px}
 .item{padding:12px 0;border-bottom:1px solid var(--line)} .item:last-child{border-bottom:0}
-.txList .item{padding:16px 0}
-.txRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:start}
-.txLeft{min-width:0}
-.txRight{display:flex;flex-direction:column;align-items:flex-end;gap:10px;min-width:86px}
-.txAmount{font-size:15px;font-weight:780;line-height:1.2;white-space:nowrap}
-
-.txManageBtn{
-  display:grid;
-  place-items:center;
-  width:28px;
-  height:28px;
-  min-width:28px;
-  margin:5px 0 0 auto;
-  padding:0;
-  border:0;
-  border-radius:50%;
-  background:transparent;
-  color:#909692;
-  font-size:18px;
-  line-height:1;
-  font-weight:700;
+.card.txList{
+  padding:5px 14px;
 }
-.txManageBtn:active{background:#EFF1EE;color:var(--text)}
+.txList .item{
+  padding:11px 0;
+}
+.txList .name{
+  font-size:13px;
+  line-height:1.34;
+  font-weight:720;
+}
+.txList .meta{
+  font-size:10px;
+  line-height:1.38;
+  margin-top:3px;
+}
+.txRow{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px;
+  align-items:start;
+}
+.txLeft{min-width:0}
+.txRight{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:4px;
+  min-width:68px;
+}
+.txAmount{
+  font-size:13.5px;
+  font-weight:780;
+  line-height:1.25;
+  white-space:nowrap;
+}
+#monthTx .item[data-tx-id]{
+  -webkit-touch-callout:none;
+  -webkit-user-select:none;
+  user-select:none;
+  touch-action:pan-y;
+  border-radius:10px;
+  transition:background .12s ease;
+}
+#monthTx .item[data-tx-id].txPressing{
+  background:#F5F7F4;
+}
 .txActionSheetButtons{
   display:grid;
   grid-template-columns:1fr;
@@ -1556,7 +1580,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
 <div class="sheet" id="txActionSheet">
   <div class="sheetCard">
-    <div class="sheetTitle">流水操作</div>
+    <div class="sheetTitle">管理这条流水</div>
     <input type="hidden" id="txActionId">
 
     <div class="txActionSummary">
@@ -1824,10 +1848,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v64";
-const OLD_KEYS=["safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v65";
+const OLD_KEYS=["safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:64,
+  version:65,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -3529,8 +3553,8 @@ function transactionEditable(t){
 }
 
 function txButtons(t,del=false,edit=false){
-  if(!del&&!edit)return "";
-  return `<button class="txManageBtn" aria-label="流水操作" onclick="event.stopPropagation();openTxActions('${t.id}')">⋯</button>`;
+  // 结果页改用长按整条流水进行管理；列表本身不再放任何操作按钮。
+  return "";
 }
 
 function transactionActionTitle(t){
@@ -3920,8 +3944,85 @@ function renderHistoryTransactions(){
       ?'<div class="note">当前统计范围内没有匹配的流水。</div>'
       :'<div class="note">这个日期范围内还没有流水。</div>';
 
+  if(shown.length){
+    const items=[...monthTx.querySelectorAll(":scope > .item")];
+    items.forEach((el,index)=>{
+      const t=shown[index];
+      if(!t)return;
+      el.dataset.txId=t.id;
+      el.setAttribute("aria-label",`${transactionActionTitle(t)}，长按管理`);
+    });
+  }
+
   historyMoreBtn.style.display=rows.length>historyVisibleCount?"block":"none";
 }
+
+let txLongPressTimer=null;
+let txLongPressItem=null;
+let txLongPressStartX=0;
+let txLongPressStartY=0;
+let txLongPressTriggered=false;
+
+function cancelTxLongPress(){
+  if(txLongPressTimer){
+    clearTimeout(txLongPressTimer);
+    txLongPressTimer=null;
+  }
+  if(txLongPressItem){
+    txLongPressItem.classList.remove("txPressing");
+    txLongPressItem=null;
+  }
+}
+
+monthTx.addEventListener("pointerdown",e=>{
+  if(e.pointerType==="mouse"&&e.button!==0)return;
+
+  const item=e.target.closest(".item[data-tx-id]");
+  if(!item||!monthTx.contains(item))return;
+
+  cancelTxLongPress();
+
+  txLongPressItem=item;
+  txLongPressStartX=e.clientX;
+  txLongPressStartY=e.clientY;
+  txLongPressTriggered=false;
+  item.classList.add("txPressing");
+
+  txLongPressTimer=setTimeout(()=>{
+    const id=item.dataset.txId;
+    txLongPressTriggered=true;
+    txLongPressTimer=null;
+    item.classList.remove("txPressing");
+    txLongPressItem=null;
+
+    if(navigator.vibrate){
+      try{navigator.vibrate(8)}catch(err){}
+    }
+
+    openTxActions(id);
+  },520);
+});
+
+monthTx.addEventListener("pointermove",e=>{
+  if(!txLongPressTimer)return;
+
+  const dx=Math.abs(e.clientX-txLongPressStartX);
+  const dy=Math.abs(e.clientY-txLongPressStartY);
+
+  // 正常上下滚动时立即取消长按，避免列表滑动误触。
+  if(dx>9||dy>9)cancelTxLongPress();
+});
+
+["pointerup","pointercancel","pointerleave"].forEach(type=>{
+  monthTx.addEventListener(type,()=>cancelTxLongPress());
+});
+
+monthTx.addEventListener("contextmenu",e=>{
+  const item=e.target.closest(".item[data-tx-id]");
+  if(!item||!monthTx.contains(item))return;
+  // 阻止手机浏览器长按后弹出文字选择 / 系统上下文菜单。
+  e.preventDefault();
+});
 
 historySearchInput.addEventListener("input",()=>{
   historyVisibleCount=HISTORY_PAGE_SIZE;
