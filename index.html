@@ -613,6 +613,23 @@ button{touch-action:manipulation}
   .savingPeriodValue{font-size:22px}
 }
 
+
+.historySearchWrap{
+  margin-top:9px;
+}
+.historySearchWrap input[type="search"]{
+  height:38px;
+  min-height:38px;
+  border-radius:12px;
+  background:#F7F8F5;
+  border-color:#E4E7E2;
+  font-size:12px;
+  padding-left:12px;
+  padding-right:10px;
+}
+.historySearchWrap input[type="search"]::placeholder{
+  color:#9A9F9B;
+}
 .historyMore{
   width:100%;
   margin-top:10px;
@@ -1075,6 +1092,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
     <div class="section">
       <div class="sectionTitle">最近流水</div>
+      <div class="small" style="margin:-3px 2px 7px;color:var(--muted)">只显示最近8条</div>
       <div class="card txList" id="recentTx"></div>
     </div>
   </section>
@@ -1291,6 +1309,17 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="historyFilterMeta" style="margin-top:0">
           <span id="historyListRangeText">本月流水</span>
           <span id="historyListCountText">0 条</span>
+        </div>
+
+        <div class="historySearchWrap">
+          <input
+            id="historySearchInput"
+            type="search"
+            inputmode="search"
+            autocomplete="off"
+            placeholder="搜索金额 / 项目 / 备注"
+            aria-label="搜索当前范围流水"
+          >
         </div>
       </div>
       <div class="card txList" style="margin-top:10px" id="monthTx"></div>
@@ -1754,10 +1783,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v60";
-const OLD_KEYS=["safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v62";
+const OLD_KEYS=["safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:60,
+  version:62,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -3344,7 +3373,7 @@ function renderNow(){
   pocketToSavingBtn.disabled=b.safe<=0;
 
   const recent=[...S.tx].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id)).slice(0,8);
-  recentTx.innerHTML=recent.length?recent.map(t=>txHtml(t,false,true)).join(""):'<div class="note">还没有流水。</div>';
+  recentTx.innerHTML=recent.length?recent.map(t=>txHtml(t,true,true)).join(""):'<div class="note">还没有流水。</div>';
 }
 function txHtml(t,del=false,edit=false){
   if(t.type==="income"){
@@ -3549,6 +3578,102 @@ function historyFilteredTx(){
     });
 }
 
+function normalizeHistorySearch(v){
+  return String(v??"")
+    .toLowerCase()
+    .replace(/[¥￥,]/g,"")
+    .trim();
+}
+
+function transactionSearchText(t){
+  const parts=[
+    t.type,
+    t.bucket,
+    t.date,
+    t.coveredDate,
+    t.cycleDueDate,
+    t.note,
+    t.incomeNote,
+    t.planNameAtRecord,
+    t.projectName,
+    t.amount,
+    t.actualSpent,
+    t.allowance,
+    t.projectOverrunAmount
+  ];
+
+  const bucketLabels={
+    safe:"零花钱 日常支出",
+    living:"基础生活 日常支出",
+    bill:"固定账单",
+    project:"专项 项目 支出",
+    saving:"储蓄取用"
+  };
+  if(t.bucket)parts.push(bucketLabels[t.bucket]||"");
+
+  if(t.type==="income"){
+    const p=S.incomePlans.find(x=>x.id===t.planId);
+    const ea=effectiveIncomeAllocation(t);
+    parts.push(
+      "收入",
+      p?.name||"",
+      ea.safe,
+      ea.living,
+      ea.bills,
+      ea.saving
+    );
+    (ea.projects||[]).forEach(x=>{
+      const pr=S.projects.find(pp=>pp.id===x.projectId);
+      parts.push(pr?.name||"",x.amount,"专项");
+    });
+  }
+
+  if(t.refId){
+    const ref=
+      S.projects.find(x=>x.id===t.refId)
+      ||S.bills.find(x=>x.id===t.refId);
+    if(ref)parts.push(ref.name);
+  }
+
+  if(t.projectId){
+    const p=S.projects.find(x=>x.id===t.projectId);
+    if(p)parts.push(p.name,"专项");
+  }
+
+  if(t.settledBillId||t.billId){
+    const bid=t.settledBillId||t.billId;
+    const b=S.bills.find(x=>x.id===bid);
+    if(b)parts.push(b.name,"固定账单");
+  }
+
+  if(t.type==="living_settlement")parts.push("基础生活 结算");
+  if(t.type==="extra_saving")parts.push("额外储蓄");
+  if(t.type==="pocket_to_saving")parts.push("零花钱转储蓄");
+  if(t.type==="pocket_to_project")parts.push("零花钱转专项");
+  if(t.type==="project_settlement")parts.push("专项结余转储蓄");
+  if(t.type==="project_archive")parts.push("专项归档");
+  if(t.type==="project_restore")parts.push("专项恢复");
+  if(t.type==="bill_skip")parts.push("无需支付");
+
+  return normalizeHistorySearch(parts.filter(v=>v!==undefined&&v!==null).join(" "));
+}
+
+function historySearchTerms(){
+  const q=normalizeHistorySearch(historySearchInput.value);
+  return q?q.split(/\s+/).filter(Boolean):[];
+}
+
+function historySearchFilteredTx(){
+  const rows=historyFilteredTx();
+  const terms=historySearchTerms();
+  if(!terms.length)return rows;
+
+  return rows.filter(t=>{
+    const text=transactionSearchText(t);
+    return terms.every(term=>text.includes(term));
+  });
+}
+
 function historyRangeLabel(){
   const start=historyStartDate.value;
   const end=historyEndDate.value;
@@ -3630,23 +3755,39 @@ function resultStatsForRange(start="",end=""){
 }
 
 function renderHistoryTransactions(){
-  const rows=historyFilteredTx();
+  const rangeRows=historyFilteredTx();
+  const rows=historySearchFilteredTx();
   const shown=rows.slice(0,historyVisibleCount);
   const label=historyRangeLabel();
+  const searching=historySearchTerms().length>0;
 
   historyRangeText.textContent=label;
 
   historyListRangeText.textContent=`${label}流水`;
-  historyListCountText.textContent=rows.length>historyVisibleCount
-    ?`已显示 ${shown.length} / ${rows.length} 条`
-    :`${rows.length} 条`;
+
+  if(searching){
+    historyListCountText.textContent=rows.length>historyVisibleCount
+      ?`已显示 ${shown.length} / ${rows.length} 条匹配`
+      :`${rows.length} 条匹配`;
+  }else{
+    historyListCountText.textContent=rangeRows.length>historyVisibleCount
+      ?`已显示 ${shown.length} / ${rangeRows.length} 条`
+      :`${rangeRows.length} 条`;
+  }
 
   monthTx.innerHTML=shown.length
-    ?shown.map(t=>txHtml(t,true)).join("")
-    :'<div class="note">这个日期范围内还没有流水。</div>';
+    ?shown.map(t=>txHtml(t,true,true)).join("")
+    :searching
+      ?'<div class="note">当前统计范围内没有匹配的流水。</div>'
+      :'<div class="note">这个日期范围内还没有流水。</div>';
 
   historyMoreBtn.style.display=rows.length>historyVisibleCount?"block":"none";
 }
+
+historySearchInput.addEventListener("input",()=>{
+  historyVisibleCount=HISTORY_PAGE_SIZE;
+  renderHistoryTransactions();
+});
 
 historyStartDate.addEventListener("change",()=>{
   historyMode="custom";
