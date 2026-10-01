@@ -538,6 +538,56 @@ button{touch-action:manipulation}
   font-size:11px;
   font-weight:800;
 }
+
+.projectPlannedSummary{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+  margin:9px 0 2px;
+  padding:9px 10px;
+  border-radius:12px;
+  background:#F5F7F4;
+}
+.projectPlannedSummary div{
+  min-width:0;
+  font-size:9.5px;
+  color:var(--muted);
+}
+.projectPlannedSummary strong{
+  display:block;
+  margin-top:2px;
+  font-size:11px;
+  color:var(--text);
+}
+.projectPlanAdd{
+  width:100%;
+  margin-top:8px;
+  min-height:34px;
+  border:1px dashed #D5DAD4;
+  background:#FAFBF9;
+  color:var(--muted);
+  border-radius:11px;
+  font-size:10px;
+  font-weight:700;
+}
+.projectPlanActions{
+  display:flex;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-top:5px;
+}
+.projectPlanActions button{
+  border:0;
+  background:transparent;
+  padding:2px 0;
+  font-size:9.5px;
+  font-weight:700;
+  color:var(--muted);
+}
+.projectPlanActions .pay{color:var(--accent)}
+.projectPlanActions .delete{color:var(--danger)}
+.projectPlanWarn{color:var(--danger)!important}
 .projectLedgerDelete{
   display:block;
   margin-top:5px;
@@ -1326,6 +1376,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       </div>
       <div id="refRow" style="display:none"><label id="refLabel">选择项目</label><select id="spendRef"></select></div>
       <div><label>金额</label><input id="spendAmount" inputmode="decimal" type="number"></div>
+      <div><label>花钱日期</label><input id="spendDate" type="date"></div>
       <div id="projectOverrunRow" style="display:none">
         <label>专项超出部分从哪里支付</label>
         <select id="projectOverrunSource">
@@ -1416,6 +1467,38 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   </div>
 </div>
 
+
+<div class="sheet" id="projectPlannedExpenseSheet">
+  <div class="sheetCard">
+    <div class="sheetTitle" id="projectPlannedExpenseTitle">规划专项支出</div>
+    <input type="hidden" id="projectPlannedExpenseProjectId">
+    <input type="hidden" id="projectPlannedExpenseId">
+
+    <div class="formGrid">
+      <div>
+        <label>用途</label>
+        <input id="projectPlannedExpenseName" placeholder="例如 酒店、火车票、课程费">
+      </div>
+      <div>
+        <label>预计金额</label>
+        <input id="projectPlannedExpenseAmount" inputmode="decimal" type="number" min="0" placeholder="0">
+      </div>
+      <div>
+        <label>预计花钱日期</label>
+        <input id="projectPlannedExpenseDate" type="date">
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:10px">
+      这里只做专项内部的支出规划，不会提前扣减专项余额。真正付款后点“记为支出”，才会进入消费、流水和储蓄联动。
+    </div>
+
+    <div class="actions">
+      <button class="ghost" onclick="closeSheet('projectPlannedExpenseSheet')">取消</button>
+      <button class="primary" id="saveProjectPlannedExpense">保存规划</button>
+    </div>
+  </div>
+</div>
 
 <div class="sheet" id="livingSheet">
   <div class="sheetCard">
@@ -1619,10 +1702,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v56";
-const OLD_KEYS=["safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v58";
+const OLD_KEYS=["safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:56,
+  version:58,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -1657,6 +1740,10 @@ function normalize(d){
   s.incomePlans=Array.isArray(d.incomePlans)?d.incomePlans:[];
   s.bills=Array.isArray(d.bills)?d.bills:[];
   s.projects=Array.isArray(d.projects)?d.projects:[];
+  s.projects=s.projects.map(p=>({
+    ...p,
+    plannedExpenses:Array.isArray(p.plannedExpenses)?p.plannedExpenses:[]
+  }));
   s.deposits=Array.isArray(d.deposits)?d.deposits:[];
   s.deposits=s.deposits.map(dep=>{
     const x={...dep};
@@ -1740,6 +1827,23 @@ function projectFunded(p){
   return N(p.initialFund)+incomeFunded+pocketFunded;
 }
 function projectSpent(p){return sm(S.tx.filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id),t=>t.amount)}
+function projectPlannedExpenses(p){
+  return [...(p?.plannedExpenses||[])].sort((a,b)=>{
+    const ad=a.date||"9999-12-31";
+    const bd=b.date||"9999-12-31";
+    if(ad!==bd)return ad.localeCompare(bd);
+    return String(a.id).localeCompare(String(b.id));
+  });
+}
+function projectPlannedTotal(p){
+  return sm(projectPlannedExpenses(p),x=>N(x.amount));
+}
+function projectUnplannedBudget(p){
+  return Math.max(0,N(p.budget)-projectSpent(p)-projectPlannedTotal(p));
+}
+function projectPlannedOverBudget(p){
+  return Math.max(0,projectSpent(p)+projectPlannedTotal(p)-N(p.budget));
+}
 function projectGap(p){return Math.max(0,N(p.budget)-projectFunded(p))}
 function projectSettledToSaving(p){
   return sm(S.tx.filter(t=>t.type==="project_settlement"&&t.projectId===p.id),t=>N(t.amount));
@@ -1799,6 +1903,20 @@ function transactionBelongsToCycle(t,incomeTx,next){
 function cycleTransactionsForIncome(incomeTx){
   const {next}=cycleWindowForIncome(incomeTx);
   return S.tx.filter(t=>transactionBelongsToCycle(t,incomeTx,next));
+}
+
+function cycleIncomeIdForDate(date){
+  if(!date)return "";
+  const rows=cycleIncomeRows();
+  let chosen=null;
+
+  // Expense entry only records a calendar date, not a time.
+  // Bind it to the latest recurring-income cycle that had started by that date.
+  rows.forEach(row=>{
+    if(row.date<=date)chosen=row;
+  });
+
+  return chosen?.id||"";
 }
 
 function cyclePocketSnapshot(incomeTx){
@@ -2413,9 +2531,10 @@ function actionableBillCycle(bid){
     .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
   return rows[0]||null;
 }
-function openBillCycle(bid){
-  // 优先核销已经预留、尚未支付的最近一个周期。
-  const t=td(),end=addDays(t,65);
+function openBillCycle(bid,referenceDate=td()){
+  // 优先核销“花钱日期”附近已经预留、尚未支付的最近一个周期。
+  // 其他调用不传日期时仍保持原来的“今天”逻辑。
+  const t=referenceDate||td(),end=addDays(t,65);
   const reserved=allBillsBetween(addDays(t,-35),end)
     .filter(x=>x.id===bid&&x.reserved&&!x.settled)
     .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
@@ -2613,6 +2732,7 @@ function markBillNoNeed(bid,dueDate){
 function archiveProject(id){
   const p=S.projects.find(x=>x.id===id);
   if(!p)return;
+  if(projectPlannedExpenses(p).length>0)return msg("专项还有待支出规划，请先记为支出或删除规划");
   if(projectGap(p)>0)return msg("专项还有资金缺口，暂时不能结算");
 
   const available=Math.max(0,projectAvail(p));
@@ -2711,6 +2831,12 @@ function projectFinanceDetailHtml(p,a){
   const gap=Math.max(0,budget-funded);
   const overBudget=Math.max(0,spent-budget);
 
+  const plans=projectPlannedExpenses(p);
+  const plannedTotal=projectPlannedTotal(p);
+  const unplannedBudget=projectUnplannedBudget(p);
+  const plannedOverBudget=projectPlannedOverBudget(p);
+  const plannedCashGap=Math.max(0,plannedTotal-available);
+
   const spentWithin=Math.min(budget,spent);
   const availableWithin=Math.min(Math.max(0,budget-spentWithin),available);
   const gapWithin=Math.max(0,budget-spentWithin-availableWithin);
@@ -2719,6 +2845,28 @@ function projectFinanceDetailHtml(p,a){
   const spentPct=budget>0?Math.min(100,spentWithin/denom*100):0;
   const availablePct=budget>0?Math.min(100-spentPct,availableWithin/denom*100):0;
   const gapPct=budget>0?Math.max(0,100-spentPct-availablePct):0;
+
+  const planHtml=plans.length
+    ?plans.map(x=>{
+      const dueText=x.date
+        ?`${x.date}${x.date<td()?" · 已到计划日":x.date===td()?" · 今天计划":" · 预计"}`
+        :"未设日期";
+      return `<div class="projectLedgerRow">
+        <div class="projectLedgerInfo">
+          <div class="projectLedgerName">${esc(x.name||"计划支出")}</div>
+          <div class="projectLedgerMeta">${dueText}</div>
+        </div>
+        <div class="projectLedgerAmount">
+          ${M(x.amount)}
+          <div class="projectPlanActions">
+            <button class="pay" onclick="event.stopPropagation();payProjectPlannedExpense('${p.id}','${x.id}')">记为支出</button>
+            <button onclick="event.stopPropagation();openProjectPlannedExpense('${p.id}','${x.id}')">修改</button>
+            <button class="delete" onclick="event.stopPropagation();deleteProjectPlannedExpense('${p.id}','${x.id}')">删除</button>
+          </div>
+        </div>
+      </div>`;
+    }).join("")
+    :'<div class="note" style="margin-top:8px">还没有预先规划的专项支出。</div>';
 
   const expenseHtml=expenses.length
     ?expenses.map(t=>{
@@ -2759,6 +2907,20 @@ function projectFinanceDetailHtml(p,a){
       ${overBudget>0?`<span style="color:var(--danger)">超预算 ${M(overBudget)}</span>`:""}
     </div>
     <div class="projectLedgerMeta" style="margin-top:5px">绿色 + 暖色 = 已经备到的资金；最右侧灰色 = 尚未补足。</div>`:""}
+
+    <details class="projectLedger">
+      <summary><span>支出规划 · ${plans.length} 项 · ${M(plannedTotal)}</span></summary>
+
+      <div class="projectPlannedSummary">
+        <div>还未分配用途的预算<strong>${M(unplannedBudget)}</strong></div>
+        <div class="${plannedCashGap>0?"projectPlanWarn":""}">当前资金覆盖规划${plannedCashGap>0?`还差`:`充足`}<strong>${plannedCashGap>0?M(plannedCashGap):"已覆盖"}</strong></div>
+      </div>
+
+      ${plannedOverBudget>0?`<div class="projectLedgerMeta projectPlanWarn">当前“已花 + 待支出规划”已超过专项总预算 ${M(plannedOverBudget)}。</div>`:""}
+
+      <button class="projectPlanAdd" onclick="event.stopPropagation();openProjectPlannedExpense('${p.id}')">+ 添加支出规划</button>
+      ${planHtml}
+    </details>
 
     <details class="projectLedger">
       <summary><span>支出明细 · ${expenses.length} 笔</span></summary>
@@ -2814,6 +2976,20 @@ function removeProjectTimelineTx(id){
     return;
   }
 
+  let restoredPlannedExpense=false;
+
+  if(target.type==="expense"&&target.projectPlannedExpenseSnapshot){
+    const p=S.projects.find(x=>x.id===target.refId);
+    if(p){
+      if(!Array.isArray(p.plannedExpenses))p.plannedExpenses=[];
+      const snapshot=target.projectPlannedExpenseSnapshot;
+      if(!p.plannedExpenses.some(x=>x.id===snapshot.id)){
+        p.plannedExpenses.push({...snapshot});
+        restoredPlannedExpense=true;
+      }
+    }
+  }
+
   S.tx=S.tx.filter(x=>x.id!==id);
   save();
   render();
@@ -2847,10 +3023,11 @@ function renderPlan(){
   const activePs=activeProjects();
   projectList.innerHTML=activePs.length?activePs.map(p=>{
     const funded=projectFunded(p),spent=projectSpent(p),gap=projectGap(p);
+    const planned=projectPlannedTotal(p);
     const pct=Math.min(100,Math.max(0,funded/Math.max(1,N(p.budget))*100));
     return `<div class="item" onclick="editProject('${p.id}')">
       <div class="row"><div><div class="name">${esc(p.name)}</div>
-      <div class="meta">预算 ${M(p.budget)} · 已备 ${M(funded)} · 已花 ${M(spent)}${p.dueDate?" · "+p.dueDate:""}</div></div>
+      <div class="meta">预算 ${M(p.budget)} · 已备 ${M(funded)} · 已花 ${M(spent)}${planned>0?" · 待支出规划 "+M(planned):""}${p.dueDate?" · "+p.dueDate:""}</div></div>
       <div style="text-align:right"><div class="amount ${gap>0?"warn":"pos"}">${gap>0?"缺 "+M(gap):"已备妥"}</div>
       <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteProject('${p.id}')">删除</button></div></div>
       <div class="progress"><span style="width:${pct}%"></span></div></div>`;
@@ -2969,6 +3146,27 @@ function renderNow(){
         </div>
       </div>
     </div></div>`;
+  });
+
+  activeProjects().forEach(p=>{
+    projectPlannedExpenses(p)
+      .filter(x=>x.date&&x.date<=horizon)
+      .forEach(x=>{
+        const overdue=x.date<td();
+        const when=overdue?"计划日已过":x.date===td()?"今天计划":"近期计划";
+        rows.push(`<div class="item"><div class="row">
+          <div style="min-width:0">
+            <div class="name">计划支出 · ${esc(p.name)}</div>
+            <div class="meta">${esc(x.name||"计划支出")} · ${x.date} · ${when}</div>
+          </div>
+          <div style="text-align:right;min-width:92px">
+            <div class="amount">${M(x.amount)}</div>
+            <div class="billActions">
+              <button class="doneBtn" onclick="event.stopPropagation();payProjectPlannedExpense('${p.id}','${x.id}')">记支出</button>
+            </div>
+          </div>
+        </div></div>`);
+      });
   });
 
   const cycleGap=Math.max(0,-N(cycleExpectedSaving));
@@ -4494,6 +4692,101 @@ deleteBill.onclick=()=>{
   S.bills=S.bills.filter(x=>x.id!==id);save();closeSheet("editBillSheet");render();msg("固定账单计划已删除");
 };
 
+function openProjectPlannedExpense(projectId,plannedId=""){
+  const p=S.projects.find(x=>x.id===projectId);
+  if(!p)return;
+
+  const item=(p.plannedExpenses||[]).find(x=>x.id===plannedId);
+
+  projectPlannedExpenseProjectId.value=projectId;
+  projectPlannedExpenseId.value=item?.id||"";
+  projectPlannedExpenseTitle.textContent=item?"修改支出规划":`规划专项支出 · ${p.name}`;
+  projectPlannedExpenseName.value=item?.name||"";
+  projectPlannedExpenseAmount.value=item?.amount||"";
+  projectPlannedExpenseDate.value=item?.date||"";
+
+  syncDateDisplays();
+  projectPlannedExpenseSheet.classList.add("show");
+}
+
+saveProjectPlannedExpense.onclick=()=>{
+  const projectId=projectPlannedExpenseProjectId.value;
+  const plannedId=projectPlannedExpenseId.value;
+  const p=S.projects.find(x=>x.id===projectId);
+  if(!p)return;
+
+  const name=projectPlannedExpenseName.value.trim();
+  const amount=Math.max(0,N(projectPlannedExpenseAmount.value));
+  const date=projectPlannedExpenseDate.value||"";
+
+  if(!name)return msg("请填写这笔计划支出的用途");
+  if(amount<=0)return msg("请填写预计金额");
+
+  if(!Array.isArray(p.plannedExpenses))p.plannedExpenses=[];
+
+  if(plannedId){
+    const item=p.plannedExpenses.find(x=>x.id===plannedId);
+    if(!item)return msg("这笔支出规划已经不存在");
+    item.name=name;
+    item.amount=amount;
+    item.date=date;
+  }else{
+    p.plannedExpenses.push({
+      id:"ppe"+Date.now(),
+      name,
+      amount,
+      date
+    });
+  }
+
+  const over=projectPlannedOverBudget(p);
+  save();
+  closeSheet("projectPlannedExpenseSheet");
+  render();
+
+  if(over>0){
+    msg(`规划已保存；已花 + 待支出规划超过总预算 ${M(over)}`);
+  }else{
+    msg("专项支出规划已保存");
+  }
+};
+
+function deleteProjectPlannedExpense(projectId,plannedId){
+  const p=S.projects.find(x=>x.id===projectId);
+  if(!p)return;
+  const item=(p.plannedExpenses||[]).find(x=>x.id===plannedId);
+  if(!item)return;
+
+  if(!confirm(`删除支出规划“${item.name}”？`))return;
+
+  p.plannedExpenses=(p.plannedExpenses||[]).filter(x=>x.id!==plannedId);
+  save();
+  render();
+  msg("支出规划已删除");
+}
+
+let plannedExpensePayment=null;
+
+function payProjectPlannedExpense(projectId,plannedId){
+  const p=S.projects.find(x=>x.id===projectId);
+  const item=(p?.plannedExpenses||[]).find(x=>x.id===plannedId);
+  if(!p||!item)return msg("这笔支出规划已经不存在");
+
+  openSpend();
+
+  plannedExpensePayment={projectId,plannedId};
+
+  spendBucket.value="project";
+  refreshSpendRefs();
+  spendRef.value=projectId;
+  spendAmount.value=item.amount;
+  spendNote.value=item.name;
+  spendDate.value=td();
+
+  refreshProjectOverrunUI();
+  syncDateDisplays();
+}
+
 addProject.onclick=()=>{
   const name=projectName.value.trim(),budget=N(projectBudget.value),dueDate=projectDue.value,initialFund=N(projectInitial.value);
   if(!name||budget<=0)return msg("请填写专项名称和预算");
@@ -5110,7 +5403,17 @@ savePocketTransfer.onclick=()=>{
 
 
 /* Spend */
-function openSpend(){spendBucket.value="safe";spendAmount.value="";spendNote.value="";refreshSpendRefs();spendSheet.classList.add("show")}
+function openSpend(){
+  plannedExpensePayment=null;
+  spendBucket.value="safe";
+  spendAmount.value="";
+  spendNote.value="";
+  spendDate.value=td();
+  spendDate.max=td();
+  refreshSpendRefs();
+  syncDateDisplays();
+  spendSheet.classList.add("show");
+}
 function refreshProjectOverrunUI(){
   if(spendBucket.value!=="project"){
     projectOverrunRow.style.display="none";
@@ -5168,8 +5471,16 @@ spendRef.onchange=refreshProjectOverrunUI;
 spendAmount.addEventListener("input",refreshProjectOverrunUI);
 projectOverrunSource.addEventListener("change",refreshProjectOverrunUI);
 saveSpend.onclick=()=>{
-  const bucket=spendBucket.value,amount=N(spendAmount.value),refId=spendRef.value,note=spendNote.value.trim(),b=bal();
+  const bucket=spendBucket.value;
+  const amount=N(spendAmount.value);
+  const refId=spendRef.value;
+  const note=spendNote.value.trim();
+  const spendDateValue=spendDate.value||td();
+  const b=bal();
+
   if(amount<=0)return msg("请输入金额");
+  if(!spendDateValue)return msg("请选择花钱日期");
+  if(spendDateValue>td())return msg("花钱日期不能晚于今天");
   if((bucket==="bill"||bucket==="project")&&!refId)return msg("请选择对应项目");
 
   if(bucket==="saving"){
@@ -5194,20 +5505,40 @@ saveSpend.onclick=()=>{
   }
 
   const id="e"+Date.now();
-  const cycleDueDate=bucket==="bill"?openBillCycle(refId):"";
+  const cycleDueDate=bucket==="bill"?openBillCycle(refId,spendDateValue):"";
+  const cycleIncomeId=cycleIncomeIdForDate(spendDateValue);
+
+  let projectPlannedExpenseSnapshot=null;
+  if(
+    plannedExpensePayment
+    &&bucket==="project"
+    &&refId===plannedExpensePayment.projectId
+  ){
+    const p=S.projects.find(x=>x.id===plannedExpensePayment.projectId);
+    const item=(p?.plannedExpenses||[]).find(x=>x.id===plannedExpensePayment.plannedId);
+    if(item){
+      projectPlannedExpenseSnapshot={...item};
+      p.plannedExpenses=p.plannedExpenses.filter(x=>x.id!==item.id);
+    }
+  }
+
   S.tx.push({
     id,
-    date:td(),
+    date:spendDateValue,
     type:"expense",
+    cycleIncomeId,
     bucket,
     amount,
     refId,
     note,
     cycleDueDate,
     projectOverrunSource:projectOverrunSourceValue,
-    projectOverrunAmount
+    projectOverrunAmount,
+    projectPlannedExpenseId:projectPlannedExpenseSnapshot?.id||"",
+    projectPlannedExpenseSnapshot
   });
 
+  plannedExpensePayment=null;
   save();
   const ef=accounting().effects[id]||{};
   closeSheet("spendSheet");
@@ -5264,6 +5595,8 @@ function removeTx(id){
     msg("零花钱转专项已撤销，零花钱和专项余额已恢复");
   }else if(target.type==="extra_saving"){
     msg("额外储蓄记录已删除");
+  }else if(restoredPlannedExpense){
+    msg("支出已删除，原专项支出规划已恢复");
   }else{
     msg("流水已删除，相关余额已重新计算");
   }

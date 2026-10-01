@@ -1,4 +1,4 @@
-const CACHE = "safespend-v8-3-custom-date-integrated";
+const CACHE = "safespend-v8-5-project-spending-plan";
 const ASSETS = [
   "./",
   "./index.html",
