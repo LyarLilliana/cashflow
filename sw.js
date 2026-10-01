@@ -1,4 +1,4 @@
-const CACHE = "safespend-v9-2-longpress-compact-flows";
+const CACHE = "safespend-v9-3-longpress-hint";
 const ASSETS = [
   "./",
   "./index.html",
