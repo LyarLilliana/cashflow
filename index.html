@@ -949,7 +949,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="card savingHeroCard">
         <div class="k">现在属于储蓄的资产</div>
         <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
-        <div class="s">日常储蓄余额 + 银行存款本金 + 预估累计利息</div>
+        <div class="s">预计日常储蓄 + 银行存款本金 + 预估累计利息</div>
 
         <div class="heroMiniActions" style="margin-top:13px">
           <button class="ghost" onclick="openExtraSaving()">记额外储蓄</button>
@@ -958,11 +958,13 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       </div>
 
       <div class="card savingAssetBreakdown">
-        <div class="explainRow"><span>日常储蓄余额</span><strong id="savingFreePrincipal">¥0</strong></div>
+        <div class="explainRow"><span>预计日常储蓄</span><strong id="savingFreePrincipal">¥0</strong></div>
+        <div class="explainRow"><span>其中已进入储蓄</span><strong id="savingActualPrincipal">¥0</strong></div>
+        <div class="explainRow"><span>预计周期结余</span><strong id="savingPendingPocket">¥0</strong></div>
         <div class="explainRow"><span>银行存款本金</span><strong id="savingBankPrincipal">¥0</strong></div>
         <div class="explainRow"><span>预估累计利息</span><strong id="savingBankInterest">¥0</strong></div>
         <div class="note" style="margin-top:9px">
-          上方总额就是这三部分相加；预估利息会随银行存款记录中的利率和时间变化。
+          “预计日常储蓄”直接采用当前周期的预计储蓄口径：已经进入储蓄的钱 + 当前仍未花掉、预计周期结束后会沉淀的零花钱。后者会随继续消费实时变化。
         </div>
       </div>
     </div>
@@ -1549,10 +1551,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v49";
-const OLD_KEYS=["safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v50";
+const OLD_KEYS=["safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:49,
+  version:50,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -4023,12 +4025,30 @@ function renderSavings(){
   const bankPrincipal=bankPrincipalTotal();
   const interest=bankInterestTotal();
   const ordinary=ordinarySavingsAvailable();
-  const total=ordinary+bankPrincipal+interest;
+
+  const cycle=currentCycleStats();
+  const pendingPocket=cycle.income
+    ?Math.max(0,N(cycle.pocketBalance))
+    :0;
+
+  // “现在属于储蓄的资产”使用预计储蓄口径：
+  // 已经进入日常储蓄的余额 + 当前周期预计会沉淀的剩余零花钱。
+  // 这里不能把整笔“预计储蓄增长”再次加到 ordinary 上，
+  // 因为其中已经进入储蓄的部分已经包含在 ordinary 里；只补加尚未沉淀的 pendingPocket。
+  const expectedOrdinary=ordinary+pendingPocket;
+  const total=expectedOrdinary+bankPrincipal+interest;
 
   savingBankPrincipal.textContent=M(bankPrincipal);
   savingBankInterest.textContent=M(interest);
-  savingFreePrincipal.textContent=M(ordinary);
-  savingFreePrincipal.style.color=ordinary<0?"var(--danger)":"inherit";
+
+  savingFreePrincipal.textContent=M(expectedOrdinary);
+  savingFreePrincipal.style.color=expectedOrdinary<0?"var(--danger)":"inherit";
+
+  savingActualPrincipal.textContent=M(ordinary);
+  savingActualPrincipal.style.color=ordinary<0?"var(--danger)":"inherit";
+
+  savingPendingPocket.textContent=M(pendingPocket);
+  savingPendingPocket.style.color=pendingPocket>0?"var(--accent)":"inherit";
 
   savingGrandTotal.textContent=M(total);
   savingGrandTotal.style.color=total<0?"var(--danger)":"var(--accent)";
