@@ -769,35 +769,74 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 .txRight{display:flex;flex-direction:column;align-items:flex-end;gap:10px;min-width:86px}
 .txAmount{font-size:15px;font-weight:780;line-height:1.2;white-space:nowrap}
 
-.txEdit{
-  display:block;
-  margin-top:5px;
-  margin-left:auto;
+.txManageBtn{
+  display:grid;
+  place-items:center;
+  width:28px;
+  height:28px;
+  min-width:28px;
+  margin:5px 0 0 auto;
+  padding:0;
   border:0;
+  border-radius:50%;
   background:transparent;
-  color:var(--muted);
-  font-size:9.5px;
-  font-weight:700;
-  padding:2px 0;
-}
-.txEdit:active{color:var(--text)}
-.txActionStack{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-end;
-}
-.txDelete{
-  border:1px solid #DADDD8;
-  background:#FAFAF8;
-  color:#404744;
-  border-radius:999px;
-  padding:6px 12px;
-  font-size:12px;
-  font-weight:700;
+  color:#909692;
+  font-size:18px;
   line-height:1;
-  min-height:32px;
+  font-weight:700;
 }
-.txDelete:active{background:#F0F2EE;transform:scale(.98)}
+.txManageBtn:active{background:#EFF1EE;color:var(--text)}
+.txActionSheetButtons{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:9px;
+  margin-top:14px;
+}
+.txActionSheetButtons button{
+  width:100%;
+  min-height:46px;
+}
+.txActionSummary{
+  padding:12px 13px;
+  border-radius:14px;
+  background:#F7F8F5;
+}
+.txEditGroup{
+  margin-top:10px;
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#FAFBF9;
+}
+.txEditGroupTitle{
+  font-size:11px;
+  font-weight:750;
+  margin-bottom:8px;
+}
+.txEditProjectRow{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(100px,.55fr);
+  align-items:center;
+  gap:8px;
+  padding:7px 0;
+  border-top:1px solid var(--line);
+}
+.txEditProjectRow:first-child{border-top:0}
+.txEditProjectName{
+  min-width:0;
+  font-size:11px;
+  font-weight:700;
+}
+.txEditProjectMeta{
+  font-size:9.5px;
+  color:var(--muted);
+  margin-top:2px;
+}
+.txEditProjectRow input{
+  height:40px;
+  min-height:40px;
+  font-size:13px;
+}
 .txMuted{color:var(--muted)}
 .projectPlanItem{padding:15px 0;border-bottom:1px solid var(--line)}
 .projectPlanItem:last-child{border-bottom:0}
@@ -854,7 +893,6 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 @media(max-width:560px){
   .txRight{min-width:78px}
   .txAmount{font-size:14px}
-  .txDelete{padding:6px 11px;font-size:11px;min-height:30px}
 }
 .row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .name{font-size:14px;font-weight:700}.meta{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45}
@@ -1516,35 +1554,38 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 </div>
 
 
+<div class="sheet" id="txActionSheet">
+  <div class="sheetCard">
+    <div class="sheetTitle">流水操作</div>
+    <input type="hidden" id="txActionId">
+
+    <div class="txActionSummary">
+      <div class="name" id="txActionName">流水</div>
+      <div class="meta" id="txActionMeta"></div>
+    </div>
+
+    <div class="txActionSheetButtons">
+      <button class="secondary" id="txActionEditBtn">修改这条流水</button>
+      <button class="danger" id="txActionDeleteBtn">删除这条流水</button>
+      <button class="ghost" onclick="closeSheet('txActionSheet')">取消</button>
+    </div>
+  </div>
+</div>
+
 <div class="sheet" id="editTxSheet">
   <div class="sheetCard">
     <div class="sheetTitle" id="editTxTitle">修改流水</div>
     <input type="hidden" id="editTxId">
 
-    <div class="formGrid">
-      <div id="editTxDateRow">
-        <label>日期</label>
-        <input id="editTxDate" type="date">
-      </div>
-      <div id="editTxAmountRow">
-        <label id="editTxAmountLabel">金额</label>
-        <input id="editTxAmount" inputmode="decimal" type="number" min="0">
-      </div>
-      <div id="editTxProjectRow" style="display:none">
-        <label>专项</label>
-        <select id="editTxProject"></select>
-      </div>
-      <div id="editTxNoteRow" style="grid-column:1/-1">
-        <label>备注</label>
-        <input id="editTxNote">
-      </div>
-    </div>
+    <div id="editTxFields"></div>
 
-    <div class="note" id="editTxHint" style="margin-top:10px"></div>
+    <div class="note" id="editTxHint" style="margin-top:10px">
+      这里会还原这条流水当时可填写的内容；修改后统一重新计算相关余额。
+    </div>
 
     <div class="actions">
       <button class="ghost" onclick="closeSheet('editTxSheet')">取消</button>
-      <button class="primary" id="saveTxEdit">保存修改</button>
+      <button class="primary" id="saveTxEdit">保存全部修改</button>
     </div>
   </div>
 </div>
@@ -1783,10 +1824,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v62";
-const OLD_KEYS=["safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v64";
+const OLD_KEYS=["safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:62,
+  version:64,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -2984,19 +3025,19 @@ function projectFinanceDetailHtml(p,a){
 
     ${budget>0?`<div class="projectMoneyBar">
       <span class="projectMoneyAvailable" style="width:${freeAvailablePct}%"></span>
-      <span class="projectMoneyPlanned" style="width:${plannedPct}%"></span>
       <span class="projectMoneySpent" style="width:${spentPct}%"></span>
       <span class="projectMoneyGap" style="width:${gapPct}%"></span>
+      <span class="projectMoneyPlanned" style="width:${plannedPct}%"></span>
     </div>
     <div class="projectMoneyLegend">
       <span><i style="background:var(--accent)"></i>未规划可用 ${M(freeAvailableWithin)}</span>
-      ${plannedTotal>0?`<span><i style="background:#D3A08F"></i>已规划待花 ${M(plannedTotal)}</span>`:""}
       <span><i style="background:#B98576"></i>已花 ${M(spent)}</span>
       ${gapWithin>0?`<span><i style="background:#DDE1DC"></i>还差资金 ${M(gap)}</span>`:""}
+      ${plannedTotal>0?`<span><i style="background:#D3A08F"></i>已规划待花 ${M(plannedTotal)}</span>`:""}
       ${plannedCashGap>0?`<span style="color:var(--danger)">规划中有 ${M(plannedCashGap)} 尚未备到资金</span>`:""}
       ${overBudget>0?`<span style="color:var(--danger)">超预算 ${M(overBudget)}</span>`:""}
     </div>
-    <div class="projectLedgerMeta" style="margin-top:5px">绿色 = 已备且未规划；浅棕 = 已规划待花；深棕 = 已花；最右灰色 = 尚未补足。绿色 + 浅棕 + 深棕仍代表已经备到的资金。</div>`:""}
+    <div class="projectLedgerMeta" style="margin-top:5px">绿色 = 已备且未规划；深棕 = 已花；灰色 = 尚未补足；最右浅棕 = 已规划待花。</div>`:""}
 
     <details class="projectLedger">
       <summary><span>支出规划 · ${plans.length} 项 · ${M(plannedTotal)}</span></summary>
@@ -3372,8 +3413,20 @@ function renderNow(){
   pocketToSavingBtn.textContent=b.safe>0?`${transferLabel} · 可转 ${M(b.safe)}`:transferLabel;
   pocketToSavingBtn.disabled=b.safe<=0;
 
-  const recent=[...S.tx].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id)).slice(0,8);
-  recentTx.innerHTML=recent.length?recent.map(t=>txHtml(t,true,true)).join(""):'<div class="note">还没有流水。</div>';
+  const recentCycleIncome=currentCycleStats().income;
+  const recent=recentCycleIncome
+    ?[recentCycleIncome,...cycleTransactionsForIncome(recentCycleIncome)]
+      .sort((a,b)=>{
+        const da=historyTxDate(a),db=historyTxDate(b);
+        if(da!==db)return db.localeCompare(da);
+        return String(b.id).localeCompare(String(a.id));
+      })
+      .slice(0,8)
+    :[];
+
+  recentTx.innerHTML=recent.length
+    ?recent.map(t=>txHtml(t,false,false)).join("")
+    :'<div class="note">本周期还没有流水。</div>';
 }
 function txHtml(t,del=false,edit=false){
   if(t.type==="income"){
@@ -3411,19 +3464,19 @@ function txHtml(t,del=false,edit=false){
   if(t.type==="project_settlement"){
     const p=S.projects.find(x=>x.id===t.projectId);
     const name=esc(p?.name||t.projectName||"专项");
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项结余转储蓄 · ${name}</div><div class="meta">${t.date} · 专项结算后的剩余资金</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${del?`<button class="txDelete" onclick="event.stopPropagation();removeProjectTimelineTx('${t.id}')">删除</button>`:""}</div></div></div>`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项结余转储蓄 · ${name}</div><div class="meta">${t.date} · 专项结算后的剩余资金</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
   if(t.type==="project_archive"){
     const p=S.projects.find(x=>x.id===t.projectId);
     const name=esc(p?.name||t.projectName||"专项");
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项归档 · ${name}</div><div class="meta">${t.date} · 已备 ${M(t.funded)} · 已花 ${M(t.spent)} · 归档时专项余额 ${M(t.available)}</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} 已归档</div>${del?`<button class="txDelete" onclick="event.stopPropagation();removeProjectTimelineTx('${t.id}')">删除</button>`:""}</div></div></div>`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项归档 · ${name}</div><div class="meta">${t.date} · 已备 ${M(t.funded)} · 已花 ${M(t.spent)} · 归档时专项余额 ${M(t.available)}</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} 已归档</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
   if(t.type==="project_restore"){
     const p=S.projects.find(x=>x.id===t.projectId);
     const name=esc(p?.name||t.projectName||"专项");
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项恢复 · ${name}</div><div class="meta">${t.date} · 重新纳入进行中专项</div></div><div class="txRight"><div class="txAmount txMuted">${M(t.amount)}</div>${del?`<button class="txDelete" onclick="event.stopPropagation();removeProjectTimelineTx('${t.id}')">删除</button>`:""}</div></div></div>`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项恢复 · ${name}</div><div class="meta">${t.date} · 重新纳入进行中专项</div></div><div class="txRight"><div class="txAmount txMuted">${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
   if(t.type==="extra_saving"){
@@ -3457,13 +3510,17 @@ function txHtml(t,del=false,edit=false){
   }
   return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${ref?" · "+esc(ref.name):""}${extraMeta}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
 }
-function delBtn(id){return `<button class="txDelete" onclick="event.stopPropagation();removeTx('${id}')">删除</button>`}
-
-function recentTxEditable(t){
+function transactionEditable(t){
   if(!t)return false;
+
+  if(t.type==="expense"){
+    // “已支付”快捷按钮生成的核销流水没有原始输入表单，
+    // 所以只允许删除，不伪造可编辑字段。
+    return !t.billHandledDirect&&!t.settledBillId;
+  }
+
   return [
     "income",
-    "expense",
     "living_settlement",
     "extra_saving",
     "pocket_to_saving",
@@ -3472,13 +3529,95 @@ function recentTxEditable(t){
 }
 
 function txButtons(t,del=false,edit=false){
-  const editHtml=edit&&recentTxEditable(t)
-    ?`<button class="txEdit" onclick="event.stopPropagation();openTxEdit('${t.id}')">修改</button>`
-    :"";
-  const delHtml=del?delBtn(t.id):"";
-  if(!editHtml&&!delHtml)return "";
-  return `<div class="txActionStack">${editHtml}${delHtml}</div>`;
+  if(!del&&!edit)return "";
+  return `<button class="txManageBtn" aria-label="流水操作" onclick="event.stopPropagation();openTxActions('${t.id}')">⋯</button>`;
 }
+
+function transactionActionTitle(t){
+  if(!t)return "流水";
+
+  if(t.type==="income"){
+    const p=S.incomePlans.find(x=>x.id===t.planId);
+    const name=p?.name||t.planNameAtRecord||t.incomeNote||"";
+    return `${isCycleIncomeTx(t)?"周期收入":"单次额外收入"}${name?" · "+name:""}`;
+  }
+
+  if(t.type==="living_settlement")return "基础生活结算";
+  if(t.type==="extra_saving")return "额外储蓄";
+  if(t.type==="pocket_to_saving")return "零花钱转储蓄";
+  if(t.type==="pocket_to_project"){
+    const p=S.projects.find(x=>x.id===t.projectId);
+    return `零花钱转专项${p?" · "+p.name:""}`;
+  }
+  if(t.type==="project_settlement")return "专项结余转储蓄";
+  if(t.type==="project_archive")return "专项归档";
+  if(t.type==="project_restore")return "专项恢复";
+  if(t.type==="bill_skip")return "固定账单 · 无需支付";
+
+  if(t.type==="expense"){
+    if(t.settledBillId){
+      const b=S.bills.find(x=>x.id===t.settledBillId);
+      return `固定账单${b?" · "+b.name:""}`;
+    }
+    const labels={
+      safe:"零花钱 / 日常支出",
+      living:"零花钱 / 日常支出",
+      bill:"固定账单",
+      project:"专项支出",
+      saving:"储蓄取用"
+    };
+    return `${labels[t.bucket]||"支出"}${t.note?" · "+t.note:""}`;
+  }
+
+  return "流水";
+}
+
+function transactionActionAmountText(t){
+  if(!t)return "";
+  if(t.type==="living_settlement"){
+    return `实际支出 ${M(t.actualSpent)} · 预留 ${M(t.allowance)}`;
+  }
+  if(t.type==="bill_skip")return "无需支付";
+  if(t.amount!==undefined)return M(t.amount);
+  return "";
+}
+
+function openTxActions(id){
+  const t=S.tx.find(x=>x.id===id);
+  if(!t)return;
+
+  txActionId.value=id;
+  txActionName.textContent=transactionActionTitle(t);
+  txActionMeta.textContent=[
+    historyTxDate(t),
+    transactionActionAmountText(t)
+  ].filter(Boolean).join(" · ");
+
+  txActionEditBtn.style.display=transactionEditable(t)?"":"none";
+  txActionSheet.classList.add("show");
+}
+
+txActionEditBtn.onclick=()=>{
+  const id=txActionId.value;
+  closeSheet("txActionSheet");
+  openTxEdit(id);
+};
+
+txActionDeleteBtn.onclick=()=>{
+  const id=txActionId.value;
+  const t=S.tx.find(x=>x.id===id);
+  if(!t)return;
+
+  if(!confirm(`删除“${transactionActionTitle(t)}”这条流水？`))return;
+
+  closeSheet("txActionSheet");
+
+  if(["project_settlement","project_archive","project_restore"].includes(t.type)){
+    removeProjectTimelineTx(id);
+  }else{
+    removeTx(id);
+  }
+};
 
 const HISTORY_PAGE_SIZE=30;
 let historyVisibleCount=HISTORY_PAGE_SIZE;
@@ -5612,67 +5751,425 @@ savePocketTransfer.onclick=()=>{
 
 
 
-/* Recent transaction editing */
+/* Result transaction editing: restore every field that was originally user-editable. */
+
+function txProjectOptions(selectedId="",includeArchived=true){
+  const rows=S.projects.filter(p=>includeArchived||!p.archived);
+  let html=rows.map(p=>`<option value="${p.id}" ${p.id===selectedId?"selected":""}>${esc(p.name)}${p.archived?" · 已归档":""}</option>`).join("");
+
+  if(selectedId&&!rows.some(p=>p.id===selectedId)){
+    html=`<option value="${selectedId}" selected>原专项（当前已删除）</option>`+html;
+  }
+
+  return html;
+}
+
+function txBillOptions(selectedId=""){
+  let html=S.bills.map(b=>`<option value="${b.id}" ${b.id===selectedId?"selected":""}>${esc(b.name)}</option>`).join("");
+
+  if(selectedId&&!S.bills.some(b=>b.id===selectedId)){
+    html=`<option value="${selectedId}" selected>原账单（当前已删除）</option>`+html;
+  }
+
+  return html;
+}
+
+function txIncomePlanOptions(t){
+  const selected=t.planId||"__extra__";
+  let html=`<option value="__extra__" ${selected==="__extra__"?"selected":""}>单次额外收入</option>`;
+
+  S.incomePlans.forEach(p=>{
+    html+=`<option value="${p.id}" ${selected===p.id?"selected":""}>${esc(p.name)} · ${freqLabel(p.freq)}</option>`;
+  });
+
+  if(t.planId&&!S.incomePlans.some(p=>p.id===t.planId)){
+    html+=`<option value="__original__" selected>${esc(t.planNameAtRecord||"原收入计划")} · 原记录</option>`;
+  }
+
+  return html;
+}
+
+function txIncomeProjectRows(t){
+  const allocMap=new Map((t.alloc?.projects||[]).map(x=>[x.projectId,N(x.amount)]));
+  const rows=S.projects.filter(p=>!p.archived||allocMap.has(p.id));
+
+  if(!rows.length){
+    return '<div class="note">当前没有可分配的专项。</div>';
+  }
+
+  return rows.map(p=>`
+    <div class="txEditProjectRow">
+      <div>
+        <div class="txEditProjectName">${esc(p.name)}</div>
+        <div class="txEditProjectMeta">${p.archived?"已归档 · ":""}当前专项缺口 ${M(projectGap(p))}</div>
+      </div>
+      <input
+        class="editIncomeProjectAmount"
+        data-id="${p.id}"
+        inputmode="decimal"
+        type="number"
+        min="0"
+        value="${allocMap.get(p.id)||0}"
+      >
+    </div>
+  `).join("");
+}
+
+function refreshIncomeEditFields(t){
+  const select=document.getElementById("editIncomePlan");
+  if(!select)return;
+
+  let plan=null;
+  let recurring=false;
+  let isExtra=false;
+
+  if(select.value==="__extra__"){
+    isExtra=true;
+  }else if(select.value==="__original__"){
+    recurring=t.planFreqAtRecord!=="none";
+  }else{
+    plan=S.incomePlans.find(x=>x.id===select.value);
+    recurring=!!(plan&&isRecurringPlan(plan));
+  }
+
+  const nextRow=document.getElementById("editIncomeNextRow");
+  const noteRow=document.getElementById("editIncomeNoteRow");
+
+  nextRow.style.display=recurring?"":"none";
+  noteRow.style.display=isExtra?"":"none";
+
+  if(recurring){
+    const next=document.getElementById("editIncomeNext");
+    if(!next.value){
+      const freq=plan?.freq||t.planFreqAtRecord||"weekly";
+      next.value=nextAfter(t.date,freq);
+    }
+  }
+
+  syncDateDisplays();
+}
+
+function billReservedByOtherIncome(ignoreIncomeId,bid,dueDate){
+  return S.tx.some(x=>
+    x.id!==ignoreIncomeId
+    &&x.type==="income"
+    &&(x.alloc?.billItems||[]).some(b=>b.billId===bid&&b.dueDate===dueDate)
+  );
+}
+
+function editedIncomeBillItems(t,start,end){
+  if(!start||!end||end<start)return [];
+
+  const own=new Set((t.alloc?.billItems||[]).map(x=>`${x.billId}|${x.dueDate}`));
+
+  return allBillsBetween(start,end)
+    .filter(x=>{
+      const key=`${x.id}|${x.dueDate}`;
+      if(own.has(key))return true;
+      if(x.settled)return false;
+      return !billReservedByOtherIncome(t.id,x.id,x.dueDate);
+    })
+    .map(x=>({
+      billId:x.id,
+      dueDate:x.dueDate,
+      amount:N(x.amount)
+    }));
+}
+
+function projectBalanceBeforeEdit(projectId,targetId,targetDate){
+  const p=S.projects.find(x=>x.id===projectId);
+  if(!p)return 0;
+
+  const target=S.tx.find(x=>x.id===targetId);
+  const targetStamp=txStamp(target);
+
+  let amount=N(p.initialFund);
+
+  const ordered=[...S.tx]
+    .filter(x=>x.id!==targetId)
+    .sort((a,b)=>{
+      if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
+      const aa=txStamp(a),bb=txStamp(b);
+      if(aa!==bb)return aa-bb;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+  for(const x of ordered){
+    const xd=String(x.date||"");
+
+    if(xd>targetDate)break;
+    if(xd===targetDate&&txStamp(x)>=targetStamp)break;
+
+    if(x.type==="income"){
+      const ea=effectiveIncomeAllocation(x);
+      amount+=sm((ea.projects||[]).filter(v=>v.projectId===projectId),v=>N(v.amount));
+      continue;
+    }
+
+    if(x.type==="pocket_to_project"&&x.projectId===projectId){
+      amount+=N(x.amount);
+      continue;
+    }
+
+    if(x.type==="project_settlement"&&x.projectId===projectId){
+      amount-=Math.min(Math.max(0,amount),N(x.amount));
+      continue;
+    }
+
+    if(x.type==="expense"&&x.bucket==="project"&&x.refId===projectId){
+      amount-=Math.min(Math.max(0,amount),N(x.amount));
+    }
+  }
+
+  return Math.max(0,amount);
+}
+
+function billSettledIgnoringTx(ignoreId,bid,dueDate){
+  return S.tx.some(t=>{
+    if(t.id===ignoreId)return false;
+
+    if(t.type==="bill_skip"){
+      return t.billId===bid&&t.cycleDueDate===dueDate;
+    }
+
+    if(t.settledBillId===bid){
+      return t.cycleDueDate===dueDate;
+    }
+
+    if(t.bucket!=="bill"||t.refId!==bid)return false;
+    if(t.cycleDueDate)return t.cycleDueDate===dueDate;
+    return md(t.date)===md(dueDate);
+  });
+}
+
+function billCycleForEditedExpense(bid,referenceDate,ignoreId){
+  const b=S.bills.find(x=>x.id===bid);
+  if(!b)return "";
+
+  const rows=allBillsBetween(addDays(referenceDate,-35),addDays(referenceDate,65))
+    .filter(x=>x.id===bid)
+    .map(x=>({
+      ...x,
+      settled:billSettledIgnoringTx(ignoreId,bid,x.dueDate)
+    }))
+    .filter(x=>!x.settled)
+    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+
+  const reserved=rows.filter(x=>x.reserved);
+  if(reserved.length)return reserved[0].dueDate;
+
+  const after=rows.filter(x=>x.dueDate>=referenceDate);
+  if(after.length)return after[0].dueDate;
+
+  return rows[0]?.dueDate||"";
+}
+
+function refreshExpenseEditFields(t,selectedRef=""){
+  const bucket=document.getElementById("editExpenseBucket")?.value||"safe";
+  const refRow=document.getElementById("editExpenseRefRow");
+  const refLabel=document.getElementById("editExpenseRefLabel");
+  const ref=document.getElementById("editExpenseRef");
+  const overrunRow=document.getElementById("editExpenseOverrunRow");
+
+  if(bucket==="bill"){
+    refRow.style.display="";
+    refLabel.textContent="选择账单";
+    ref.innerHTML=txBillOptions(selectedRef||ref.value||t.refId||"");
+  }else if(bucket==="project"){
+    refRow.style.display="";
+    refLabel.textContent="选择专项";
+    ref.innerHTML=txProjectOptions(selectedRef||ref.value||t.refId||"",true);
+  }else{
+    refRow.style.display="none";
+    ref.innerHTML="";
+  }
+
+  if(bucket==="project"){
+    const pid=ref.value;
+    const date=document.getElementById("editExpenseDate").value||t.date||td();
+    const amount=Math.max(0,N(document.getElementById("editExpenseAmount").value));
+    const before=projectBalanceBeforeEdit(pid,t.id,date);
+    const over=Math.max(0,amount-before);
+    overrunRow.style.display=over>0?"":"none";
+    document.getElementById("editExpenseOverrunMeta").textContent=over>0
+      ?`按修改后的日期计算，专项资金可覆盖 ${M(Math.min(amount,before))}，超出 ${M(over)}。`
+      :"当前金额可以由专项资金覆盖。";
+  }else{
+    overrunRow.style.display="none";
+  }
+}
+
+function refreshTransferEditFields(t){
+  const target=document.getElementById("editTransferTarget")?.value||"saving";
+  const row=document.getElementById("editTransferProjectRow");
+  row.style.display=target==="project"?"":"none";
+}
+
 function openTxEdit(id){
   const t=S.tx.find(x=>x.id===id);
-  if(!t||!recentTxEditable(t))return msg("这条流水暂不支持直接修改");
+  if(!t||!transactionEditable(t))return msg("这条流水没有可还原的输入表单");
 
   editTxId.value=t.id;
-  editTxDateRow.style.display="";
-  editTxAmountRow.style.display="";
-  editTxProjectRow.style.display="none";
-  editTxNoteRow.style.display="";
-  editTxDate.disabled=false;
-  editTxAmount.disabled=false;
-  editTxAmount.min="0";
-  editTxDate.max=td();
-  editTxNote.disabled=false;
-
-  editTxDate.value=t.date||td();
-  editTxAmount.value=N(t.amount);
-  editTxNote.value=t.note||"";
-  editTxAmountLabel.textContent="金额";
-  editTxHint.textContent="修改后会重新计算零花钱、储蓄、专项和结果统计。";
 
   if(t.type==="income"){
-    const recurring=isCycleIncomeTx(t);
-    editTxTitle.textContent=recurring?"修改周期收入流水":"修改单次额外收入";
-    editTxDate.disabled=recurring;
-    editTxNoteRow.style.display=recurring?"none":"";
-    editTxNote.value=t.incomeNote||"";
-    editTxHint.textContent=recurring
-      ?"金额可以修改；周期收入日期定义收入周期和生活费覆盖范围，因此这里保持锁定。原有储蓄、账单和专项分配保持不变，金额差额自动反映到零花钱。"
-      :"可以修改日期、到账金额和备注；原有储蓄与专项分配保持不变，金额差额自动反映到零花钱。";
+    editTxTitle.textContent="修改收入流水";
+    editTxFields.innerHTML=`
+      <div class="formGrid">
+        <div>
+          <label>对应收入计划</label>
+          <select id="editIncomePlan">${txIncomePlanOptions(t)}</select>
+        </div>
+        <div>
+          <label>到账金额</label>
+          <input id="editIncomeAmount" inputmode="decimal" type="number" min="0" value="${N(t.amount)}">
+        </div>
+        <div id="editIncomeNextRow">
+          <label>下一次周期收入日期</label>
+          <input id="editIncomeNext" type="date" value="${esc(t.nextIncomeDate||"")}">
+        </div>
+        <div>
+          <label>本次优先储蓄</label>
+          <input id="editIncomeSaving" inputmode="decimal" type="number" min="0" value="${N(t.alloc?.saving)}">
+        </div>
+        <div id="editIncomeNoteRow" style="grid-column:1/-1">
+          <label>单次收入备注</label>
+          <input id="editIncomeNote" value="${esc(t.incomeNote||"")}">
+        </div>
+      </div>
+
+      <div class="txEditGroup">
+        <div class="txEditGroupTitle">专项预留</div>
+        ${txIncomeProjectRows(t)}
+      </div>
+    `;
+
+    editTxHint.textContent="对应收入计划、到账金额、下一次周期收入日期、优先储蓄、单次收入备注和专项预留都可以重新修改。基础生活与固定账单会按修改后的收入条件重新计算。";
+
+    document.getElementById("editIncomePlan").addEventListener("change",()=>refreshIncomeEditFields(t));
+    refreshIncomeEditFields(t);
+  }else if(t.type==="expense"){
+    const bucket=t.bucket==="living"?"safe":t.bucket;
+
+    editTxTitle.textContent="修改支出流水";
+    editTxFields.innerHTML=`
+      <div class="formGrid one">
+        <div>
+          <label>支出来源</label>
+          <select id="editExpenseBucket">
+            <option value="safe" ${bucket==="safe"?"selected":""}>零花钱 / 日常支出</option>
+            <option value="bill" ${bucket==="bill"?"selected":""}>固定账单</option>
+            <option value="project" ${bucket==="project"?"selected":""}>专项项目</option>
+            <option value="saving" ${bucket==="saving"?"selected":""}>从储蓄取用</option>
+          </select>
+        </div>
+
+        <div id="editExpenseRefRow" style="display:none">
+          <label id="editExpenseRefLabel">选择项目</label>
+          <select id="editExpenseRef"></select>
+        </div>
+
+        <div>
+          <label>金额</label>
+          <input id="editExpenseAmount" inputmode="decimal" type="number" min="0" value="${N(t.amount)}">
+        </div>
+
+        <div>
+          <label>花钱日期</label>
+          <input id="editExpenseDate" type="date" max="${td()}" value="${esc(t.date||td())}">
+        </div>
+
+        <div id="editExpenseOverrunRow" style="display:none">
+          <label>专项超出部分从哪里支付</label>
+          <select id="editExpenseOverrunSource">
+            <option value="safe" ${t.projectOverrunSource==="safe"?"selected":""}>零花钱</option>
+            <option value="saving" ${t.projectOverrunSource!=="safe"?"selected":""}>储蓄</option>
+          </select>
+          <div class="small" id="editExpenseOverrunMeta" style="margin-top:6px"></div>
+        </div>
+
+        <div>
+          <label>备注</label>
+          <input id="editExpenseNote" value="${esc(t.note||"")}">
+        </div>
+      </div>
+    `;
+
+    editTxHint.textContent="这里还原“记一笔支出”的完整输入：支出来源、对应账单或专项、金额、花钱日期、专项超支来源和备注都可以修改。";
+
+    const refresh=()=>refreshExpenseEditFields(t);
+    document.getElementById("editExpenseBucket").addEventListener("change",()=>{
+      refreshExpenseEditFields(t,"");
+    });
+    document.getElementById("editExpenseRef").addEventListener("change",refresh);
+    document.getElementById("editExpenseAmount").addEventListener("input",refresh);
+    document.getElementById("editExpenseDate").addEventListener("change",refresh);
+
+    refreshExpenseEditFields(t,t.refId||"");
   }else if(t.type==="living_settlement"){
     editTxTitle.textContent="修改基础生活结算";
-    editTxDate.value=t.coveredDate||t.date||td();
-    editTxDate.disabled=true;
-    editTxAmount.value=N(t.actualSpent);
-    editTxAmountLabel.textContent="实际基础生活支出";
-    editTxNoteRow.style.display="none";
-    editTxHint.textContent=`该日预留 ${M(t.allowance)}；修改实际支出后，结余或超支会自动重新计算。`;
+    editTxFields.innerHTML=`
+      <div class="subCard">
+        <div class="row">
+          <div>
+            <div class="name">${esc(t.coveredDate||t.date||"")}</div>
+            <div class="meta">当天基础生活预留 ${M(t.allowance)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="formGrid one" style="margin-top:10px">
+        <div>
+          <label>当天实际用于基础生活的金额</label>
+          <input id="editLivingActual" inputmode="decimal" type="number" min="0" value="${N(t.actualSpent)}">
+        </div>
+      </div>
+    `;
+    editTxHint.textContent="这条流水当时只有“实际基础生活支出”需要手动填写，因此这里完整恢复这一项。";
   }else if(t.type==="extra_saving"){
     editTxTitle.textContent="修改额外储蓄";
-  }else if(t.type==="pocket_to_saving"){
-    editTxTitle.textContent="修改零花钱转储蓄";
-    editTxNoteRow.style.display="none";
-    editTxHint.textContent="修改日期或金额后，本周期和储蓄变化会重新计算。";
-  }else if(t.type==="pocket_to_project"){
-    editTxTitle.textContent="修改零花钱转专项";
-    editTxNoteRow.style.display="none";
-    editTxProjectRow.style.display="";
-    const ps=[...S.projects];
-    editTxProject.innerHTML=ps.map(p=>
-      `<option value="${p.id}">${esc(p.name)}${p.archived?" · 已归档":""}</option>`
-    ).join("");
-    editTxProject.value=t.projectId||"";
-    editTxHint.textContent="可以修改日期、金额或转入的专项；所有专项余额会重新计算。";
-  }else if(t.type==="expense"){
-    const map={safe:"零花钱 / 日常支出",living:"零花钱 / 日常支出",bill:"固定账单",project:"专项支出",saving:"储蓄取用"};
-    editTxTitle.textContent=`修改${map[t.bucket]||"支出"}`;
-    editTxHint.textContent=t.bucket==="project"
-      ?"可以修改花钱日期、金额和备注。专项归属保持不变；若金额变化，超出专项资金的部分继续沿用原来的支付来源。"
-      :"可以修改花钱日期、金额和备注；修改后相关余额和结果会自动重算。";
+    editTxFields.innerHTML=`
+      <div class="formGrid">
+        <div>
+          <label>日期</label>
+          <input id="editExtraSavingDate" type="date" max="${td()}" value="${esc(t.date||td())}">
+        </div>
+        <div>
+          <label>金额</label>
+          <input id="editExtraSavingAmount" inputmode="decimal" type="number" min="0" value="${N(t.amount)}">
+        </div>
+        <div style="grid-column:1/-1">
+          <label>备注</label>
+          <input id="editExtraSavingNote" value="${esc(t.note||"")}">
+        </div>
+      </div>
+    `;
+    editTxHint.textContent="日期、金额和备注都可以重新修改。";
+  }else if(t.type==="pocket_to_saving"||t.type==="pocket_to_project"){
+    const target=t.type==="pocket_to_project"?"project":"saving";
+    editTxTitle.textContent="修改零花钱转出";
+    editTxFields.innerHTML=`
+      <div class="formGrid one">
+        <div>
+          <label>转入哪里</label>
+          <select id="editTransferTarget">
+            <option value="saving" ${target==="saving"?"selected":""}>储蓄</option>
+            <option value="project" ${target==="project"?"selected":""}>专项</option>
+          </select>
+        </div>
+
+        <div id="editTransferProjectRow">
+          <label>选择专项</label>
+          <select id="editTransferProject">${txProjectOptions(t.projectId||"",true)}</select>
+        </div>
+
+        <div>
+          <label>转入金额</label>
+          <input id="editTransferAmount" inputmode="decimal" type="number" min="0" value="${N(t.amount)}">
+        </div>
+      </div>
+    `;
+    editTxHint.textContent="转入储蓄 / 专项、目标专项和转入金额都可以重新修改。";
+    document.getElementById("editTransferTarget").addEventListener("change",()=>refreshTransferEditFields(t));
+    refreshTransferEditFields(t);
   }
 
   syncDateDisplays();
@@ -5681,55 +6178,188 @@ function openTxEdit(id){
 
 saveTxEdit.onclick=()=>{
   const t=S.tx.find(x=>x.id===editTxId.value);
-  if(!t)return;
-
-  const amount=Math.max(0,N(editTxAmount.value));
-  const date=editTxDate.value||t.date||td();
-
-  if(t.type!=="living_settlement"&&amount<=0)return msg("金额需要大于 0");
-  if(date>td())return msg("实际流水日期不能晚于今天");
+  if(!t||!transactionEditable(t))return;
 
   if(t.type==="income"){
-    t.amount=amount;
+    const selected=document.getElementById("editIncomePlan").value;
+    const amount=Math.max(0,N(document.getElementById("editIncomeAmount").value));
+    const saving=Math.max(0,N(document.getElementById("editIncomeSaving").value));
 
-    if(!isCycleIncomeTx(t)){
-      t.date=date;
-      t.incomeNote=editTxNote.value.trim();
-      t.cycleIncomeId=cycleIncomeIdForDate(date);
+    if(amount<=0)return msg("请输入到账金额");
+
+    let plan=null;
+    let recurring=false;
+    let isExtra=false;
+    let planId=t.planId||"";
+    let planNameAtRecord=t.planNameAtRecord||"";
+    let planFreqAtRecord=t.planFreqAtRecord||"none";
+    let incomeKind=t.incomeKind||"extra";
+
+    if(selected==="__extra__"){
+      isExtra=true;
+      planId="";
+      planNameAtRecord="";
+      planFreqAtRecord="none";
+      incomeKind="extra";
+    }else if(selected==="__original__"){
+      recurring=t.planFreqAtRecord!=="none";
+    }else{
+      plan=S.incomePlans.find(x=>x.id===selected);
+      if(!plan)return msg("选择的收入计划已经不存在");
+
+      planId=plan.id;
+      planNameAtRecord=plan.name||"";
+      planFreqAtRecord=plan.freq||"none";
+      recurring=isRecurringPlan(plan);
+      incomeKind=recurring?"recurring":"planned_extra";
+    }
+
+    const next=recurring
+      ?document.getElementById("editIncomeNext").value
+      :"";
+
+    if(recurring&&(!next||next<=t.date)){
+      return msg("下一次周期收入日期需要晚于这笔收入日期");
+    }
+
+    const projects=[...document.querySelectorAll(".editIncomeProjectAmount")]
+      .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value))}))
+      .filter(x=>x.amount>0);
+
+    const billItems=recurring
+      ?editedIncomeBillItems(t,t.date,next)
+      :[];
+
+    const bills=sm(billItems,x=>N(x.amount));
+
+    t.planId=planId;
+    t.planNameAtRecord=planNameAtRecord;
+    t.planFreqAtRecord=planFreqAtRecord;
+    t.incomeKind=incomeKind;
+    t.incomeNote=isExtra?document.getElementById("editIncomeNote").value.trim():"";
+    t.amount=amount;
+    t.nextIncomeDate=next;
+
+    if(recurring){
+      t.cycleIncomeId="";
+      t.livingCoverageStart=t.date;
+      t.livingCoverageEnd=next;
+      if(t.livingRateAtRecord===undefined||t.livingRateAtRecord===null){
+        t.livingRateAtRecord=N(S.settings.dailyLiving);
+      }
+    }else{
+      t.cycleIncomeId="";
+      t.livingCoverageStart="";
+      t.livingCoverageEnd="";
+      t.livingRateAtRecord=0;
+    }
+
+    t.alloc={
+      ...(t.alloc||{}),
+      saving,
+      bills,
+      billItems,
+      projects,
+      living:0,
+      safe:0
+    };
+
+    if(!recurring){
+      t.cycleIncomeId=cycleIncomeIdForDate(t.date);
+    }
+
+    const ea=effectiveIncomeAllocation(t);
+    t.alloc.living=N(ea.living);
+    t.alloc.bills=N(ea.bills);
+    t.alloc.safe=N(ea.safe);
+  }else if(t.type==="expense"){
+    const bucket=document.getElementById("editExpenseBucket").value;
+    const amount=Math.max(0,N(document.getElementById("editExpenseAmount").value));
+    const date=document.getElementById("editExpenseDate").value||t.date||td();
+    const note=document.getElementById("editExpenseNote").value.trim();
+
+    if(amount<=0)return msg("请输入支出金额");
+    if(date>td())return msg("花钱日期不能晚于今天");
+
+    let refId="";
+    if(bucket==="bill"||bucket==="project"){
+      refId=document.getElementById("editExpenseRef").value;
+      if(!refId)return msg("请选择对应项目");
+    }
+
+    const oldBucket=t.bucket;
+    const oldRef=t.refId;
+
+    if(
+      t.projectPlannedExpenseSnapshot
+      &&(bucket!=="project"||refId!==oldRef)
+    ){
+      const oldProject=S.projects.find(x=>x.id===oldRef);
+      if(oldProject){
+        if(!Array.isArray(oldProject.plannedExpenses))oldProject.plannedExpenses=[];
+        const snap=t.projectPlannedExpenseSnapshot;
+        if(!oldProject.plannedExpenses.some(x=>x.id===snap.id)){
+          oldProject.plannedExpenses.push({...snap});
+        }
+      }
+      t.projectPlannedExpenseId="";
+      t.projectPlannedExpenseSnapshot=null;
+    }
+
+    t.bucket=bucket;
+    t.amount=amount;
+    t.date=date;
+    t.note=note;
+    t.refId=refId;
+    t.cycleIncomeId=cycleIncomeIdForDate(date);
+    t.settledBillId="";
+    t.billHandledDirect=false;
+
+    if(bucket==="bill"){
+      t.cycleDueDate=billCycleForEditedExpense(refId,date,t.id);
+      t.projectOverrunAmount=0;
+      t.projectOverrunSource="";
+    }else if(bucket==="project"){
+      t.cycleDueDate="";
+      const before=projectBalanceBeforeEdit(refId,t.id,date);
+      const over=Math.max(0,amount-before);
+      t.projectOverrunAmount=over;
+      t.projectOverrunSource=over>0
+        ?document.getElementById("editExpenseOverrunSource").value
+        :"";
+    }else{
+      t.cycleDueDate="";
+      t.projectOverrunAmount=0;
+      t.projectOverrunSource="";
     }
   }else if(t.type==="living_settlement"){
-    t.actualSpent=amount;
-    t.editedAt=Date.now();
+    t.actualSpent=Math.max(0,N(document.getElementById("editLivingActual").value));
   }else if(t.type==="extra_saving"){
-    t.date=date;
-    t.amount=amount;
-    t.note=editTxNote.value.trim();
-  }else if(t.type==="pocket_to_saving"){
-    t.date=date;
-    t.amount=amount;
-    t.cycleIncomeId=cycleIncomeIdForDate(date);
-  }else if(t.type==="pocket_to_project"){
-    const projectId=editTxProject.value;
-    if(!projectId)return msg("请选择专项");
-    t.date=date;
-    t.amount=amount;
-    t.projectId=projectId;
-    t.cycleIncomeId=cycleIncomeIdForDate(date);
-  }else if(t.type==="expense"){
-    const oldAmount=N(t.amount);
-    const oldOverrun=Math.max(0,N(t.projectOverrunAmount));
-    const oldProjectFundedPart=Math.max(0,oldAmount-oldOverrun);
+    const date=document.getElementById("editExtraSavingDate").value||t.date||td();
+    const amount=Math.max(0,N(document.getElementById("editExtraSavingAmount").value));
+    if(amount<=0)return msg("请输入额外储蓄金额");
+    if(date>td())return msg("日期不能晚于今天");
 
     t.date=date;
     t.amount=amount;
-    t.note=editTxNote.value.trim();
-    t.cycleIncomeId=cycleIncomeIdForDate(date);
+    t.note=document.getElementById("editExtraSavingNote").value.trim();
+  }else if(t.type==="pocket_to_saving"||t.type==="pocket_to_project"){
+    const target=document.getElementById("editTransferTarget").value;
+    const amount=Math.max(0,N(document.getElementById("editTransferAmount").value));
+    if(amount<=0)return msg("请输入转入金额");
 
-    if(t.bucket==="project"){
-      const newOverrun=Math.max(0,amount-oldProjectFundedPart);
-      t.projectOverrunAmount=newOverrun;
-      if(newOverrun>0&&!t.projectOverrunSource)t.projectOverrunSource="saving";
+    if(target==="project"){
+      const projectId=document.getElementById("editTransferProject").value;
+      if(!projectId)return msg("请选择专项");
+      t.type="pocket_to_project";
+      t.projectId=projectId;
+    }else{
+      t.type="pocket_to_saving";
+      delete t.projectId;
     }
+
+    t.amount=amount;
+    t.cycleIncomeId=cycleIncomeIdForDate(t.date);
   }
 
   t.editedAt=Date.now();
@@ -5737,7 +6367,7 @@ saveTxEdit.onclick=()=>{
   save();
   closeSheet("editTxSheet");
   render();
-  msg("流水已修改，相关余额已重新计算");
+  msg("这条流水的输入内容已更新");
 };
 
 /* Spend */
