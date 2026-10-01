@@ -197,6 +197,159 @@ button{touch-action:manipulation}
   background:#F0F1EE;
   color:var(--muted);
 }
+
+.bankReminderForm{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:9px;
+}
+.bankReminderForm button{
+  width:100%;
+  height:46px;
+  min-height:46px;
+  border-radius:14px;
+}
+.bankReminderRows{
+  margin-top:13px;
+  padding-top:3px;
+}
+.bankReminderReadyCard{
+  margin-top:12px;
+  padding:13px;
+  border:1px solid #CFE0D8;
+  border-radius:15px;
+  background:var(--accentSoft);
+}
+.bankReminderReadyCard .primary{
+  min-width:112px;
+  padding:10px 12px;
+}
+
+.projectFinanceBox{
+  margin-top:10px;
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#FAFBF9;
+}
+.projectFinanceNumbers{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+.projectFinanceNumber{
+  min-width:0;
+  text-align:center;
+}
+.projectFinanceNumber span{
+  display:block;
+  font-size:9.5px;
+  color:var(--muted);
+  margin-bottom:3px;
+}
+.projectFinanceNumber strong{
+  display:block;
+  font-size:11.5px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.projectMoneyBar{
+  display:flex;
+  width:100%;
+  height:9px;
+  margin-top:10px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#ECEFEA;
+}
+.projectMoneyBar span{display:block;height:100%}
+.projectMoneySpent{background:#B98576}
+.projectMoneyAvailable{background:var(--accent)}
+.projectMoneyGap{background:#DDE1DC}
+.projectMoneyLegend{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:7px;
+  font-size:9.5px;
+  color:var(--muted);
+}
+.projectMoneyLegend span{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.projectMoneyLegend i{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  display:inline-block;
+}
+.projectLedger{
+  margin-top:10px;
+  border-top:1px solid var(--line);
+  padding-top:9px;
+}
+.projectLedger summary{
+  list-style:none;
+  cursor:pointer;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  font-size:11px;
+  font-weight:750;
+}
+.projectLedger summary::-webkit-details-marker{display:none}
+.projectLedger summary::after{
+  content:"展开";
+  color:var(--muted);
+  font-size:10px;
+  font-weight:650;
+}
+.projectLedger[open] summary::after{content:"收起"}
+.projectLedgerRow{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  padding:9px 0;
+  border-top:1px solid var(--line);
+}
+.projectLedgerRow:first-of-type{margin-top:8px}
+.projectLedgerInfo{min-width:0}
+.projectLedgerName{
+  font-size:11px;
+  font-weight:700;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.projectLedgerMeta{
+  font-size:9.5px;
+  color:var(--muted);
+  margin-top:3px;
+  line-height:1.4;
+}
+.projectLedgerAmount{
+  text-align:right;
+  flex:none;
+  font-size:11px;
+  font-weight:800;
+}
+.projectLedgerDelete{
+  display:block;
+  margin-top:5px;
+  margin-left:auto;
+  border:0;
+  background:transparent;
+  color:var(--danger);
+  font-size:9.5px;
+  padding:2px 0;
+}
+@media(max-width:560px){
+  .projectFinanceNumbers{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 .savingCycleCount{
   font-size:11px;
   color:var(--muted);
@@ -662,9 +815,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="sectionTitle">储蓄总览</div>
 
       <div class="card savingHeroCard">
-        <div class="k">当前储蓄总额</div>
+        <div class="k">当前储蓄资产</div>
         <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
-        <div class="s">储蓄本金 + 银行存款预估应计利息</div>
+        <div class="s">日常储蓄余额 + 银行存款本金 + 预估累计利息</div>
 
         <div class="heroMiniActions" style="margin-top:13px">
           <button class="ghost" onclick="openExtraSaving()">记额外储蓄</button>
@@ -674,9 +827,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
       <div class="grid" style="margin-top:10px">
         <div class="card stat">
-          <div class="k">累计储蓄本金</div>
+          <div class="k">本周期预计可存</div>
           <div class="v" id="savingPrincipalTotal">¥0</div>
-          <div class="s">周期储蓄 + 额外储蓄 + 外部新增存款</div>
+          <div class="s">与“现在”页口径一致，随转储蓄和储蓄取用实时变化</div>
         </div>
         <div class="card stat">
           <div class="k">银行存款本金</div>
@@ -689,9 +842,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div class="s">按录入利率逐日估算</div>
         </div>
         <div class="card stat">
-          <div class="k">普通储蓄可用</div>
+          <div class="k">日常储蓄余额</div>
           <div class="v" id="savingFreePrincipal">¥0</div>
-          <div class="s">储蓄本金扣除已放入银行存款的本金</div>
+          <div class="s">尚未转入银行、当前可用的储蓄余额</div>
         </div>
       </div>
     </div>
@@ -700,26 +853,26 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="sectionTitle">银行转存提醒</div>
 
       <div class="card">
-        <div class="formGrid">
+        <div class="bankReminderForm">
           <div>
             <label>提醒额度</label>
             <input id="bankReminderThreshold" inputmode="decimal" type="number" min="0" placeholder="例如 5000">
           </div>
-          <div style="display:flex;align-items:end">
-            <button class="secondary" style="width:100%;height:46px" id="saveBankReminderThreshold">保存提醒额度</button>
-          </div>
+          <button class="secondary" id="saveBankReminderThreshold">保存提醒额度</button>
         </div>
 
         <div class="divider"></div>
 
-        <div class="explainRow"><span>当前日常储蓄可用</span><strong id="bankReminderCurrent">¥0</strong></div>
-        <div class="explainRow"><span>设定转存额度</span><strong id="bankReminderTarget">未设置</strong></div>
-        <div class="explainRow total"><span id="bankReminderGapLabel">距离提醒额度</span><strong id="bankReminderGap">—</strong></div>
+        <div class="bankReminderRows">
+          <div class="explainRow"><span>当前日常储蓄可用</span><strong id="bankReminderCurrent">¥0</strong></div>
+          <div class="explainRow"><span>设定转存额度</span><strong id="bankReminderTarget">未设置</strong></div>
+          <div class="explainRow total"><span id="bankReminderGapLabel">距离提醒额度</span><strong id="bankReminderGap">—</strong></div>
+        </div>
 
         <div class="progress" style="margin-top:10px"><span id="bankReminderProgress" style="width:0%"></span></div>
 
-        <div id="bankReminderReady" style="display:none;margin-top:12px">
-          <div class="subCard">
+        <div id="bankReminderReady" style="display:none">
+          <div class="bankReminderReadyCard">
             <div class="row">
               <div>
                 <div class="name">已经达到银行转存额度</div>
@@ -740,9 +893,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="sectionTitle">储蓄统计</div>
 
       <div class="card savingHeroCard">
-        <div class="k">累计已储蓄本金</div>
+        <div class="k">累计储蓄净增</div>
         <div class="savingHeroValue" id="savingAllTime">¥0</div>
-        <div class="s">不含尚未实际结算的预估利息</div>
+        <div class="s">按全部历史流水累计的储蓄本金净变化，不含预估利息</div>
       </div>
 
       <div class="card" style="margin-top:10px">
@@ -851,15 +1004,17 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="grid">
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
-        <div class="card stat"><div class="k">储蓄净增</div><div class="v" id="mSaving">¥0</div><div class="s">本月各收入周期储蓄净增的合计</div></div>
-        <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">0%</div><div class="s">储蓄净增 ÷ 本月收入，可为负数</div></div>
+        <div class="card stat"><div class="k">预计储蓄增长</div><div class="v" id="mExpectedSaving">¥0</div><div class="s">本月已确认净增 + 本周期预计在本月结束时沉淀的剩余零花钱</div></div>
+        <div class="card stat"><div class="k">已确认储蓄净增</div><div class="v" id="mSaving">¥0</div><div class="s">按本月实际发生的储蓄动作实时统计</div></div>
       </div>
       <div class="card" style="margin-top:10px">
         <div class="explainRow"><span>本月收入</span><strong id="mResultIncome">¥0</strong></div>
         <div class="explainRow"><span>本月基础生活扣除</span><strong id="mLivingReserved">¥0</strong></div>
         <div class="explainRow"><span>本月固定支出 / 预留</span><strong id="mFixedSpent">¥0</strong></div>
         <div class="explainRow"><span>本月已用零花钱</span><strong id="mPocketSpent">¥0</strong></div>
-        <div class="explainRow total"><span>本月储蓄净增合计</span><strong id="mNetSavingDetail">¥0</strong></div>
+        <div class="explainRow"><span>本月储蓄率</span><strong id="mRate">0%</strong></div>
+        <div class="explainRow"><span>本周期预计可存</span><strong id="mCycleProjectedSaving">¥0</strong></div>
+        <div class="explainRow total"><span>本月已确认储蓄净增</span><strong id="mNetSavingDetail">¥0</strong></div>
       </div>
     </div>
     <div class="section">
@@ -1280,10 +1435,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v36";
-const OLD_KEYS=["safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v37";
+const OLD_KEYS=["safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:36,
+  version:37,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -1390,7 +1545,15 @@ function nextAfter(date,freq){
 function activeProjects(){return S.projects.filter(p=>!p.archived)}
 function archivedProjects(){return S.projects.filter(p=>!!p.archived)}
 function projectFunded(p){
-  return N(p.initialFund)+sm(S.tx.filter(t=>t.type==="income"),t=>sm((t.alloc?.projects||[]).filter(x=>x.projectId===p.id),x=>x.amount));
+  const incomeFunded=sm(
+    S.tx.filter(t=>t.type==="income"),
+    t=>sm((t.alloc?.projects||[]).filter(x=>x.projectId===p.id),x=>x.amount)
+  );
+  const pocketFunded=sm(
+    S.tx.filter(t=>t.type==="pocket_to_project"&&t.projectId===p.id),
+    t=>N(t.amount)
+  );
+  return N(p.initialFund)+incomeFunded+pocketFunded;
 }
 function projectSpent(p){return sm(S.tx.filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id),t=>t.amount)}
 function projectGap(p){return Math.max(0,N(p.budget)-projectFunded(p))}
@@ -1789,6 +1952,17 @@ function monthlyCycleStats(ym=md()){
   const rangeEnd=`${yy}-${pad2(mm)}-${pad2(last)}`;
   const savingEvents=savingStatsForRange(rangeStart,rangeEnd);
 
+  const current=currentCycleStats();
+  const closeDate=current.nextCycleIncome?.date
+    || current.income?.nextIncomeDate
+    || nextRecurringIncome()?.nextDate
+    || "";
+
+  const expectedPocketInMonth=
+    closeDate&&md(closeDate)===ym
+      ?Math.max(0,N(current.pocketBalance))
+      :0;
+
   return {
     cycles,
     income:sm(allIncomes,t=>N(t.amount)),
@@ -1799,7 +1973,9 @@ function monthlyCycleStats(ym=md()){
     projectReserved:sm(cycles,c=>N(c.projectReserved)),
     pocketSpent:sm(cycles,c=>N(c.pocketSpent)),
     pocketToSaving:N(savingEvents.transfers),
-    projectedSaving:N(savingEvents.principalNet)
+    projectedSaving:N(savingEvents.principalNet),
+    expectedSaving:N(savingEvents.principalNet)+expectedPocketInMonth,
+    expectedPocketInMonth
   };
 }
 function currentCycleStats(){
@@ -2323,6 +2499,142 @@ function restoreProject(id){
   msg(`${p.name} 已恢复，最近一次结算也已撤销`);
 }
 
+
+function projectExpenseRows(p){
+  return S.tx
+    .filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id)
+    .sort((a,b)=>(String(b.date)+String(b.id)).localeCompare(String(a.date)+String(a.id)));
+}
+
+function projectExpenseBreakdown(t){
+  const over=Math.max(0,N(t.projectOverrunAmount));
+  const fromProject=Math.max(0,N(t.amount)-over);
+  const overSource=t.projectOverrunSource==="safe"
+    ?"零花钱"
+    :t.projectOverrunSource==="saving"
+      ?"储蓄"
+      :"储蓄";
+
+  return {over,fromProject,overSource};
+}
+
+function projectFinanceDetailHtml(p,a){
+  const budget=Math.max(0,N(p.budget));
+  const funded=Math.max(0,projectFunded(p));
+  const expenses=projectExpenseRows(p);
+  const spent=sm(expenses,t=>N(t.amount));
+  const available=Math.max(0,N(a.projects[p.id]||0));
+  const gap=Math.max(0,budget-funded);
+  const overBudget=Math.max(0,spent-budget);
+
+  const spentWithin=Math.min(budget,spent);
+  const availableWithin=Math.min(Math.max(0,budget-spentWithin),available);
+  const gapWithin=Math.max(0,budget-spentWithin-availableWithin);
+
+  const denom=Math.max(1,budget);
+  const spentPct=budget>0?Math.min(100,spentWithin/denom*100):0;
+  const availablePct=budget>0?Math.min(100-spentPct,availableWithin/denom*100):0;
+  const gapPct=budget>0?Math.max(0,100-spentPct-availablePct):0;
+
+  const expenseHtml=expenses.length
+    ?expenses.map(t=>{
+      const b=projectExpenseBreakdown(t);
+      const sourceText=b.over>0
+        ?`专项 ${M(b.fromProject)} + ${b.overSource} ${M(b.over)}`
+        :`专项资金 ${M(b.fromProject)}`;
+      return `<div class="projectLedgerRow">
+        <div class="projectLedgerInfo">
+          <div class="projectLedgerName">${esc(t.note||"专项支出")}</div>
+          <div class="projectLedgerMeta">${t.date} · ${sourceText}</div>
+        </div>
+        <div class="projectLedgerAmount">
+          -${M(t.amount)}
+          <button class="projectLedgerDelete" onclick="event.stopPropagation();removeTx('${t.id}')">删除</button>
+        </div>
+      </div>`;
+    }).join("")
+    :'<div class="note" style="margin-top:8px">还没有专项支出记录。</div>';
+
+  return `<div class="projectFinanceBox">
+    <div class="projectFinanceNumbers">
+      <div class="projectFinanceNumber"><span>总预算</span><strong>${M(budget)}</strong></div>
+      <div class="projectFinanceNumber"><span>已备资金</span><strong>${M(funded)}</strong></div>
+      <div class="projectFinanceNumber"><span>已经花掉</span><strong>${M(spent)}</strong></div>
+      <div class="projectFinanceNumber"><span>专项剩余</span><strong>${M(available)}</strong></div>
+    </div>
+
+    ${budget>0?`<div class="projectMoneyBar">
+      <span class="projectMoneySpent" style="width:${spentPct}%"></span>
+      <span class="projectMoneyAvailable" style="width:${availablePct}%"></span>
+      <span class="projectMoneyGap" style="width:${gapPct}%"></span>
+    </div>
+    <div class="projectMoneyLegend">
+      <span><i style="background:#B98576"></i>已花 ${M(spent)}</span>
+      <span><i style="background:var(--accent)"></i>剩余 ${M(available)}</span>
+      ${gapWithin>0?`<span><i style="background:#DDE1DC"></i>待补 ${M(gap)}</span>`:""}
+      ${overBudget>0?`<span style="color:var(--danger)">超预算 ${M(overBudget)}</span>`:""}
+    </div>`:""}
+
+    <details class="projectLedger">
+      <summary><span>支出明细 · ${expenses.length} 笔</span></summary>
+      ${expenseHtml}
+    </details>
+  </div>`;
+}
+
+function removeProjectTimelineTx(id){
+  const t=S.tx.find(x=>x.id===id);
+  if(!t)return;
+
+  const p=S.projects.find(x=>x.id===(t.projectId||""));
+
+  if(t.type==="project_settlement"&&t.archiveId){
+    const archive=S.tx.find(x=>x.id===t.archiveId&&x.type==="project_archive");
+    if(archive){
+      S.tx=S.tx.filter(x=>x.id!==archive.id&&!(x.type==="project_settlement"&&x.archiveId===archive.id));
+      if(p&&p.archived){
+        p.archived=false;
+        p.archivedAt="";
+      }
+      save();
+      render();
+      msg("专项结算与对应归档记录已删除，专项已恢复");
+      return;
+    }
+  }
+
+  if(t.type==="project_archive"){
+    S.tx=S.tx.filter(x=>x.id!==t.id&&!(x.type==="project_settlement"&&x.archiveId===t.id));
+
+    const laterStatus=S.tx
+      .filter(x=>x.projectId===t.projectId&&(x.type==="project_archive"||x.type==="project_restore"))
+      .filter(x=>String(x.date)+String(x.id)>String(t.date)+String(t.id));
+
+    if(p&&p.archived&&laterStatus.length===0){
+      p.archived=false;
+      p.archivedAt="";
+    }
+
+    save();
+    render();
+    msg("专项归档记录已删除；如有对应结余结算也已一并撤销");
+    return;
+  }
+
+  if(t.type==="project_restore"){
+    S.tx=S.tx.filter(x=>x.id!==t.id);
+    save();
+    render();
+    msg("专项恢复记录已删除，当前专项状态保持不变");
+    return;
+  }
+
+  S.tx=S.tx.filter(x=>x.id!==id);
+  save();
+  render();
+  msg("专项记录已删除");
+}
+
 function render(){
   renderPlan();
   renderNow();
@@ -2467,94 +2779,70 @@ function renderNow(){
   if(cycleGap>0) rows.unshift(`<div class="item"><div class="row"><div><div class="name">本周期资金缺口</div><div class="meta">本周期“预计可存”已经低于 0，代表本周期收入连同原计划储蓄都已被用完。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div>`);
   upcomingBox.innerHTML=rows.length?rows.join(""):'<div class="note">暂无待处理固定账单或本周期资金缺口。</div>';
 
-  const projectPlans=activeProjects().map(p=>({p,plan:projectCyclePlan(p),avail:N(a.projects[p.id]||0)}))
-    .filter(x=>x.plan.gap>0||x.avail<0||(N(x.p.budget)>0&&x.plan.gap===0));
+  const projectPlans=activeProjects().map(p=>({
+    p,
+    plan:projectCyclePlan(p),
+    avail:N(a.projects[p.id]||0)
+  })).filter(x=>x.plan.gap>0||x.avail<0||(N(x.p.budget)>0&&x.plan.gap===0));
 
   if(projectPlans.length){
     projectFundingSection.style.display="";
     projectFundingBox.innerHTML=projectPlans.map(({p,plan,avail})=>{
+      let planningHtml="";
+
       if(avail<0){
-        return `<div class="projectPlanItem">
-          <div class="projectPlanTop">
-            <div>
-              <div class="projectPlanName">${esc(p.name)}</div>
-              <div class="projectPlanMeta">当前专项余额 ${M(avail)} · 已超出原专项预留</div>
-            </div>
-            <div class="projectPlanGap projectCycleWarn">${M(avail)}</div>
+        planningHtml=`<div class="projectPlanTop">
+          <div>
+            <div class="projectPlanName">${esc(p.name)}</div>
+            <div class="projectPlanMeta">专项已经超出原有资金，超出部分已按支出记录的来源扣除。</div>
           </div>
+          <div class="projectPlanGap projectCycleWarn">${M(avail)}</div>
         </div>`;
-      }
-
-      if(plan.gap===0&&N(p.budget)>0){
-        return `<div class="projectPlanItem">
-          <div class="projectPlanTop">
-            <div>
-              <div class="projectPlanName">${esc(p.name)}</div>
-              <div class="projectPlanMeta">预算 ${M(p.budget)} · 资金已备妥</div>
-            </div>
-            <div class="projectPlanGap pos">已备妥</div>
+      }else if(plan.gap===0&&N(p.budget)>0){
+        planningHtml=`<div class="projectPlanTop">
+          <div>
+            <div class="projectPlanName">${esc(p.name)}</div>
+            <div class="projectPlanMeta">预算 ${M(p.budget)} · 资金已备妥 · 当前剩余 ${M(Math.max(0,avail))}</div>
           </div>
-          <div class="projectDoneBox">
-            <div class="projectDoneLine">
-              <span class="small">专项结束后结算，剩余资金会自动转入储蓄。</span>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-                <button class="archiveBtn" onclick="editProject('${p.id}')">修改</button>
-                <button class="archiveBtn" onclick="archiveProject('${p.id}')">结算并归档</button>
-              </div>
-            </div>
-          </div>
+          <div class="projectPlanGap pos">已备妥</div>
         </div>`;
-      }
-
-      if(plan.status==="no-date"){
-        return `<div class="projectPlanItem">
-          <div class="projectPlanTop">
-            <div>
-              <div class="projectPlanName">${esc(p.name)}</div>
-              <div class="projectPlanMeta">资金缺口 ${M(plan.gap)} · 尚未设置截止日期</div>
-            </div>
-            <div class="projectPlanGap">缺 ${M(plan.gap)}</div>
+      }else if(plan.status==="no-date"){
+        planningHtml=`<div class="projectPlanTop">
+          <div>
+            <div class="projectPlanName">${esc(p.name)}</div>
+            <div class="projectPlanMeta">资金缺口 ${M(plan.gap)} · 尚未设置截止日期</div>
           </div>
-          <div class="projectCycleBox">
-            <div class="projectCycleMain"><span>周期建议</span><strong class="projectCycleWarn">请先设置截止日期</strong></div>
-          </div>
+          <div class="projectPlanGap">缺 ${M(plan.gap)}</div>
+        </div>
+        <div class="projectCycleBox">
+          <div class="projectCycleMain"><span>周期建议</span><strong class="projectCycleWarn">请先设置截止日期</strong></div>
         </div>`;
-      }
-
-      if(plan.status==="overdue"){
-        return `<div class="projectPlanItem">
-          <div class="projectPlanTop">
-            <div>
-              <div class="projectPlanName">${esc(p.name)}</div>
-              <div class="projectPlanMeta">截止日期 ${p.dueDate} · 当前仍缺 ${M(plan.gap)}</div>
-            </div>
-            <div class="projectPlanGap">缺 ${M(plan.gap)}</div>
+      }else if(plan.status==="overdue"){
+        planningHtml=`<div class="projectPlanTop">
+          <div>
+            <div class="projectPlanName">${esc(p.name)}</div>
+            <div class="projectPlanMeta">截止日期 ${p.dueDate} · 当前仍缺 ${M(plan.gap)}</div>
           </div>
-          <div class="projectCycleBox">
-            <div class="projectCycleMain"><span>周期建议</span><strong class="projectCycleWarn">截止日已过，请尽快补足</strong></div>
-          </div>
+          <div class="projectPlanGap">缺 ${M(plan.gap)}</div>
+        </div>
+        <div class="projectCycleBox">
+          <div class="projectCycleMain"><span>周期建议</span><strong class="projectCycleWarn">截止日已过，请尽快补足</strong></div>
         </div>`;
-      }
-
-      if(plan.status==="no-cycle"){
-        return `<div class="projectPlanItem">
-          <div class="projectPlanTop">
-            <div>
-              <div class="projectPlanName">${esc(p.name)}</div>
-              <div class="projectPlanMeta">截止日期 ${p.dueDate} · 当前仍缺 ${M(plan.gap)}</div>
-            </div>
-            <div class="projectPlanGap">缺 ${M(plan.gap)}</div>
+      }else if(plan.status==="no-cycle"){
+        planningHtml=`<div class="projectPlanTop">
+          <div>
+            <div class="projectPlanName">${esc(p.name)}</div>
+            <div class="projectPlanMeta">截止日期 ${p.dueDate} · 当前仍缺 ${M(plan.gap)}</div>
           </div>
-          <div class="projectCycleBox">
-            <div class="projectCycleMain"><span>周期建议</span><strong class="projectCycleWarn">截止前没有周期收入</strong></div>
-            <div class="projectCycleDates">可调整截止日期，或从现有零花钱 / 储蓄中补足。</div>
-          </div>
+          <div class="projectPlanGap">缺 ${M(plan.gap)}</div>
+        </div>
+        <div class="projectCycleBox">
+          <div class="projectCycleMain"><span>周期建议</span><strong class="projectCycleWarn">截止前没有周期收入</strong></div>
+          <div class="projectCycleDates">可从单次收入或零花钱直接补入专项。</div>
         </div>`;
-      }
-
-      const next=plan.schedule[0];
-      return `<div class="projectPlanItem">
-        <div class="projectPlanTop">
+      }else{
+        const next=plan.schedule[0];
+        planningHtml=`<div class="projectPlanTop">
           <div>
             <div class="projectPlanName">${esc(p.name)}</div>
             <div class="projectPlanMeta">截止 ${p.dueDate} · 资金缺口 ${M(plan.gap)} · 还剩 ${plan.count} 个周期收入</div>
@@ -2568,7 +2856,27 @@ function renderNow(){
           </div>
           <div class="projectCycleDates">下一次：${next.date} · ${esc(next.name)} · 建议 ${M(next.recommended)}</div>
           <div class="projectCycleDates">周期安排：${projectCycleDatesText(plan.schedule)}</div>
-        </div>
+        </div>`;
+      }
+
+      const actions=plan.gap===0&&N(p.budget)>0
+        ?`<div class="projectDoneBox">
+            <div class="projectDoneLine">
+              <span class="small">专项结束后结算，剩余资金自动转入储蓄。</span>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+                <button class="archiveBtn" onclick="editProject('${p.id}')">修改</button>
+                <button class="archiveBtn" onclick="archiveProject('${p.id}')">结算并归档</button>
+              </div>
+            </div>
+          </div>`
+        :`<div style="display:flex;justify-content:flex-end;margin-top:9px">
+            <button class="archiveBtn" onclick="editProject('${p.id}')">修改专项</button>
+          </div>`;
+
+      return `<div class="projectPlanItem">
+        ${planningHtml}
+        ${projectFinanceDetailHtml(p,a)}
+        ${actions}
       </div>`;
     }).join("");
   }else{
@@ -2635,19 +2943,19 @@ function txHtml(t,del=false){
   if(t.type==="project_settlement"){
     const p=S.projects.find(x=>x.id===t.projectId);
     const name=esc(p?.name||t.projectName||"专项");
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项结余转储蓄 · ${name}</div><div class="meta">${t.date} · 专项结算后的剩余资金</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div></div></div>`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项结余转储蓄 · ${name}</div><div class="meta">${t.date} · 专项结算后的剩余资金</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${del?`<button class="txDelete" onclick="event.stopPropagation();removeProjectTimelineTx('${t.id}')">删除</button>`:""}</div></div></div>`;
   }
 
   if(t.type==="project_archive"){
     const p=S.projects.find(x=>x.id===t.projectId);
     const name=esc(p?.name||t.projectName||"专项");
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项归档 · ${name}</div><div class="meta">${t.date} · 已备 ${M(t.funded)} · 已花 ${M(t.spent)} · 归档时专项余额 ${M(t.available)}</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} 已归档</div></div></div>`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项归档 · ${name}</div><div class="meta">${t.date} · 已备 ${M(t.funded)} · 已花 ${M(t.spent)} · 归档时专项余额 ${M(t.available)}</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} 已归档</div>${del?`<button class="txDelete" onclick="event.stopPropagation();removeProjectTimelineTx('${t.id}')">删除</button>`:""}</div></div></div>`;
   }
 
   if(t.type==="project_restore"){
     const p=S.projects.find(x=>x.id===t.projectId);
     const name=esc(p?.name||t.projectName||"专项");
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项恢复 · ${name}</div><div class="meta">${t.date} · 重新纳入进行中专项</div></div><div class="txRight"><div class="txAmount txMuted">${M(t.amount)}</div></div></div>`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项恢复 · ${name}</div><div class="meta">${t.date} · 重新纳入进行中专项</div></div><div class="txRight"><div class="txAmount txMuted">${M(t.amount)}</div>${del?`<button class="txDelete" onclick="event.stopPropagation();removeProjectTimelineTx('${t.id}')">删除</button>`:""}</div></div></div>`;
   }
 
   if(t.type==="extra_saving"){
@@ -3269,16 +3577,17 @@ function renderSavings(){
   const all=savingStatsForRange();
   const bankPrincipal=bankPrincipalTotal();
   const interest=bankInterestTotal();
-  const total=all.principalNet+interest;
-  const freePrincipal=all.principalNet-bankPrincipal;
+  const ordinary=ordinarySavingsAvailable();
+  const cycle=currentCycleStats();
+  const total=ordinary+bankPrincipal+interest;
 
-  savingPrincipalTotal.textContent=M(all.principalNet);
-  savingPrincipalTotal.style.color=all.principalNet<0?"var(--danger)":"inherit";
+  savingPrincipalTotal.textContent=M(cycle.projectedSaving);
+  savingPrincipalTotal.style.color=cycle.projectedSaving<0?"var(--danger)":"inherit";
 
   savingBankPrincipal.textContent=M(bankPrincipal);
   savingBankInterest.textContent=M(interest);
-  savingFreePrincipal.textContent=M(freePrincipal);
-  savingFreePrincipal.style.color=freePrincipal<0?"var(--danger)":"inherit";
+  savingFreePrincipal.textContent=M(ordinary);
+  savingFreePrincipal.style.color=ordinary<0?"var(--danger)":"inherit";
 
   savingGrandTotal.textContent=M(total);
   savingGrandTotal.style.color=total<0?"var(--danger)":"var(--accent)";
@@ -3386,28 +3695,33 @@ function renderHistory(){
   const livingActual=sm(m.filter(t=>t.type==="living_settlement"),t=>N(t.actualSpent));
   const totalSpent=normalSpent+livingActual;
   const ms=monthlyCycleStats(md());
+  const cycle=currentCycleStats();
 
   const inc=ms.income;
   const fixedReserved=ms.fixedReserved;
   const pocketSpent=ms.pocketSpent;
-  const net=ms.projectedSaving;
-  const rate=inc>0?net/inc*100:0;
+  const confirmed=ms.projectedSaving;
+  const expected=ms.expectedSaving;
+  const rate=inc>0?confirmed/inc*100:0;
 
   mIncome.textContent=M(inc);
   mSpend.textContent=M(totalSpent);
-  mSaving.textContent=M(net);
+  mExpectedSaving.textContent=M(expected);
+  mSaving.textContent=M(confirmed);
   mRate.textContent=(Math.round(rate*10)/10)+"%";
 
   mResultIncome.textContent=M(inc);
   mLivingReserved.textContent=M(ms.livingReserved);
   mFixedSpent.textContent=M(fixedReserved);
   mPocketSpent.textContent=M(pocketSpent);
-  mNetSavingDetail.textContent=M(net);
+  mCycleProjectedSaving.textContent=M(cycle.projectedSaving);
+  mNetSavingDetail.textContent=M(confirmed);
 
-  const tone=net<=0?"var(--danger)":"var(--accent)";
-  mSaving.style.color=tone;
-  mNetSavingDetail.style.color=tone;
-  mRate.style.color=rate<=0?"var(--danger)":"inherit";
+  mExpectedSaving.style.color=expected<0?"var(--danger)":"var(--accent)";
+  mSaving.style.color=confirmed<0?"var(--danger)":"var(--accent)";
+  mCycleProjectedSaving.style.color=cycle.projectedSaving<0?"var(--danger)":"var(--accent)";
+  mNetSavingDetail.style.color=confirmed<0?"var(--danger)":"var(--accent)";
+  mRate.style.color=rate<0?"var(--danger)":"inherit";
 
   renderHistoryTransactions();
 }
