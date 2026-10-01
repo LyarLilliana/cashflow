@@ -631,13 +631,16 @@ button{touch-action:manipulation}
   color:#9A9F9B;
 }
 .historyManageHint{
-  margin-top:5px;
-  padding-right:2px;
-  text-align:right;
+  margin-top:10px;
+  padding:0 2px 4px;
+  text-align:center;
   font-size:9px;
   line-height:1.2;
   font-weight:500;
   color:#A1A6A2;
+}
+.historyManageBottom{
+  opacity:.9;
 }
 
 .historyMore{
@@ -1392,10 +1395,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
             placeholder="搜索金额 / 项目 / 备注"
             aria-label="搜索当前范围流水"
           >
-          <div class="historyManageHint">长按流水可修改或删除</div>
         </div>
       </div>
       <div class="card txList" style="margin-top:10px" id="monthTx"></div>
+      <div class="historyManageHint historyManageBottom">长按流水可修改或删除</div>
       <button class="historyMore" id="historyMoreBtn" style="display:none">显示更多</button>
     </div>
   </section>
