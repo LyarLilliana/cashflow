@@ -92,6 +92,122 @@ button{touch-action:manipulation}
   font-size:11px;
   color:var(--muted);
 }
+.savingHeroCard{padding:17px}
+.savingHeroValue{
+  font-size:30px;
+  line-height:1.1;
+  font-weight:820;
+  letter-spacing:-.5px;
+  margin-top:6px;
+  color:var(--accent);
+}
+.savingFilterRow{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:10px;
+}
+.savingPeriodHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:12px;
+  margin-top:14px;
+}
+.savingPeriodValue{
+  font-size:24px;
+  font-weight:810;
+  line-height:1.1;
+  margin-top:4px;
+}
+.savingAccountItem{
+  padding:14px 0;
+  border-bottom:1px solid var(--line);
+}
+.savingAccountItem:last-child{border-bottom:0}
+.savingAccountTop{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.savingAccountValue{
+  font-size:15px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.savingMiniGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px 12px;
+  margin-top:9px;
+  padding:10px 11px;
+  border-radius:13px;
+  background:#F7F8F5;
+}
+.savingMiniGrid div{
+  font-size:11px;
+  color:var(--muted);
+  line-height:1.45;
+}
+.savingMiniGrid strong{
+  display:block;
+  margin-top:2px;
+  font-size:12px;
+  color:var(--text);
+}
+.depositProgress{
+  margin-top:9px;
+  height:7px;
+  border-radius:999px;
+  background:#ECEFEA;
+  overflow:hidden;
+}
+.depositProgress span{
+  display:block;
+  height:100%;
+  border-radius:999px;
+  background:var(--accent);
+}
+.depositActions{
+  display:flex;
+  justify-content:flex-end;
+  gap:7px;
+  margin-top:9px;
+}
+.depositActions button{
+  border:1px solid var(--line);
+  background:#F7F8F5;
+  color:var(--text);
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:10.5px;
+  font-weight:700;
+}
+.depositStatus{
+  display:inline-block;
+  margin-top:5px;
+  padding:4px 7px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:700;
+  background:var(--accentSoft);
+  color:var(--accent);
+}
+.depositStatus.matured{
+  background:#F0F1EE;
+  color:var(--muted);
+}
+.savingCycleCount{
+  font-size:11px;
+  color:var(--muted);
+  text-align:right;
+  padding-bottom:2px;
+}
+@media(max-width:560px){
+  .savingHeroValue{font-size:27px}
+  .savingPeriodValue{font-size:22px}
+}
+
 .historyMore{
   width:100%;
   margin-top:10px;
@@ -313,7 +429,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
   border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:10
 }
-.bottomIn{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.bottomIn{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
 .nav{border:0;border-radius:13px;background:transparent;color:#68706C;padding:9px 4px;font-size:11px;font-weight:650}
 .nav.active{background:var(--accentSoft);color:var(--accent)}
 .panel{display:none}.panel.active{display:block}
@@ -509,6 +625,16 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="card stat"><div class="k">本周期预计可存</div><div class="v" id="savingBal">¥0</div><div class="s">已确定进入储蓄的钱；周期结束时剩余零花钱再自动并入</div></div>
     </div>
 
+    <div class="card" id="bankReminderNowCard" style="display:none;margin-top:12px">
+      <div class="row">
+        <div>
+          <div class="name">日常储蓄已达到银行转存额度</div>
+          <div class="meta" id="bankReminderNowMeta">可以考虑把这笔钱存入银行。</div>
+        </div>
+        <button class="primary" id="bankReminderNowBtn">已存入银行</button>
+      </div>
+    </div>
+
     <div class="section">
       <div class="sectionTitle">下一笔周期收入</div>
       <div class="card" id="nextIncomeBox"></div>
@@ -530,6 +656,194 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     </div>
   </section>
 
+  <!-- SAVINGS -->
+  <section id="savings" class="panel">
+    <div class="section">
+      <div class="sectionTitle">储蓄总览</div>
+
+      <div class="card savingHeroCard">
+        <div class="k">当前储蓄总额</div>
+        <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
+        <div class="s">储蓄本金 + 银行存款预估应计利息</div>
+
+        <div class="heroMiniActions" style="margin-top:13px">
+          <button class="ghost" onclick="openExtraSaving()">记额外储蓄</button>
+          <button class="ghost" onclick="openBankDeposit()">新增银行存款</button>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:10px">
+        <div class="card stat">
+          <div class="k">累计储蓄本金</div>
+          <div class="v" id="savingPrincipalTotal">¥0</div>
+          <div class="s">周期储蓄 + 额外储蓄 + 外部新增存款</div>
+        </div>
+        <div class="card stat">
+          <div class="k">银行存款本金</div>
+          <div class="v" id="savingBankPrincipal">¥0</div>
+          <div class="s">已登记的银行存款本金</div>
+        </div>
+        <div class="card stat">
+          <div class="k">预估累计利息</div>
+          <div class="v" id="savingBankInterest">¥0</div>
+          <div class="s">按录入利率逐日估算</div>
+        </div>
+        <div class="card stat">
+          <div class="k">普通储蓄可用</div>
+          <div class="v" id="savingFreePrincipal">¥0</div>
+          <div class="s">储蓄本金扣除已放入银行存款的本金</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sectionTitle">银行转存提醒</div>
+
+      <div class="card">
+        <div class="formGrid">
+          <div>
+            <label>提醒额度</label>
+            <input id="bankReminderThreshold" inputmode="decimal" type="number" min="0" placeholder="例如 5000">
+          </div>
+          <div style="display:flex;align-items:end">
+            <button class="secondary" style="width:100%;height:46px" id="saveBankReminderThreshold">保存提醒额度</button>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="explainRow"><span>当前日常储蓄可用</span><strong id="bankReminderCurrent">¥0</strong></div>
+        <div class="explainRow"><span>设定转存额度</span><strong id="bankReminderTarget">未设置</strong></div>
+        <div class="explainRow total"><span id="bankReminderGapLabel">距离提醒额度</span><strong id="bankReminderGap">—</strong></div>
+
+        <div class="progress" style="margin-top:10px"><span id="bankReminderProgress" style="width:0%"></span></div>
+
+        <div id="bankReminderReady" style="display:none;margin-top:12px">
+          <div class="subCard">
+            <div class="row">
+              <div>
+                <div class="name">已经达到银行转存额度</div>
+                <div class="meta" id="bankReminderReadyMeta">可以把这部分日常储蓄存入银行。</div>
+              </div>
+              <button class="primary" id="bankReminderDepositBtn">已存入银行</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="note" id="bankReminderHint" style="margin-top:10px">
+          这里统计的是尚未进入银行的日常储蓄，包括计划储蓄、零花钱转储蓄、周期结束结余、专项结余和额外储蓄，扣除已经用掉或转入银行的部分。
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sectionTitle">储蓄统计</div>
+
+      <div class="card savingHeroCard">
+        <div class="k">累计已储蓄本金</div>
+        <div class="savingHeroValue" id="savingAllTime">¥0</div>
+        <div class="s">不含尚未实际结算的预估利息</div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <div class="savingFilterRow">
+          <div>
+            <label>统计范围</label>
+            <select id="savingRangeMode">
+              <option value="month">本月</option>
+              <option value="specificMonth">指定月份</option>
+              <option value="year">本年</option>
+              <option value="specificYear">指定年份</option>
+              <option value="custom">自定义日期</option>
+              <option value="all">全部</option>
+            </select>
+          </div>
+
+          <div id="savingMonthWrap" style="display:none">
+            <label>月份</label>
+            <input id="savingMonthInput" type="month">
+          </div>
+
+          <div id="savingYearWrap" style="display:none">
+            <label>年份</label>
+            <select id="savingYearSelect"></select>
+          </div>
+
+          <div id="savingCustomWrap" style="display:none;grid-column:1/-1">
+            <div class="historyFilterGrid">
+              <div>
+                <label>开始日期</label>
+                <input id="savingStartDate" type="date">
+              </div>
+              <div>
+                <label>结束日期</label>
+                <input id="savingEndDate" type="date">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="savingPeriodHead">
+          <div>
+            <div class="small" id="savingPeriodLabel">本月储蓄增长</div>
+            <div class="savingPeriodValue" id="savingPeriodValue">¥0</div>
+          </div>
+          <div class="savingCycleCount" id="savingCycleCount">0 个收入周期</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <div class="name">日常储蓄</div>
+        <div class="meta">收入周期省下的钱、专项结余和额外储蓄都归在这里。</div>
+        <div class="divider"></div>
+
+        <div class="explainRow"><span>计划储蓄</span><strong id="savingPlannedPart">¥0</strong></div>
+        <div class="explainRow"><span>零花钱主动转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
+        <div class="explainRow"><span>零花钱转专项</span><strong id="savingPocketProjectPart">¥0</strong></div>
+        <div class="explainRow"><span>周期结束剩余零花钱</span><strong id="savingPocketPart">¥0</strong></div>
+        <div class="explainRow"><span>专项结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
+        <div class="explainRow"><span>额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
+        <div class="explainRow"><span>储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
+        <div class="explainRow"><span>转入银行存款</span><strong id="savingBankTransferPart">¥0</strong></div>
+        <div class="explainRow total"><span>日常储蓄净变动</span><strong id="savingOrdinaryNet">¥0</strong></div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <div class="name">银行存款储蓄</div>
+        <div class="meta">单独按银行存款的本金与预估利息统计。</div>
+        <div class="divider"></div>
+
+        <div class="explainRow"><span>期间新存本金</span><strong id="savingBankStartedPart">¥0</strong></div>
+        <div class="explainRow"><span>其中从日常储蓄转入</span><strong id="savingBankExistingPart">¥0</strong></div>
+        <div class="explainRow"><span>其中外部新增储蓄</span><strong id="savingBankExternalPart">¥0</strong></div>
+        <div class="explainRow"><span>预估利息增长</span><strong id="savingInterestPart">¥0</strong></div>
+        <div class="explainRow total"><span>银行存款增加</span><strong id="savingBankGrowth">¥0</strong></div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <div class="explainRow total"><span>本统计范围总储蓄增长</span><strong id="savingGrowthTotal">¥0</strong></div>
+        <div class="note" style="margin-top:9px">
+          从日常储蓄转入银行只是资金位置变化，不会重复增加总储蓄；银行利息按录入利率逐日估算。
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sectionTitle">周期储蓄结算</div>
+      <div class="card" id="savingCycleList"></div>
+    </div>
+
+    <div class="section">
+      <div class="sectionTitle">额外储蓄</div>
+      <div class="card" id="extraSavingList"></div>
+    </div>
+
+    <div class="section">
+      <div class="sectionTitle">银行存款</div>
+      <div class="card" id="bankDepositList"></div>
+    </div>
+  </section>
+
   <!-- RESULT -->
   <section id="history" class="panel">
     <div class="section">
@@ -537,7 +851,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="grid">
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
-        <div class="card stat"><div class="k">储蓄净增</div><div class="v" id="mSaving">¥0</div><div class="s">本月各收入周期“预计可存”的合计</div></div>
+        <div class="card stat"><div class="k">储蓄净增</div><div class="v" id="mSaving">¥0</div><div class="s">本月各收入周期储蓄净增的合计</div></div>
         <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">0%</div><div class="s">储蓄净增 ÷ 本月收入，可为负数</div></div>
       </div>
       <div class="card" style="margin-top:10px">
@@ -545,7 +859,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="explainRow"><span>本月基础生活扣除</span><strong id="mLivingReserved">¥0</strong></div>
         <div class="explainRow"><span>本月固定支出 / 预留</span><strong id="mFixedSpent">¥0</strong></div>
         <div class="explainRow"><span>本月已用零花钱</span><strong id="mPocketSpent">¥0</strong></div>
-        <div class="explainRow total"><span>本月预计可存合计</span><strong id="mNetSavingDetail">¥0</strong></div>
+        <div class="explainRow total"><span>本月储蓄净增合计</span><strong id="mNetSavingDetail">¥0</strong></div>
       </div>
     </div>
     <div class="section">
@@ -608,6 +922,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     <button class="nav active" data-tab="plan">计划</button>
     <button class="nav" data-tab="now">现在</button>
     <button class="nav" data-tab="history">结果</button>
+    <button class="nav" data-tab="savings">储蓄</button>
     <button class="nav" data-tab="settings">设置</button>
   </div>
 </div>
@@ -637,8 +952,8 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div style="margin-top:8px;font-weight:750" id="incBills">¥0</div>
     </div>
     <div class="subCard">
-      <div class="name">专项建议预留</div>
-      <div class="meta">按专项缺口与截止日期平均分摊到剩余收入周期。</div>
+      <div class="name">专项预留</div>
+      <div class="meta" id="projectSuggestMeta">周期收入会给出建议；单次额外收入也可以直接分配到进行中的专项。</div>
       <div id="projectSuggest" style="margin-top:8px"></div>
     </div>
     <div class="explain">
@@ -672,6 +987,13 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       </div>
       <div id="refRow" style="display:none"><label id="refLabel">选择项目</label><select id="spendRef"></select></div>
       <div><label>金额</label><input id="spendAmount" inputmode="decimal" type="number"></div>
+      <div id="projectOverrunRow" style="display:none">
+        <label>专项超出部分从哪里支付</label>
+        <select id="projectOverrunSource">
+          <option value="safe">零花钱</option>
+          <option value="saving">储蓄</option>
+        </select>
+      </div>
       <div><label>备注</label><input id="spendNote" placeholder="例如 买未来5天的菜"></div>
     </div>
     <div class="note" id="spendHint" style="margin-top:9px"></div>
@@ -793,30 +1115,48 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
 <div class="sheet" id="pocketTransferSheet">
   <div class="sheetCard">
-    <div class="sheetTitle">零花钱转储蓄</div>
+    <div class="sheetTitle" id="pocketTransferTitle">零花钱转出</div>
     <div class="subCard">
       <div class="row">
         <div>
           <div class="name">当前零花钱</div>
-          <div class="meta">转入后这部分不再作为可自由支出金额</div>
+          <div class="meta">转出后这部分不再作为可自由支出金额</div>
         </div>
         <div class="amount" id="transferPocketNow">¥0</div>
       </div>
     </div>
+
     <div style="height:10px"></div>
+
     <div class="formGrid one">
+      <div id="transferTargetRow">
+        <label>转入哪里</label>
+        <select id="transferPocketTarget">
+          <option value="saving">储蓄</option>
+          <option value="project">专项</option>
+        </select>
+      </div>
+
+      <div id="transferProjectRow" style="display:none">
+        <label>选择专项</label>
+        <select id="transferPocketProject"></select>
+      </div>
+
       <div>
-        <label>转入储蓄金额</label>
+        <label>转入金额</label>
         <input id="transferPocketAmount" inputmode="decimal" type="number" min="0" placeholder="0">
       </div>
     </div>
+
     <div class="transferSummary">
       <div class="explainRow"><span>转入后零花钱</span><strong id="transferPocketAfter">¥0</strong></div>
-      <div class="explainRow total"><span>本周期预计可存</span><strong id="transferProjectedSaving">¥0</strong></div>
+      <div class="explainRow total"><span id="transferEffectLabel">本周期预计可存</span><strong id="transferProjectedSaving">¥0</strong></div>
     </div>
-    <div class="note" style="margin-top:9px">
-      转入多少，本周期预计可存就增加多少。周期结束时仍没花完的零花钱，会再自动并入最终可存金额。
+
+    <div class="note" id="transferPocketNote" style="margin-top:9px">
+      转入储蓄会立即增加本周期预计可存；转入专项只改变资金用途，不会被当成已经储蓄。
     </div>
+
     <div class="actions">
       <button class="ghost" onclick="closeSheet('pocketTransferSheet')">取消</button>
       <button class="primary" id="savePocketTransfer">确认转入</button>
@@ -824,17 +1164,131 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   </div>
 </div>
 
+<div class="sheet" id="extraSavingSheet">
+  <div class="sheetCard">
+    <div class="sheetTitle">记录额外储蓄</div>
+    <div class="formGrid">
+      <div>
+        <label>日期</label>
+        <input id="extraSavingDate" type="date">
+      </div>
+      <div>
+        <label>金额</label>
+        <input id="extraSavingAmount" inputmode="decimal" type="number" min="0" placeholder="0">
+      </div>
+      <div style="grid-column:1/-1">
+        <label>备注</label>
+        <input id="extraSavingNote" placeholder="例如 奖金单独存下、旅行结余、临时加存">
+      </div>
+    </div>
+    <div class="note" style="margin-top:10px">
+      “额外储蓄”用于记录不属于收入周期自动结算、但你确实另外存下来的钱。若只是把当前零花钱转成储蓄，请继续使用“零花钱转储蓄”，避免重复计算。
+    </div>
+    <div class="actions">
+      <button class="ghost" onclick="closeSheet('extraSavingSheet')">取消</button>
+      <button class="primary" id="saveExtraSaving">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="bankDepositSheet">
+  <div class="sheetCard">
+    <div class="sheetTitle" id="bankDepositSheetTitle">新增银行存款</div>
+    <input type="hidden" id="bankDepositId">
+
+    <div class="formGrid">
+      <div>
+        <label>存款名称</label>
+        <input id="bankDepositName" placeholder="例如 工行 3年定期">
+      </div>
+      <div>
+        <label>存款类型</label>
+        <select id="bankDepositType">
+          <option value="fixed">定期存款</option>
+          <option value="demand">活期存款</option>
+        </select>
+      </div>
+
+      <div>
+        <label>存入金额</label>
+        <input id="bankDepositPrincipal" inputmode="decimal" type="number" min="0" placeholder="30000">
+      </div>
+      <div>
+        <label>年利率（%）</label>
+        <input id="bankDepositRate" inputmode="decimal" type="number" min="0" step="0.001" placeholder="1.75">
+      </div>
+
+      <div>
+        <label>存入日期</label>
+        <input id="bankDepositStart" type="date">
+      </div>
+      <div id="bankDepositTermWrap">
+        <label>存期</label>
+        <select id="bankDepositTerm">
+          <option value="3">3个月</option>
+          <option value="6">6个月</option>
+          <option value="12">1年</option>
+          <option value="24">2年</option>
+          <option value="36" selected>3年</option>
+          <option value="60">5年</option>
+          <option value="custom">自定义</option>
+        </select>
+      </div>
+
+      <div id="bankDepositCustomTermWrap" style="display:none">
+        <label>自定义存期（月）</label>
+        <input id="bankDepositCustomTerm" inputmode="numeric" type="number" min="1" placeholder="例如 18">
+      </div>
+      <div id="bankDepositMaturityWrap">
+        <label>预计到期日</label>
+        <input id="bankDepositMaturity" type="date">
+      </div>
+
+      <div>
+        <label>本金来源</label>
+        <select id="bankDepositSource">
+          <option value="existing">从已有储蓄转入</option>
+          <option value="external">外部新增储蓄并存入</option>
+        </select>
+      </div>
+      <div>
+        <label>到期处理</label>
+        <select id="bankDepositRenewal">
+          <option value="manual">到期后手动处理</option>
+          <option value="auto_principal">本金自动转存</option>
+          <option value="auto_all">本息自动转存</option>
+        </select>
+      </div>
+
+      <div style="grid-column:1/-1">
+        <label>备注</label>
+        <input id="bankDepositNote" placeholder="例如 XX银行、存单号后四位、自动转存">
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:10px">
+      定期存款会保存“存入金额 + 当时年利率 + 存期”，并自动计算预计到期日；活期存款没有固定存期，会持续按录入利率估算。页面按单利逐日估算利息，实际计息、结息和提前支取规则以银行产品为准。
+    </div>
+
+    <div class="actions">
+      <button class="danger" id="deleteBankDeposit" style="display:none">删除存款</button>
+      <button class="primary" id="saveBankDeposit">保存存款</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v30";
-const OLD_KEYS=["safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v36";
+const OLD_KEYS=["safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:30,
-  settings:{dailyLiving:0,monthlyGoal:0},
+  version:36,
+  settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
   projects:[],
+  deposits:[],
   tx:[]
 };
 let S=load();
@@ -864,6 +1318,17 @@ function normalize(d){
   s.incomePlans=Array.isArray(d.incomePlans)?d.incomePlans:[];
   s.bills=Array.isArray(d.bills)?d.bills:[];
   s.projects=Array.isArray(d.projects)?d.projects:[];
+  s.deposits=Array.isArray(d.deposits)?d.deposits:[];
+  s.deposits=s.deposits.map(dep=>{
+    const x={...dep};
+    if(!x.depositType)x.depositType=x.maturityDate?"fixed":"demand";
+    if(x.depositType==="fixed"&&!x.termMonths&&x.startDate&&x.maturityDate){
+      const a=parts(x.startDate),b=parts(x.maturityDate);
+      x.termMonths=Math.max(1,(b.y-a.y)*12+(b.m-a.m));
+    }
+    if(!x.renewal)x.renewal="manual";
+    return x;
+  });
   s.tx=Array.isArray(d.tx)?d.tx:[];
   return s;
 }
@@ -889,6 +1354,14 @@ function addMonth(s){
   const d=D(s),day=d.getDate();
   d.setDate(1);
   d.setMonth(d.getMonth()+1);
+  const last=new Date(d.getFullYear(),d.getMonth()+1,0,12).getDate();
+  d.setDate(Math.min(day,last));
+  return localDateString(d);
+}
+function addMonths(s,n){
+  const d=D(s),day=d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth()+Number(n));
   const last=new Date(d.getFullYear(),d.getMonth()+1,0,12).getDate();
   d.setDate(Math.min(day,last));
   return localDateString(d);
@@ -921,6 +1394,9 @@ function projectFunded(p){
 }
 function projectSpent(p){return sm(S.tx.filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id),t=>t.amount)}
 function projectGap(p){return Math.max(0,N(p.budget)-projectFunded(p))}
+function projectSettledToSaving(p){
+  return sm(S.tx.filter(t=>t.type==="project_settlement"&&t.projectId===p.id),t=>N(t.amount));
+}
 
 /*
   全联动记账引擎
@@ -929,6 +1405,141 @@ function projectGap(p){return Math.max(0,N(p.budget)-projectFunded(p))}
   3. 自动动用储蓄不会把预算池的负数抹掉，因为负数本身就是“超计划”的反馈。
   4. 后续新的收入分配会继续滚入各预算池，所以生活费、自由额度、账单和专项都会持续滚动。
 */
+
+function cycleIncomeRows(){
+  return [...S.tx]
+    .filter(isCycleIncomeTx)
+    .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
+}
+
+function cycleWindowForIncome(incomeTx){
+  const rows=cycleIncomeRows();
+  const pos=rows.findIndex(x=>x.id===incomeTx.id);
+  return {
+    rows,
+    pos,
+    next:pos>=0?rows[pos+1]:null
+  };
+}
+
+function transactionBelongsToCycle(t,incomeTx,next){
+  if(!t||t.id===incomeTx.id)return false;
+
+  // New-format records are explicitly bound to their source cycle.
+  if(t.cycleIncomeId)return t.cycleIncomeId===incomeTx.id;
+
+  // Daily living settlement already knows exactly which income reserved that day.
+  if(t.type==="living_settlement"&&t.sourceIncomeId){
+    return t.sourceIncomeId===incomeTx.id;
+  }
+
+  // Legacy fallback: infer by calendar date + record timestamp.
+  if(t.date>incomeTx.date){
+    if(!next)return true;
+    return t.date<next.date || (t.date===next.date&&txStamp(t)<txStamp(next));
+  }
+
+  if(t.date<incomeTx.date)return false;
+
+  // Same calendar day as cycle start.
+  if(txStamp(t)<=txStamp(incomeTx))return false;
+  if(!next)return true;
+  if(t.date<next.date)return true;
+  if(t.date>next.date)return false;
+  return txStamp(t)<txStamp(next);
+}
+
+function cycleTransactionsForIncome(incomeTx){
+  const {next}=cycleWindowForIncome(incomeTx);
+  return S.tx.filter(t=>transactionBelongsToCycle(t,incomeTx,next));
+}
+
+function cyclePocketSnapshot(incomeTx){
+  const {next}=cycleWindowForIncome(incomeTx);
+  const cycleTx=cycleTransactionsForIncome(incomeTx);
+
+  const expenses=cycleTx.filter(t=>t.type==="expense");
+  const settlements=cycleTx.filter(t=>t.type==="living_settlement");
+  const savingTransfers=cycleTx.filter(t=>t.type==="pocket_to_saving");
+  const projectTransfers=cycleTx.filter(t=>t.type==="pocket_to_project");
+  const extraIncomes=cycleTx.filter(t=>t.type==="income"&&!isCycleIncomeTx(t));
+
+  const baseAlloc=effectiveIncomeAllocation(incomeTx);
+  const extraAllocs=extraIncomes.map(t=>effectiveIncomeAllocation(t));
+
+  const plannedSaving=N(baseAlloc.saving)+sm(extraAllocs,x=>N(x.saving));
+  const pocketInitial=N(baseAlloc.safe)+sm(extraAllocs,x=>N(x.safe));
+  const fixedReserved=N(baseAlloc.bills)+sm(extraAllocs,x=>N(x.bills));
+  const projectReserved=N(baseAlloc.projectTotal)+sm(extraAllocs,x=>N(x.projectTotal));
+
+  const pocketSpent=
+    sm(expenses.filter(t=>t.bucket==="safe"||t.bucket==="living"),t=>N(t.amount))
+    +sm(expenses.filter(t=>t.bucket==="project"&&t.projectOverrunSource==="safe"),t=>N(t.projectOverrunAmount));
+
+  const manualSavingUse=
+    sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount))
+    +sm(expenses.filter(t=>t.bucket==="project"&&t.projectOverrunSource==="saving"),t=>N(t.projectOverrunAmount));
+
+  const livingRelease=sm(settlements,t=>N(t.allowance)-N(t.actualSpent));
+  const pocketToSaving=sm(savingTransfers,t=>N(t.amount));
+  const pocketToProject=sm(projectTransfers,t=>N(t.amount));
+  const projectSettlementSaving=sm(
+    cycleTx.filter(t=>t.type==="project_settlement"),
+    t=>N(t.amount)
+  );
+
+  const pocketBalance=
+    pocketInitial
+    -pocketSpent
+    +livingRelease
+    -pocketToSaving
+    -pocketToProject;
+
+  return {
+    next,
+    cycleTx,
+    extraIncomes,
+    baseAlloc,
+    extraAllocs,
+    plannedSaving,
+    pocketInitial,
+    fixedReserved,
+    projectReserved,
+    pocketSpent,
+    manualSavingUse,
+    livingRelease,
+    pocketToSaving,
+    pocketToProject,
+    projectSettlementSaving,
+    pocketBalance
+  };
+}
+
+function virtualCycleCloseEvents(){
+  const rows=cycleIncomeRows();
+  const out=[];
+
+  rows.forEach((incomeTx,i)=>{
+    const next=rows[i+1];
+    if(!next)return;
+
+    const snap=cyclePocketSnapshot(incomeTx);
+    const amount=Math.max(0,N(snap.pocketBalance));
+    if(amount<=0)return;
+
+    out.push({
+      id:`cycleclose_${incomeTx.id}`,
+      date:next.date,
+      type:"cycle_close_saving",
+      amount,
+      sourceIncomeId:incomeTx.id,
+      _sortStamp:Math.max(0,txStamp(next)-0.25)
+    });
+  });
+
+  return out;
+}
+
 function accounting(){
   const raw={safe:0,bills:0};
   const projects={};
@@ -940,7 +1551,25 @@ function accounting(){
   let uncovered=0;
   const effects={};
 
-  const ordered=[...S.tx].sort((a,b)=>(String(a.date)+String(a.id)).localeCompare(String(b.date)+String(b.id)));
+  const depositLocks=(S.deposits||[])
+    .filter(d=>d.source==="existing")
+    .map(d=>({
+      id:`bdlock_${d.id}`,
+      date:d.startDate||td(),
+      type:"bank_deposit_lock",
+      amount:N(d.principal)
+    }));
+
+  const cycleClosures=virtualCycleCloseEvents();
+
+  const ordered=[...S.tx,...depositLocks,...cycleClosures]
+    .sort((a,b)=>{
+      if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
+      const aa=a._sortStamp!==undefined?Number(a._sortStamp):txStamp(a);
+      const bb=b._sortStamp!==undefined?Number(b._sortStamp):txStamp(b);
+      if(aa!==bb)return aa-bb;
+      return String(a.id).localeCompare(String(b.id));
+    });
 
   ordered.forEach(t=>{
     if(t.type==="income"){
@@ -954,6 +1583,20 @@ function accounting(){
       return;
     }
 
+    if(t.type==="cycle_close_saving"){
+      const amount=N(t.amount);
+      raw.safe-=amount;
+      saving+=amount;
+      effects[t.id]={cycleCloseSaving:amount};
+      return;
+    }
+
+    if(t.type==="bank_deposit_lock"){
+      saving-=N(t.amount);
+      effects[t.id]={bankDepositLock:N(t.amount)};
+      return;
+    }
+
     if(t.type==="living_settlement"){
       const allowance=N(t.allowance),actual=N(t.actualSpent);
       raw.safe += allowance-actual;
@@ -961,23 +1604,39 @@ function accounting(){
       return;
     }
 
-    if(t.type==="project_archive"){
-    const p=S.projects.find(x=>x.id===t.projectId);
-    const name=esc(p?.name||t.projectName||"专项");
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项归档 · ${name}</div><div class="meta">${t.date} · 已备 ${M(t.funded)} · 已花 ${M(t.spent)} · 归档时专项余额 ${M(t.available)}</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} 已归档</div></div></div>`;
-  }
+    if(t.type==="project_archive"||t.type==="project_restore"){
+      // 状态流水只用于保留专项归档轨迹，不改变任何资金余额。
+      return;
+    }
 
-  if(t.type==="project_restore"){
-    const p=S.projects.find(x=>x.id===t.projectId);
-    const name=esc(p?.name||t.projectName||"专项");
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项恢复 · ${name}</div><div class="meta">${t.date} · 重新纳入进行中专项</div></div><div class="txRight"><div class="txAmount txMuted">${M(t.amount)}</div></div></div>`;
-  }
+    if(t.type==="project_settlement"){
+      const available=Math.max(0,N(projects[t.projectId]||0));
+      const amount=Math.min(N(t.amount),available);
+      projects[t.projectId]=available-amount;
+      saving+=amount;
+      effects[t.id]={projectSettlement:amount};
+      return;
+    }
 
-  if(t.type==="pocket_to_saving"){
+    if(t.type==="extra_saving"){
+      saving+=N(t.amount);
+      effects[t.id]={extraSaving:N(t.amount)};
+      return;
+    }
+
+    if(t.type==="pocket_to_saving"){
       const amount=N(t.amount);
       raw.safe-=amount;
       saving+=amount;
       effects[t.id]={pocketToSaving:amount};
+      return;
+    }
+
+    if(t.type==="pocket_to_project"){
+      const amount=N(t.amount);
+      raw.safe-=amount;
+      projects[t.projectId]=(projects[t.projectId]||0)+amount;
+      effects[t.id]={pocketToProject:amount,projectId:t.projectId};
       return;
     }
 
@@ -993,9 +1652,45 @@ function accounting(){
     }
 
     const bucket=t.bucket==="living"?"safe":t.bucket;
+
+    if(bucket==="project"){
+      const before=Math.max(0,N(projects[t.refId]||0));
+      const fromProject=Math.min(amount,before);
+      const overPlan=Math.max(0,amount-fromProject);
+      const source=t.projectOverrunSource||"saving";
+
+      projects[t.refId]=before-fromProject;
+
+      let gap=0;
+      let savingDraw=0;
+      let pocketDraw=0;
+
+      if(overPlan>0&&source==="safe"){
+        raw.safe-=overPlan;
+        pocketDraw=overPlan;
+      }else if(overPlan>0){
+        const beforeSaving=saving;
+        saving-=overPlan;
+        savingDraw=overPlan;
+        manualSavingUsed+=overPlan;
+        gap=Math.max(0,overPlan-Math.max(0,beforeSaving));
+        uncovered+=gap;
+      }
+
+      effects[t.id]={
+        autoDraw:0,
+        manualDraw:savingDraw,
+        projectPocketDraw:pocketDraw,
+        projectFromBudget:fromProject,
+        uncovered:gap,
+        overPlan,
+        projectOverrunSource:source
+      };
+      return;
+    }
+
     let before=0;
-    if(bucket==="project")before=N(projects[t.refId]||0);
-    else if(bucket==="safe")before=N(raw.safe);
+    if(bucket==="safe")before=N(raw.safe);
     else if(bucket==="bill")before=N(raw.bills);
 
     const overPlan=Math.max(0,amount-Math.max(0,before));
@@ -1006,8 +1701,7 @@ function accounting(){
     autoSavingUsed+=autoDraw;
     uncovered+=gap;
 
-    if(bucket==="project")projects[t.refId]=(projects[t.refId]||0)-amount;
-    else if(bucket==="safe")raw.safe-=amount;
+    if(bucket==="safe")raw.safe-=amount;
     else if(bucket==="bill")raw.bills-=amount;
 
     effects[t.id]={autoDraw,manualDraw:0,uncovered:gap,overPlan};
@@ -1044,74 +1738,41 @@ function txStamp(t){
 }
 
 function cycleStatsForIncome(incomeTx){
-  const cycleIncomes=[...S.tx].filter(isCycleIncomeTx)
-    .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
-
-  const pos=cycleIncomes.findIndex(x=>x.id===incomeTx.id);
-  const next=pos>=0?cycleIncomes[pos+1]:null;
-
-  const afterStart=t=>{
-    if(t.date>incomeTx.date)return true;
-    if(t.date<incomeTx.date)return false;
-    return txStamp(t)>txStamp(incomeTx);
-  };
-  const beforeNext=t=>{
-    if(!next)return true;
-    if(t.date<next.date)return true;
-    if(t.date>next.date)return false;
-    return txStamp(t)<txStamp(next);
-  };
-
-  const cycleTx=S.tx.filter(t=>afterStart(t)&&beforeNext(t));
-  const expenses=cycleTx.filter(t=>t.type==="expense");
-  const settlements=cycleTx.filter(t=>t.type==="living_settlement");
-  const transfers=cycleTx.filter(t=>t.type==="pocket_to_saving");
-  const extraIncomes=cycleTx.filter(t=>t.type==="income"&&!isCycleIncomeTx(t));
-
-  const baseAlloc=effectiveIncomeAllocation(incomeTx);
-  const extraAllocs=extraIncomes.map(t=>effectiveIncomeAllocation(t));
-
-  const plannedSaving=N(baseAlloc.saving)+sm(extraAllocs,x=>N(x.saving));
-  const pocketInitial=N(baseAlloc.safe)+sm(extraAllocs,x=>N(x.safe));
-  const fixedReserved=N(baseAlloc.bills)+sm(extraAllocs,x=>N(x.bills));
-  const projectReserved=N(baseAlloc.projectTotal)+sm(extraAllocs,x=>N(x.projectTotal));
-
-  const pocketSpent=sm(expenses.filter(t=>t.bucket==="safe"||t.bucket==="living"),t=>N(t.amount));
-  const manualSavingUse=sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount));
-  const livingRelease=sm(settlements,t=>N(t.allowance)-N(t.actualSpent));
-  const pocketToSaving=sm(transfers,t=>N(t.amount));
-
-  const pocketBalance=pocketInitial-pocketSpent+livingRelease-pocketToSaving;
-
-  // Current open cycle:
-  // positive pocket money remains spendable, so it is not counted as saved yet.
-  // Explicit pocket->saving transfers increase expected saving immediately.
-  // A negative pocket balance immediately reduces the amount expected to be saved.
-  //
-  // Closed cycle:
-  // once the next recurring income starts a new cycle, any positive pocket balance
-  // left in the old cycle is automatically treated as final saved money.
+  const snap=cyclePocketSnapshot(incomeTx);
+  const next=snap.next;
   const isClosed=!!next;
-  const lockedSaving=plannedSaving+pocketToSaving-manualSavingUse;
-  const closingPocketAdjustment=isClosed?pocketBalance:Math.min(0,pocketBalance);
+
+  const lockedSaving=
+    snap.plannedSaving
+    +snap.pocketToSaving
+    +snap.projectSettlementSaving
+    -snap.manualSavingUse;
+
+  const closingPocketAdjustment=isClosed
+    ?snap.pocketBalance
+    :Math.min(0,snap.pocketBalance);
+
   const projectedSaving=lockedSaving+closingPocketAdjustment;
 
   return {
     income:incomeTx,
     nextCycleIncome:next,
     isClosed,
-    plannedSaving,
-    pocketToSaving,
+    incomeTotal:N(incomeTx.amount)+sm(snap.extraIncomes,t=>N(t.amount)),
+    plannedSaving:snap.plannedSaving,
+    pocketToSaving:snap.pocketToSaving,
+    pocketToProject:snap.pocketToProject,
+    projectSettlementSaving:snap.projectSettlementSaving,
     lockedSaving,
-    endPocketSaved:isClosed?Math.max(0,pocketBalance):0,
-    livingReserved:N(baseAlloc.living)+sm(extraAllocs,x=>N(x.living)),
-    livingRelease,
-    pocketInitial,
-    pocketSpent,
-    pocketBalance,
-    manualSavingUse,
-    fixedReserved,
-    projectReserved,
+    endPocketSaved:isClosed?Math.max(0,snap.pocketBalance):0,
+    livingReserved:N(snap.baseAlloc.living)+sm(snap.extraAllocs,x=>N(x.living)),
+    livingRelease:snap.livingRelease,
+    pocketInitial:snap.pocketInitial,
+    pocketSpent:snap.pocketSpent,
+    pocketBalance:snap.pocketBalance,
+    manualSavingUse:snap.manualSavingUse,
+    fixedReserved:snap.fixedReserved,
+    projectReserved:snap.projectReserved,
     projectedSaving
   };
 }
@@ -1122,6 +1783,12 @@ function monthlyCycleStats(ym=md()){
   const cycles=cycleIncomes.map(cycleStatsForIncome);
   const settlements=S.tx.filter(t=>t.type==="living_settlement"&&md(t.coveredDate||t.date)===ym);
 
+  const [yy,mm]=ym.split("-").map(Number);
+  const last=new Date(yy,mm,0,12).getDate();
+  const rangeStart=`${yy}-${pad2(mm)}-01`;
+  const rangeEnd=`${yy}-${pad2(mm)}-${pad2(last)}`;
+  const savingEvents=savingStatsForRange(rangeStart,rangeEnd);
+
   return {
     cycles,
     income:sm(allIncomes,t=>N(t.amount)),
@@ -1131,8 +1798,8 @@ function monthlyCycleStats(ym=md()){
     fixedReserved:sm(cycles,c=>N(c.fixedReserved)),
     projectReserved:sm(cycles,c=>N(c.projectReserved)),
     pocketSpent:sm(cycles,c=>N(c.pocketSpent)),
-    pocketToSaving:sm(cycles,c=>N(c.pocketToSaving)),
-    projectedSaving:sm(cycles,c=>N(c.projectedSaving))
+    pocketToSaving:N(savingEvents.transfers),
+    projectedSaving:N(savingEvents.principalNet)
   };
 }
 function currentCycleStats(){
@@ -1142,8 +1809,8 @@ function currentCycleStats(){
 
   if(!latest){
     return {
-      income:null,nextCycleIncome:null,isClosed:false,
-      plannedSaving:0,pocketToSaving:0,lockedSaving:0,endPocketSaved:0,
+      income:null,nextCycleIncome:null,isClosed:false,incomeTotal:0,
+      plannedSaving:0,pocketToSaving:0,pocketToProject:0,projectSettlementSaving:0,lockedSaving:0,endPocketSaved:0,
       pocketInitial:0,pocketSpent:0,pocketBalance:0,manualSavingUse:0,
       livingReserved:0,livingRelease:0,fixedReserved:0,projectReserved:0,
       projectedSaving:0
@@ -1586,17 +2253,31 @@ function markBillNoNeed(bid,dueDate){
 function archiveProject(id){
   const p=S.projects.find(x=>x.id===id);
   if(!p)return;
-  if(projectGap(p)>0)return msg("专项还有资金缺口，暂时不能归档");
+  if(projectGap(p)>0)return msg("专项还有资金缺口，暂时不能结算");
 
+  const available=Math.max(0,projectAvail(p));
   const funded=projectFunded(p);
   const spent=projectSpent(p);
-  const available=projectAvail(p);
+  const archiveId="pa"+Date.now();
+
+  if(available>0){
+    S.tx.push({
+      id:"ps"+Date.now(),
+      date:td(),
+      type:"project_settlement",
+      cycleIncomeId:currentCycleStats().income?.id||"",
+      projectId:p.id,
+      projectName:p.name,
+      amount:available,
+      archiveId
+    });
+  }
 
   p.archived=true;
   p.archivedAt=td();
 
   S.tx.push({
-    id:"pa"+Date.now(),
+    id:archiveId,
     date:td(),
     type:"project_archive",
     projectId:p.id,
@@ -1604,16 +2285,26 @@ function archiveProject(id){
     funded,
     spent,
     available,
-    amount:Math.max(0,available)
+    amount:available
   });
 
   save();
   render();
-  msg(`${p.name} 已归档，专项资金状态已写入流水`);
+
+  if(available>0)msg(`${p.name} 已结算，剩余 ${M(available)} 已转入储蓄`);
+  else msg(`${p.name} 已结算并归档`);
 }
 function restoreProject(id){
   const p=S.projects.find(x=>x.id===id);
   if(!p)return;
+
+  const archiveTx=[...S.tx]
+    .filter(t=>t.type==="project_archive"&&t.projectId===id)
+    .sort((a,b)=>txStamp(b)-txStamp(a))[0];
+
+  if(archiveTx){
+    S.tx=S.tx.filter(t=>!(t.type==="project_settlement"&&t.archiveId===archiveTx.id));
+  }
 
   p.archived=false;
   p.archivedAt="";
@@ -1629,12 +2320,13 @@ function restoreProject(id){
 
   save();
   render();
-  msg(`${p.name} 已恢复`);
+  msg(`${p.name} 已恢复，最近一次结算也已撤销`);
 }
 
 function render(){
   renderPlan();
   renderNow();
+  renderSavings();
   renderHistory();
   refreshSpendRefs();
 }
@@ -1677,7 +2369,10 @@ function renderPlan(){
           <div class="name">${esc(p.name)}</div>
           <div class="meta">预算 ${M(p.budget)} · 已备 ${M(projectFunded(p))}${p.archivedAt?" · "+p.archivedAt+" 归档":""}</div>
         </div>
-        <button class="restoreBtn" onclick="restoreProject('${p.id}')">恢复</button>
+        <div style="display:flex;gap:6px">
+          <button class="restoreBtn" onclick="editProject('${p.id}')">修改</button>
+          <button class="restoreBtn" onclick="restoreProject('${p.id}')">恢复</button>
+        </div>
       </div>
     </div>`).join("");
 }
@@ -1705,12 +2400,20 @@ function renderNow(){
   }
 
   savingBal.textContent=M(cycle.projectedSaving);
-  projectBal.textContent=M(projectTotal);
+
+  if(activeProjects().length===0){
+    projectBal.textContent="暂无专项";
+    projectBal.nextElementSibling.textContent="当前没有进行中的专项";
+    projectBal.style.color="var(--muted)";
+  }else{
+    projectBal.textContent=M(projectTotal);
+    projectBal.nextElementSibling.textContent="已为专项准备好的钱";
+    projectBal.style.color=projectTotal<0?"var(--danger)":"inherit";
+  }
 
   const paint=(el,v)=>{el.style.color=v<=0?"var(--danger)":"inherit"};
   paint(safeNow,b.safe);
   paint(livingBal,b.safe);
-  paint(projectBal,projectTotal);
   paint(savingBal,cycle.projectedSaving);
 
   const next=nextRecurringIncome();
@@ -1793,8 +2496,11 @@ function renderNow(){
           </div>
           <div class="projectDoneBox">
             <div class="projectDoneLine">
-              <span class="small">这项专项已经完成资金准备，可归档收起。</span>
-              <button class="archiveBtn" onclick="archiveProject('${p.id}')">归档</button>
+              <span class="small">专项结束后结算，剩余资金会自动转入储蓄。</span>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+                <button class="archiveBtn" onclick="editProject('${p.id}')">修改</button>
+                <button class="archiveBtn" onclick="archiveProject('${p.id}')">结算并归档</button>
+              </div>
             </div>
           </div>
         </div>`;
@@ -1884,7 +2590,8 @@ function renderNow(){
     livingSettleBtn.disabled=true;
   }
 
-  pocketToSavingBtn.textContent=b.safe>0?`零花钱转储蓄 · 可转 ${M(b.safe)}`:"零花钱转储蓄";
+  const transferLabel=activeProjects().length?"零花钱转储蓄 / 专项":"零花钱转储蓄";
+  pocketToSavingBtn.textContent=b.safe>0?`${transferLabel} · 可转 ${M(b.safe)}`:transferLabel;
   pocketToSavingBtn.disabled=b.safe<=0;
 
   const recent=[...S.tx].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id)).slice(0,8);
@@ -1925,8 +2632,35 @@ function txHtml(t,del=false){
   }
   const map={safe:"零花钱 / 日常支出",living:"零花钱 / 日常支出",bill:"固定账单",project:"专项支出",saving:"储蓄取用"};
 
+  if(t.type==="project_settlement"){
+    const p=S.projects.find(x=>x.id===t.projectId);
+    const name=esc(p?.name||t.projectName||"专项");
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项结余转储蓄 · ${name}</div><div class="meta">${t.date} · 专项结算后的剩余资金</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div></div></div>`;
+  }
+
+  if(t.type==="project_archive"){
+    const p=S.projects.find(x=>x.id===t.projectId);
+    const name=esc(p?.name||t.projectName||"专项");
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项归档 · ${name}</div><div class="meta">${t.date} · 已备 ${M(t.funded)} · 已花 ${M(t.spent)} · 归档时专项余额 ${M(t.available)}</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} 已归档</div></div></div>`;
+  }
+
+  if(t.type==="project_restore"){
+    const p=S.projects.find(x=>x.id===t.projectId);
+    const name=esc(p?.name||t.projectName||"专项");
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项恢复 · ${name}</div><div class="meta">${t.date} · 重新纳入进行中专项</div></div><div class="txRight"><div class="txAmount txMuted">${M(t.amount)}</div></div></div>`;
+  }
+
+  if(t.type==="extra_saving"){
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">额外储蓄${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date} · 直接记入储蓄</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${del?delBtn(t.id):""}</div></div></div>`;
+  }
+
   if(t.type==="pocket_to_saving"){
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">零花钱转储蓄</div><div class="meta">${t.date} · 资金分类调整</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} → 储蓄</div>${del?delBtn(t.id):""}</div></div></div>`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">零花钱转储蓄</div><div class="meta">${t.date} · 立即计入储蓄</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} → 储蓄</div>${del?delBtn(t.id):""}</div></div></div>`;
+  }
+
+  if(t.type==="pocket_to_project"){
+    const p=S.projects.find(x=>x.id===t.projectId);
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">零花钱转专项${p?" · "+esc(p.name):""}</div><div class="meta">${t.date} · 资金用途调整</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} → 专项</div>${del?delBtn(t.id):""}</div></div></div>`;
   }
 
   if(t.type==="bill_skip"){
@@ -1940,7 +2674,12 @@ function txHtml(t,del=false){
   }
 
   const ref=t.bucket==="bill"?S.bills.find(x=>x.id===t.refId):S.projects.find(x=>x.id===t.refId);
-  return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${ref?" · "+esc(ref.name):""}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${del?delBtn(t.id):""}</div></div></div>`;
+  let extraMeta="";
+  if(t.bucket==="project"&&N(t.projectOverrunAmount)>0){
+    const source=t.projectOverrunSource==="safe"?"零花钱":"储蓄";
+    extraMeta=` · 超出 ${M(t.projectOverrunAmount)} 由${source}支付`;
+  }
+  return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${ref?" · "+esc(ref.name):""}${extraMeta}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${del?delBtn(t.id):""}</div></div></div>`;
 }
 function delBtn(id){return `<button class="txDelete" onclick="event.stopPropagation();removeTx('${id}')">删除</button>`}
 
@@ -2106,6 +2845,539 @@ function enhanceCollapsibleSections(){
       writeSectionUI(next);
     };
   });
+}
+
+
+
+function activeBankDeposits(){
+  return (S.deposits||[]).filter(d=>N(d.principal)>0);
+}
+
+
+function depositTypeLabel(d){
+  return d.depositType==="demand"?"活期存款":"定期存款";
+}
+function depositTermMonths(d){
+  return d.depositType==="fixed"?Math.max(0,N(d.termMonths)):0;
+}
+function depositTermLabel(d){
+  if(d.depositType==="demand")return "活期";
+  const m=depositTermMonths(d);
+  if(!m)return d.maturityDate?"定期":"未设置存期";
+  if(m%12===0)return `${m/12}年`;
+  return `${m}个月`;
+}
+function depositRenewalLabel(d){
+  return d.renewal==="auto_principal"
+    ?"本金自动转存"
+    :d.renewal==="auto_all"
+      ?"本息自动转存"
+      :"到期后手动处理";
+}
+
+function depositAccruedInterest(d,asOf=td()){
+  const principal=N(d.principal);
+  const rate=N(d.annualRate);
+  const start=d.startDate;
+
+  if(principal<=0||rate<=0||!start||asOf<=start)return 0;
+
+  let end=asOf;
+  if(d.depositType==="fixed"&&d.maturityDate&&d.maturityDate<end)end=d.maturityDate;
+  if(end<=start)return 0;
+
+  const days=diffDays(start,end);
+  return principal*(rate/100)*days/365;
+}
+
+function depositDailyInterest(d){
+  return N(d.principal)*(N(d.annualRate)/100)/365;
+}
+
+function depositInterestForRange(d,start="",end=""){
+  const today=td();
+  let rangeEnd=end||today;
+  if(rangeEnd>today)rangeEnd=today;
+
+  const totalAtEnd=depositAccruedInterest(d,rangeEnd);
+  if(!start)return totalAtEnd;
+
+  // Interest accumulated before the selected range is removed.
+  const beforeStart=addDays(start,-1);
+  const totalBefore=depositAccruedInterest(d,beforeStart);
+  return Math.max(0,totalAtEnd-totalBefore);
+}
+
+function bankPrincipalTotal(){
+  return sm(activeBankDeposits(),d=>N(d.principal));
+}
+
+function bankStartedPrincipalForRange(start="",end=""){
+  return sm(activeBankDeposits().filter(d=>{
+    const date=d.startDate||"";
+    if(start&&date<start)return false;
+    if(end&&date>end)return false;
+    return true;
+  }),d=>N(d.principal));
+}
+
+function bankExistingPrincipalForRange(start="",end=""){
+  return sm(activeBankDeposits().filter(d=>{
+    if(d.source!=="existing")return false;
+    const date=d.startDate||"";
+    if(start&&date<start)return false;
+    if(end&&date>end)return false;
+    return true;
+  }),d=>N(d.principal));
+}
+
+function bankExternalPrincipalForRange(start="",end=""){
+  return sm(activeBankDeposits().filter(d=>{
+    if(d.source!=="external")return false;
+    const date=d.startDate||"";
+    if(start&&date<start)return false;
+    if(end&&date>end)return false;
+    return true;
+  }),d=>N(d.principal));
+}
+
+function bankInterestForRange(start="",end=""){
+  return sm(activeBankDeposits(),d=>depositInterestForRange(d,start,end));
+}
+
+function bankInterestTotal(){
+  return sm(activeBankDeposits(),d=>depositAccruedInterest(d,td()));
+}
+
+function allSavingsCycles(){
+  return S.tx
+    .filter(isCycleIncomeTx)
+    .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date))
+    .map(cycleStatsForIncome);
+}
+
+function availableSavingYears(){
+  const years=new Set();
+  S.tx.forEach(t=>{
+    const d=String(t.date||"");
+    if(/^\d{4}-\d{2}-\d{2}$/.test(d))years.add(d.slice(0,4));
+  });
+  activeBankDeposits().forEach(d=>{
+    const s=String(d.startDate||"");
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s))years.add(s.slice(0,4));
+  });
+  years.add(td().slice(0,4));
+  return [...years].sort((a,b)=>b.localeCompare(a));
+}
+
+function savingStatsForRange(start="",end=""){
+  const inRange=date=>{
+    const d=String(date||"");
+    if(start&&d<start)return false;
+    if(end&&d>end)return false;
+    return true;
+  };
+
+  const incomes=S.tx.filter(t=>t.type==="income"&&inRange(t.date));
+  const planned=sm(incomes,t=>N(effectiveIncomeAllocation(t).saving));
+
+  const savingTransfers=S.tx.filter(t=>t.type==="pocket_to_saving"&&inRange(t.date));
+  const transfers=sm(savingTransfers,t=>N(t.amount));
+
+  const projectTransfers=S.tx.filter(t=>t.type==="pocket_to_project"&&inRange(t.date));
+  const pocketToProject=sm(projectTransfers,t=>N(t.amount));
+
+  const projectSettlements=S.tx.filter(t=>t.type==="project_settlement"&&inRange(t.date));
+  const projectSurplus=sm(projectSettlements,t=>N(t.amount));
+
+  const extras=S.tx.filter(t=>t.type==="extra_saving"&&inRange(t.date));
+  const extra=sm(extras,t=>N(t.amount));
+
+  // A positive pocket balance only becomes real savings when the next recurring
+  // income closes the previous cycle. Attribute it to the closure date.
+  const closeEvents=virtualCycleCloseEvents().filter(t=>inRange(t.date));
+  const pocketClosed=sm(closeEvents,t=>N(t.amount));
+
+  const engineEffects=accounting().effects;
+  const expenses=S.tx.filter(t=>t.type==="expense"&&inRange(t.date));
+
+  const directSavingUse=sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount));
+  const projectSavingUse=sm(
+    expenses.filter(t=>t.bucket==="project"&&(t.projectOverrunSource==="saving"||!t.projectOverrunSource)),
+    t=>N(t.projectOverrunAmount||engineEffects[t.id]?.overPlan)
+  );
+  const automaticSavingUse=sm(
+    expenses.filter(t=>t.bucket!=="saving"&&t.bucket!=="project"),
+    t=>N(engineEffects[t.id]?.autoDraw)
+  );
+
+  const deductions=directSavingUse+projectSavingUse+automaticSavingUse;
+
+  const bankStarted=bankStartedPrincipalForRange(start,end);
+  const bankExisting=bankExistingPrincipalForRange(start,end);
+  const bankExternal=bankExternalPrincipalForRange(start,end);
+  const interest=bankInterestForRange(start,end);
+
+  const ordinaryGross=
+    planned
+    +transfers
+    +pocketClosed
+    +projectSurplus
+    +extra
+    -deductions;
+
+  // Moving existing ordinary savings into a bank deposit changes location only.
+  const ordinaryNet=ordinaryGross-bankExisting;
+  const bankGrowth=bankStarted+interest;
+
+  // Total principal growth must not double-count internal bank transfers.
+  const principalNet=ordinaryGross+bankExternal;
+  const totalGrowth=principalNet+interest;
+
+  const cycleCount=S.tx.filter(t=>isCycleIncomeTx(t)&&inRange(t.date)).length;
+  const income=sm(incomes,t=>N(t.amount));
+
+  return {
+    cycles:[],
+    count:cycleCount,
+    planned,
+    transfers,
+    pocketToProject,
+    pocketClosed,
+    projectSurplus,
+    extra,
+    deductions,
+    ordinaryGross,
+    ordinaryNet,
+    bankStarted,
+    bankExisting,
+    bankExternal,
+    interest,
+    bankGrowth,
+    principalNet,
+    growth:totalGrowth,
+    income,
+    rate:income>0?principalNet/income*100:0
+  };
+}
+
+function savingRangeBounds(){
+  const mode=savingRangeMode.value;
+  const today=td();
+
+  if(mode==="month"){
+    const r=monthBounds(today);
+    return {start:r.start,end:r.end,label:`${today.slice(0,7)} 储蓄增长`};
+  }
+
+  if(mode==="specificMonth"){
+    const ym=savingMonthInput.value||today.slice(0,7);
+    const [y,m]=ym.split("-").map(Number);
+    const last=new Date(y,m,0,12).getDate();
+    return {
+      start:`${y}-${pad2(m)}-01`,
+      end:`${y}-${pad2(m)}-${pad2(last)}`,
+      label:`${ym} 储蓄增长`
+    };
+  }
+
+  if(mode==="year"){
+    const y=today.slice(0,4);
+    return {start:`${y}-01-01`,end:`${y}-12-31`,label:`${y} 年储蓄增长`};
+  }
+
+  if(mode==="specificYear"){
+    const y=savingYearSelect.value||today.slice(0,4);
+    return {start:`${y}-01-01`,end:`${y}-12-31`,label:`${y} 年储蓄增长`};
+  }
+
+  if(mode==="custom"){
+    const start=savingStartDate.value||"";
+    const end=savingEndDate.value||"";
+    const label=start&&end
+      ?`${start} 至 ${end}`
+      :start
+        ?`${start} 起`
+        :end
+          ?`截至 ${end}`
+          :"自定义日期";
+    return {start,end,label};
+  }
+
+  return {start:"",end:"",label:"全部期间储蓄增长"};
+}
+
+function populateSavingYears(){
+  const current=savingYearSelect.value;
+  const years=availableSavingYears();
+  savingYearSelect.innerHTML=years.map(y=>`<option value="${y}">${y} 年</option>`).join("");
+  if(current&&years.includes(current))savingYearSelect.value=current;
+  else savingYearSelect.value=td().slice(0,4);
+}
+
+function renderSavingStats(){
+  populateSavingYears();
+
+  if(!savingMonthInput.value)savingMonthInput.value=td().slice(0,7);
+  if(!savingStartDate.value||!savingEndDate.value){
+    const r=monthBounds();
+    if(!savingStartDate.value)savingStartDate.value=r.start;
+    if(!savingEndDate.value)savingEndDate.value=r.end;
+  }
+
+  const mode=savingRangeMode.value;
+  savingMonthWrap.style.display=mode==="specificMonth"?"block":"none";
+  savingYearWrap.style.display=mode==="specificYear"?"block":"none";
+  savingCustomWrap.style.display=mode==="custom"?"block":"none";
+
+  const all=savingStatsForRange();
+  const range=savingRangeBounds();
+  const s=savingStatsForRange(range.start,range.end);
+
+  savingAllTime.textContent=M(all.principalNet);
+  savingAllTime.style.color=all.principalNet<0?"var(--danger)":"var(--accent)";
+
+  savingPeriodLabel.textContent=range.label;
+  savingPeriodValue.textContent=M(s.growth);
+  savingPeriodValue.style.color=s.growth<0?"var(--danger)":"var(--accent)";
+  savingCycleCount.textContent=`${s.count} 个收入周期`;
+
+  savingPlannedPart.textContent=M(s.planned);
+  savingTransferPart.textContent=M(s.transfers);
+  savingPocketProjectPart.textContent=M(s.pocketToProject);
+  savingPocketPart.textContent=M(s.pocketClosed);
+  savingProjectSurplusPart.textContent=M(s.projectSurplus);
+  savingExtraPart.textContent=M(s.extra);
+
+  savingUsePart.textContent=s.deductions>0?`-${M(s.deductions)}`:M(0);
+  savingUsePart.style.color=s.deductions>0?"var(--danger)":"inherit";
+
+  savingBankTransferPart.textContent=s.bankExisting>0?`-${M(s.bankExisting)}`:M(0);
+  savingBankTransferPart.style.color=s.bankExisting>0?"var(--muted)":"inherit";
+
+  savingOrdinaryNet.textContent=M(s.ordinaryNet);
+  savingOrdinaryNet.style.color=s.ordinaryNet<0?"var(--danger)":"var(--accent)";
+
+  savingBankStartedPart.textContent=M(s.bankStarted);
+  savingBankExistingPart.textContent=M(s.bankExisting);
+  savingBankExternalPart.textContent=M(s.bankExternal);
+  savingInterestPart.textContent=M(s.interest);
+
+  savingBankGrowth.textContent=M(s.bankGrowth);
+  savingBankGrowth.style.color=s.bankGrowth<0?"var(--danger)":"var(--accent)";
+
+  savingGrowthTotal.textContent=M(s.growth);
+  savingGrowthTotal.style.color=s.growth<0?"var(--danger)":"var(--accent)";
+}
+
+savingRangeMode.addEventListener("change",renderSavingStats);
+savingMonthInput.addEventListener("change",renderSavingStats);
+savingYearSelect.addEventListener("change",renderSavingStats);
+savingStartDate.addEventListener("change",renderSavingStats);
+savingEndDate.addEventListener("change",renderSavingStats);
+
+saveBankReminderThreshold.onclick=()=>{
+  const amount=Math.max(0,N(bankReminderThreshold.value));
+  S.settings.bankDepositThreshold=amount;
+  save();
+  render();
+  msg(amount>0?`银行转存提醒额度已设为 ${M(amount)}`:"银行转存提醒已关闭");
+};
+
+bankReminderDepositBtn.onclick=openBankDepositFromReminder;
+bankReminderNowBtn.onclick=openBankDepositFromReminder;
+
+
+
+function ordinarySavingsAvailable(){
+  // accounting().saving is the real unbanked savings balance:
+  // it already includes planned savings, explicit transfers, cycle closures,
+  // project surplus and extra savings, and already subtracts savings usage
+  // plus existing-savings bank deposits.
+  return N(accounting().saving);
+}
+
+function bankReminderThresholdValue(){
+  return Math.max(0,N(S.settings.bankDepositThreshold));
+}
+
+function bankReminderState(){
+  const current=Math.max(0,ordinarySavingsAvailable());
+  const threshold=bankReminderThresholdValue();
+  const enabled=threshold>0;
+  const ready=enabled&&current>=threshold;
+  const gap=enabled?Math.max(0,threshold-current):0;
+  const progress=enabled?Math.max(0,Math.min(100,current/threshold*100)):0;
+
+  return {current,threshold,enabled,ready,gap,progress};
+}
+
+function renderBankDepositReminder(){
+  const r=bankReminderState();
+
+  bankReminderThreshold.value=r.threshold>0?r.threshold:"";
+  bankReminderCurrent.textContent=M(r.current);
+  bankReminderTarget.textContent=r.enabled?M(r.threshold):"未设置";
+
+  if(!r.enabled){
+    bankReminderGapLabel.textContent="距离提醒额度";
+    bankReminderGap.textContent="—";
+    bankReminderProgress.style.width="0%";
+    bankReminderReady.style.display="none";
+    bankReminderHint.textContent="设置一个额度，例如 ¥5,000。日常储蓄达到这个金额后，App 会提醒你把钱存入银行。";
+  }else if(r.ready){
+    bankReminderGapLabel.textContent="已超过提醒额度";
+    bankReminderGap.textContent=M(r.current-r.threshold);
+    bankReminderGap.style.color="var(--accent)";
+    bankReminderProgress.style.width="100%";
+    bankReminderReady.style.display="";
+    bankReminderReadyMeta.textContent=`当前可用 ${M(r.current)}，提醒额度 ${M(r.threshold)}。点击后会按同一套银行存款信息完成登记。`;
+    bankReminderHint.textContent="默认会把提醒额度作为本次存入金额，你仍可以在银行存款表单里修改金额、类型、期限和利率。";
+  }else{
+    bankReminderGapLabel.textContent="距离提醒额度";
+    bankReminderGap.textContent=M(r.gap);
+    bankReminderGap.style.color="inherit";
+    bankReminderProgress.style.width=`${r.progress}%`;
+    bankReminderReady.style.display="none";
+    bankReminderHint.textContent=`当前已完成 ${Math.round(r.progress)}%。达到 ${M(r.threshold)} 后会出现“已存入银行”。`;
+  }
+
+  bankReminderNowCard.style.display=r.ready?"":"none";
+  if(r.ready){
+    bankReminderNowMeta.textContent=`当前日常储蓄 ${M(r.current)}，已达到你设置的 ${M(r.threshold)}。`;
+  }
+}
+
+function openBankDepositFromReminder(){
+  const r=bankReminderState();
+  if(!r.enabled)return msg("请先设置银行转存提醒额度");
+  if(!r.ready)return msg(`还差 ${M(r.gap)} 才达到银行转存提醒额度`);
+
+  openBankDeposit();
+  bankDepositSheetTitle.textContent="确认已存入银行";
+  bankDepositSource.value="existing";
+  bankDepositPrincipal.value=Math.min(r.threshold,r.current);
+  bankDepositName.value="";
+  bankDepositNote.value="由银行转存提醒登记";
+  refreshBankDepositForm();
+}
+
+function renderSavings(){
+  renderSavingStats();
+  renderBankDepositReminder();
+
+  const all=savingStatsForRange();
+  const bankPrincipal=bankPrincipalTotal();
+  const interest=bankInterestTotal();
+  const total=all.principalNet+interest;
+  const freePrincipal=all.principalNet-bankPrincipal;
+
+  savingPrincipalTotal.textContent=M(all.principalNet);
+  savingPrincipalTotal.style.color=all.principalNet<0?"var(--danger)":"inherit";
+
+  savingBankPrincipal.textContent=M(bankPrincipal);
+  savingBankInterest.textContent=M(interest);
+  savingFreePrincipal.textContent=M(freePrincipal);
+  savingFreePrincipal.style.color=freePrincipal<0?"var(--danger)":"inherit";
+
+  savingGrandTotal.textContent=M(total);
+  savingGrandTotal.style.color=total<0?"var(--danger)":"var(--accent)";
+
+  const cycles=[...allSavingsCycles()].sort((a,b)=>
+    (b.income?.date||"").localeCompare(a.income?.date||"")
+  );
+
+  savingCycleList.innerHTML=cycles.length?cycles.slice(0,24).map(c=>{
+    const start=c.income?.date||"";
+    const end=c.nextCycleIncome?.date?addDays(c.nextCycleIncome.date,-1):"进行中";
+    const deduction=N(c.manualSavingUse)+Math.max(0,-N(c.pocketBalance));
+    return `<div class="savingAccountItem">
+      <div class="savingAccountTop">
+        <div>
+          <div class="name">${start}${end&&end!=="进行中"?" ～ "+end:" · 进行中"}</div>
+          <div class="meta">${c.isClosed?"已结算":"当前周期"} · 收入 ${M(c.incomeTotal)}</div>
+        </div>
+        <div class="savingAccountValue ${c.projectedSaving<0?"neg":"pos"}">${M(c.projectedSaving)}</div>
+      </div>
+      <div class="savingMiniGrid">
+        <div>计划储蓄<strong>${M(c.plannedSaving)}</strong></div>
+        <div>主动转储蓄<strong>${M(c.pocketToSaving)}</strong></div>
+        <div>专项结余转储蓄<strong>${M(c.projectSettlementSaving)}</strong></div>
+        <div>周期结束零花钱<strong>${c.isClosed?M(c.endPocketSaved):"待结算"}</strong></div>
+        <div>扣减<strong>${deduction>0?"-"+M(deduction):M(0)}</strong></div>
+      </div>
+    </div>`;
+  }).join(""):'<div class="note">还没有收入周期储蓄记录。</div>';
+
+  const extra=[...S.tx]
+    .filter(t=>t.type==="extra_saving")
+    .sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
+
+  extraSavingList.innerHTML=extra.length?extra.slice(0,30).map(t=>`
+    <div class="savingAccountItem">
+      <div class="savingAccountTop">
+        <div>
+          <div class="name">${t.note?esc(t.note):"额外储蓄"}</div>
+          <div class="meta">${t.date} · 额外储蓄</div>
+        </div>
+        <div style="text-align:right">
+          <div class="savingAccountValue pos">+${M(t.amount)}</div>
+          <button class="txDelete" style="margin-top:7px" onclick="removeTx('${t.id}')">删除</button>
+        </div>
+      </div>
+    </div>`).join(""):'<div class="note">还没有额外储蓄记录。</div>';
+
+  const deposits=[...activeBankDeposits()].sort((a,b)=>
+    String(b.startDate||"").localeCompare(String(a.startDate||""))
+  );
+
+  bankDepositList.innerHTML=deposits.length?deposits.map(d=>{
+    const interestNow=depositAccruedInterest(d);
+    const daily=depositDailyInterest(d);
+    const matured=!!(d.depositType==="fixed"&&d.maturityDate&&td()>=d.maturityDate);
+
+    let pct=0;
+    if(d.depositType==="fixed"&&d.startDate&&d.maturityDate&&d.maturityDate>d.startDate){
+      const totalDays=diffDays(d.startDate,d.maturityDate);
+      const elapsed=Math.min(totalDays,diffDays(d.startDate,td()));
+      pct=totalDays>0?Math.max(0,Math.min(100,elapsed/totalDays*100)):0;
+    }
+
+    const rateText=N(d.annualRate).toFixed(3).replace(/0+$/,"").replace(/\.$/,"");
+
+    return `<div class="savingAccountItem">
+      <div class="savingAccountTop">
+        <div style="min-width:0">
+          <div class="name">${esc(d.name||"银行存款")}</div>
+          <div class="meta">${depositTypeLabel(d)} · ${depositTermLabel(d)} · 年利率 ${rateText}%</div>
+          <div class="meta">${d.startDate||""}${d.depositType==="fixed"&&d.maturityDate?" ～ "+d.maturityDate:" · 无固定到期日"}</div>
+          <span class="depositStatus ${matured?"matured":""}">${matured?"已到期":d.depositType==="demand"?"活期计息中":"定期计息中"}</span>
+        </div>
+        <div style="text-align:right">
+          <div class="savingAccountValue">${M(d.principal)}</div>
+          <div class="small" style="margin-top:3px">+${M(interestNow)} 利息</div>
+        </div>
+      </div>
+
+      <div class="savingMiniGrid">
+        <div>存入金额<strong>${M(d.principal)}</strong></div>
+        <div>年利率<strong>${rateText}%</strong></div>
+        <div>存款类型<strong>${depositTypeLabel(d)}</strong></div>
+        <div>存期<strong>${depositTermLabel(d)}</strong></div>
+        <div>每日预估利息<strong>${M(daily)}</strong></div>
+        <div>累计预估利息<strong>${M(interestNow)}</strong></div>
+        <div>当前预估价值<strong>${M(N(d.principal)+interestNow)}</strong></div>
+        <div>到期处理<strong>${d.depositType==="fixed"?depositRenewalLabel(d):"活期无固定到期"}</strong></div>
+      </div>
+
+      ${d.depositType==="fixed"&&d.maturityDate?`<div class="depositProgress"><span style="width:${pct}%"></span></div>`:""}
+      ${d.note?`<div class="meta" style="margin-top:7px">${esc(d.note)}</div>`:""}
+
+      <div class="depositActions">
+        <button onclick="editBankDeposit('${d.id}')">修改</button>
+      </div>
+    </div>`;
+  }).join(""):'<div class="note">还没有银行存款。可以分别记录活期和不同期限的定期存款，并按录入利率每天估算应计利息。</div>';
 }
 
 function renderHistory(){
@@ -2335,20 +3607,52 @@ function syncIncomeFromPlan(){
   recalcIncome();
 }
 function projectSuggestionInputs(){
-  const suggestProjects=activeProjects();
-  projectSuggest.innerHTML=suggestProjects.length?suggestProjects.map(p=>{
-    const cp=projectCyclePlan(p);
-    if(cp.status!=="active"||cp.gap<=0||!cp.schedule.length)return "";
-    const next=cp.schedule[0];
-    return `<div class="formGrid" style="margin-top:8px">
-      <div>
-        <div class="name">${esc(p.name)}</div>
-        <div class="meta">缺 ${M(cp.gap)} · 截止前还有 ${cp.count} 个周期收入 · 本周期建议 ${M(next.recommended)}</div>
-      </div>
-      <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="${next.recommended}" min="0"></div>
-    </div>`;
-  }).join(""):'<div class="note">暂无需要预留的专项。</div>';
-  if(!projectSuggest.textContent.trim())projectSuggest.innerHTML='<div class="note">暂无需要预留的专项。</div>';
+  const selectedPlan=S.incomePlans.find(x=>x.id===incPlan.value);
+  const oneOff=incPlan.value==="__extra__" || (selectedPlan&&!isRecurringPlan(selectedPlan));
+  const suggestProjects=activeProjects().filter(p=>projectGap(p)>0);
+
+  if(!suggestProjects.length){
+    projectSuggestMeta.textContent="当前没有需要补充资金的进行中专项。";
+    projectSuggest.innerHTML='<div class="note">暂无需要预留的专项。</div>';
+    return;
+  }
+
+  if(oneOff){
+    projectSuggestMeta.textContent="单次额外收入也可以直接分配到专项；金额由你自己决定，不需要依赖周期或收入日期。";
+    projectSuggest.innerHTML=suggestProjects.map(p=>`
+      <div class="formGrid" style="margin-top:8px">
+        <div>
+          <div class="name">${esc(p.name)}</div>
+          <div class="meta">当前还缺 ${M(projectGap(p))} · 可直接从这笔额外收入预留</div>
+        </div>
+        <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0"></div>
+      </div>`).join("");
+  }else{
+    projectSuggestMeta.textContent="周期收入会根据专项缺口、截止日期和未来收入周期给出建议预留。";
+    projectSuggest.innerHTML=suggestProjects.map(p=>{
+      const cp=projectCyclePlan(p);
+
+      if(cp.status==="active"&&cp.schedule.length){
+        const next=cp.schedule[0];
+        return `<div class="formGrid" style="margin-top:8px">
+          <div>
+            <div class="name">${esc(p.name)}</div>
+            <div class="meta">缺 ${M(cp.gap)} · 截止前还有 ${cp.count} 个周期收入 · 本周期建议 ${M(next.recommended)}</div>
+          </div>
+          <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="${next.recommended}" min="0"></div>
+        </div>`;
+      }
+
+      return `<div class="formGrid" style="margin-top:8px">
+        <div>
+          <div class="name">${esc(p.name)}</div>
+          <div class="meta">当前还缺 ${M(projectGap(p))} · 本次也可以自行预留</div>
+        </div>
+        <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0"></div>
+      </div>`;
+    }).join("");
+  }
+
   document.querySelectorAll(".projectContrib").forEach(x=>x.addEventListener("input",recalcIncomeSummary));
 }
 function recalcIncome(){
@@ -2423,6 +3727,7 @@ saveIncome.onclick=()=>{
 
   const planNextDateBefore=plan?.nextDate||"";
   const planFreqAtRecord=plan?.freq||"none";
+  const currentCycleIncomeId=!recurring?(currentCycleStats().income?.id||""):"";
 
   const tx={
     id:"i"+Date.now(),
@@ -2435,6 +3740,7 @@ saveIncome.onclick=()=>{
     nextIncomeDate:next,
     planNextDateBefore,
     planFreqAtRecord,
+    cycleIncomeId:currentCycleIncomeId,
     livingCoverageStart:recurring?lp.start:"",
     livingCoverageEnd:recurring?lp.end:"",
     livingRateAtRecord:recurring?N(S.settings.dailyLiving):0,
@@ -2537,87 +3843,416 @@ saveLivingSettlement.onclick=()=>{
 
 
 
-/* Pocket money -> savings */
+
+/* Extra savings */
+function openExtraSaving(){
+  extraSavingDate.value=td();
+  extraSavingAmount.value="";
+  extraSavingNote.value="";
+  syncDateDisplays();
+  extraSavingSheet.classList.add("show");
+}
+
+saveExtraSaving.onclick=()=>{
+  const date=extraSavingDate.value||td();
+  const amount=Math.max(0,N(extraSavingAmount.value));
+  const note=extraSavingNote.value.trim();
+
+  if(amount<=0)return msg("请输入额外储蓄金额");
+
+  S.tx.push({
+    id:"xs"+Date.now(),
+    date,
+    type:"extra_saving",
+    amount,
+    note
+  });
+
+  save();
+  closeSheet("extraSavingSheet");
+  render();
+  msg(`${M(amount)} 已记入额外储蓄`);
+};
+
+
+function bankDepositSelectedMonths(){
+  if(bankDepositType.value!=="fixed")return 0;
+  if(bankDepositTerm.value==="custom")return Math.max(0,N(bankDepositCustomTerm.value));
+  return Math.max(0,N(bankDepositTerm.value));
+}
+
+function refreshBankDepositForm(){
+  const fixed=bankDepositType.value==="fixed";
+
+  bankDepositTermWrap.style.display=fixed?"block":"none";
+  bankDepositMaturityWrap.style.display=fixed?"block":"none";
+  bankDepositCustomTermWrap.style.display=fixed&&bankDepositTerm.value==="custom"?"block":"none";
+  bankDepositRenewal.disabled=!fixed;
+
+  if(!fixed){
+    bankDepositMaturity.value="";
+    bankDepositRenewal.value="manual";
+  }else{
+    const months=bankDepositSelectedMonths();
+    const start=bankDepositStart.value;
+    if(months>0&&start)bankDepositMaturity.value=addMonths(start,months);
+  }
+
+  syncDateDisplays();
+}
+
+bankDepositType.addEventListener("change",refreshBankDepositForm);
+bankDepositTerm.addEventListener("change",refreshBankDepositForm);
+bankDepositCustomTerm.addEventListener("input",refreshBankDepositForm);
+bankDepositStart.addEventListener("change",refreshBankDepositForm);
+
+/* Bank deposits */
+function openBankDeposit(){
+  bankDepositId.value="";
+  bankDepositSheetTitle.textContent="新增银行存款";
+  bankDepositName.value="";
+  bankDepositType.value="fixed";
+  bankDepositPrincipal.value="";
+  bankDepositRate.value="";
+  bankDepositStart.value=td();
+  bankDepositTerm.value="36";
+  bankDepositCustomTerm.value="";
+  bankDepositMaturity.value=addMonths(td(),36);
+  bankDepositSource.value="existing";
+  bankDepositRenewal.value="manual";
+  bankDepositNote.value="";
+  deleteBankDeposit.style.display="none";
+  refreshBankDepositForm();
+  syncDateDisplays();
+  bankDepositSheet.classList.add("show");
+}
+
+function editBankDeposit(id){
+  const d=(S.deposits||[]).find(x=>x.id===id);
+  if(!d)return;
+
+  bankDepositId.value=d.id;
+  bankDepositSheetTitle.textContent="修改银行存款";
+  bankDepositName.value=d.name||"";
+  bankDepositType.value=d.depositType||"fixed";
+  bankDepositPrincipal.value=N(d.principal);
+  bankDepositRate.value=N(d.annualRate);
+  bankDepositStart.value=d.startDate||"";
+  bankDepositSource.value=d.source||"existing";
+  bankDepositRenewal.value=d.renewal||"manual";
+  bankDepositNote.value=d.note||"";
+
+  const months=Math.max(0,N(d.termMonths));
+  const presets=["3","6","12","24","36","60"];
+
+  if((d.depositType||"fixed")==="fixed"){
+    if(presets.includes(String(months))){
+      bankDepositTerm.value=String(months);
+      bankDepositCustomTerm.value="";
+    }else{
+      bankDepositTerm.value="custom";
+      bankDepositCustomTerm.value=months||"";
+    }
+    bankDepositMaturity.value=d.maturityDate||(
+      d.startDate&&months?addMonths(d.startDate,months):""
+    );
+  }else{
+    bankDepositTerm.value="36";
+    bankDepositCustomTerm.value="";
+    bankDepositMaturity.value="";
+  }
+
+  deleteBankDeposit.style.display="";
+  refreshBankDepositForm();
+  syncDateDisplays();
+  bankDepositSheet.classList.add("show");
+}
+
+saveBankDeposit.onclick=()=>{
+  const id=bankDepositId.value;
+  const name=bankDepositName.value.trim()||"银行存款";
+  const depositType=bankDepositType.value;
+  const principal=Math.max(0,N(bankDepositPrincipal.value));
+  const annualRate=Math.max(0,N(bankDepositRate.value));
+  const startDate=bankDepositStart.value;
+  const termMonths=depositType==="fixed"?bankDepositSelectedMonths():0;
+  const maturityDate=depositType==="fixed"&&startDate&&termMonths
+    ?addMonths(startDate,termMonths)
+    :"";
+  const source=bankDepositSource.value;
+  const renewal=depositType==="fixed"?bankDepositRenewal.value:"manual";
+  const note=bankDepositNote.value.trim();
+
+  if(principal<=0)return msg("请输入存入金额");
+  if(!startDate)return msg("请选择存入日期");
+  if(depositType==="fixed"&&termMonths<=0)return msg("请选择或填写定期存款期限");
+
+  if(source==="existing"){
+    const old=S.deposits.find(x=>x.id===id);
+    const restored=old&&old.source==="existing"?N(old.principal):0;
+    const available=Math.max(0,N(bal().saving)+restored);
+    if(principal>available){
+      return msg(`当前日常储蓄可用于银行存款的金额为 ${M(available)}`);
+    }
+  }
+
+  const record={
+    name,
+    depositType,
+    principal,
+    annualRate,
+    startDate,
+    termMonths,
+    maturityDate,
+    source,
+    renewal,
+    note
+  };
+
+  if(id){
+    const d=S.deposits.find(x=>x.id===id);
+    if(!d)return;
+    Object.assign(d,record);
+  }else{
+    S.deposits.push({id:"bd"+Date.now(),...record});
+  }
+
+  save();
+  closeSheet("bankDepositSheet");
+  render();
+
+  if(id){
+    msg("银行存款已修改");
+  }else{
+    const remaining=Math.max(0,ordinarySavingsAvailable());
+    const threshold=bankReminderThresholdValue();
+    const baseMsg=depositType==="fixed"?"定期存款已添加":"活期存款已添加";
+
+    if(source==="existing"&&threshold>0&&remaining>=threshold){
+      msg(`${baseMsg}；日常储蓄仍达到提醒额度，还可以继续转存下一笔`);
+    }else{
+      msg(baseMsg);
+    }
+  }
+};
+
+deleteBankDeposit.onclick=()=>{
+  const id=bankDepositId.value;
+  if(!id)return;
+  if(!confirm("删除这笔银行存款记录？"))return;
+
+  S.deposits=S.deposits.filter(x=>x.id!==id);
+  save();
+  closeSheet("bankDepositSheet");
+  render();
+  msg("银行存款记录已删除");
+};
+
+/* Pocket money -> savings / project */
+function refreshPocketTransferTarget(){
+  const ps=activeProjects();
+  const hasProjects=ps.length>0;
+
+  transferTargetRow.style.display=hasProjects?"block":"none";
+  if(!hasProjects)transferPocketTarget.value="saving";
+
+  transferPocketProject.innerHTML=ps.map(p=>
+    `<option value="${p.id}">${esc(p.name)} · 当前可用 ${M(projectAvail(p))}</option>`
+  ).join("");
+
+  const toProject=hasProjects&&transferPocketTarget.value==="project";
+  transferProjectRow.style.display=toProject?"block":"none";
+  pocketTransferTitle.textContent=toProject?"零花钱转专项":"零花钱转储蓄";
+
+  recalcPocketTransfer();
+}
+
 function openPocketTransfer(){
   const b=bal(),cycle=currentCycleStats();
-  if(b.safe<=0)return msg("当前没有可转入储蓄的零花钱");
+  if(b.safe<=0)return msg("当前没有可转出的零花钱");
+
   transferPocketAmount.value="";
   transferPocketNow.textContent=M(b.safe);
   transferPocketAfter.textContent=M(b.safe);
-  transferProjectedSaving.textContent=M(cycle.projectedSaving);
-  transferProjectedSaving.style.color=cycle.projectedSaving<=0?"var(--danger)":"var(--accent)";
+
+  const ps=activeProjects();
+  transferPocketTarget.value="saving";
+  transferTargetRow.style.display=ps.length?"block":"none";
+
+  refreshPocketTransferTarget();
   pocketTransferSheet.classList.add("show");
 }
+
 function recalcPocketTransfer(){
   const b=bal(),cycle=currentCycleStats();
   const amount=Math.max(0,N(transferPocketAmount.value));
   const validAmount=Math.min(amount,Math.max(0,b.safe));
+  const toProject=activeProjects().length>0&&transferPocketTarget.value==="project";
 
   transferPocketAfter.textContent=M(b.safe-validAmount);
   transferPocketAfter.style.color=(b.safe-validAmount)<0?"var(--danger)":"inherit";
 
-  transferProjectedSaving.textContent=M(cycle.projectedSaving+validAmount);
-  transferProjectedSaving.style.color=(cycle.projectedSaving+validAmount)<=0?"var(--danger)":"var(--accent)";
+  if(toProject){
+    const p=S.projects.find(x=>x.id===transferPocketProject.value);
+    transferEffectLabel.textContent="转入后专项可用";
+    transferProjectedSaving.textContent=M((p?projectAvail(p):0)+validAmount);
+    transferProjectedSaving.style.color="var(--accent)";
+    transferPocketNote.textContent="转入专项只是在零花钱与专项之间重新分配，不会被当成已经储蓄。专项以后若有结余，结算时再转入储蓄。";
+  }else{
+    transferEffectLabel.textContent="本周期预计可存";
+    transferProjectedSaving.textContent=M(cycle.projectedSaving+validAmount);
+    transferProjectedSaving.style.color=(cycle.projectedSaving+validAmount)<=0?"var(--danger)":"var(--accent)";
+    transferPocketNote.textContent="转入储蓄会立即增加本周期预计可存，也会计入本月储蓄净增。";
+  }
 }
+
+transferPocketTarget.addEventListener("change",refreshPocketTransferTarget);
+transferPocketProject.addEventListener("change",recalcPocketTransfer);
 transferPocketAmount.addEventListener("input",recalcPocketTransfer);
 
 savePocketTransfer.onclick=()=>{
   const b=bal();
   const amount=Math.max(0,N(transferPocketAmount.value));
-  if(amount<=0)return msg("请输入要转入储蓄的金额");
+  if(amount<=0)return msg("请输入要转出的金额");
   if(amount>b.safe)return msg("转入金额不能超过当前零花钱");
+
+  const cycleIncomeId=currentCycleStats().income?.id||"";
+  const toProject=activeProjects().length>0&&transferPocketTarget.value==="project";
+
+  if(toProject){
+    const projectId=transferPocketProject.value;
+    const p=S.projects.find(x=>x.id===projectId);
+    if(!p)return msg("请选择要转入的专项");
+
+    S.tx.push({
+      id:"ptp"+Date.now(),
+      date:td(),
+      type:"pocket_to_project",
+      cycleIncomeId,
+      projectId,
+      amount
+    });
+
+    save();
+    closeSheet("pocketTransferSheet");
+    render();
+    msg(`${M(amount)} 已从零花钱转入专项「${p.name}」`);
+    return;
+  }
 
   S.tx.push({
     id:"pts"+Date.now(),
     date:td(),
     type:"pocket_to_saving",
+    cycleIncomeId,
     amount
   });
 
   save();
   closeSheet("pocketTransferSheet");
   render();
-  msg(`${M(amount)} 已从零花钱转入储蓄`);
+  msg(`${M(amount)} 已从零花钱转入储蓄；本周期预计可存和本月储蓄净增已同步增加`);
 };
 
 
 /* Spend */
 function openSpend(){spendBucket.value="safe";spendAmount.value="";spendNote.value="";refreshSpendRefs();spendSheet.classList.add("show")}
+function refreshProjectOverrunUI(){
+  if(spendBucket.value!=="project"){
+    projectOverrunRow.style.display="none";
+    return;
+  }
+
+  const p=S.projects.find(x=>x.id===spendRef.value);
+  if(!p){
+    projectOverrunRow.style.display="none";
+    spendHint.textContent="请选择专项";
+    return;
+  }
+
+  const available=Math.max(0,projectAvail(p));
+  const amount=Math.max(0,N(spendAmount.value));
+  const over=Math.max(0,amount-available);
+
+  projectOverrunRow.style.display=over>0?"block":"none";
+
+  if(over>0){
+    const source=projectOverrunSource.value==="saving"?"储蓄":"零花钱";
+    spendHint.textContent=`该专项可用 ${M(available)}，本次将超出 ${M(over)}；超出部分从${source}支付。`;
+  }else{
+    spendHint.textContent=`该专项当前可用 ${M(available)}`;
+  }
+}
+
 function refreshSpendRefs(){
   const t=spendBucket.value,b=bal();
+  projectOverrunRow.style.display="none";
+
   if(t==="bill"){
     refRow.style.display="block";refLabel.textContent="选择账单";
     spendRef.innerHTML='<option value="">请选择</option>'+S.bills.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
   }else if(t==="project"){
     refRow.style.display="block";refLabel.textContent="选择专项";
-    spendRef.innerHTML='<option value="">请选择</option>'+S.projects.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
-  }else refRow.style.display="none";
+    spendRef.innerHTML='<option value="">请选择</option>'+activeProjects().map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
+  }else{
+    refRow.style.display="none";
+  }
+
   const bs=currentCycleBillStatus();
   spendHint.textContent=t==="safe"
     ?`当前零花钱 ${M(b.safe)}；花超后会直接压低“本周期预计可存”。`
     :t==="bill"
       ?(bs.complete?"本周期固定账单已全部完成":bs.none?"本周期没有固定账单":`本周期固定账单尚待支付 ${M(bs.outstandingAmount)}，共 ${bs.outstanding.length} 笔。`)
-      :t==="saving"?`当前储蓄余额 ${M(b.saving)}`:"请选择专项";
+      :t==="saving"
+        ?`当前储蓄余额 ${M(b.saving)}`
+        :"请选择专项";
+
+  if(t==="project")refreshProjectOverrunUI();
 }
 spendBucket.onchange=refreshSpendRefs;
-spendRef.onchange=()=>{
-  if(spendBucket.value==="project"){
-    const p=S.projects.find(x=>x.id===spendRef.value);
-    spendHint.textContent=p?`该专项当前可用 ${M(projectAvail(p))}`:"请选择专项";
-  }
-};
+spendRef.onchange=refreshProjectOverrunUI;
+spendAmount.addEventListener("input",refreshProjectOverrunUI);
+projectOverrunSource.addEventListener("change",refreshProjectOverrunUI);
 saveSpend.onclick=()=>{
   const bucket=spendBucket.value,amount=N(spendAmount.value),refId=spendRef.value,note=spendNote.value.trim(),b=bal();
   if(amount<=0)return msg("请输入金额");
   if((bucket==="bill"||bucket==="project")&&!refId)return msg("请选择对应项目");
+
   if(bucket==="saving"){
     if(b.saving<=0)return msg("当前储蓄余额为 0");
     if(amount>b.saving)return msg("这笔金额超过当前储蓄余额");
   }
 
+  let projectOverrunSourceValue="";
+  let projectOverrunAmount=0;
+
+  if(bucket==="project"){
+    const p=S.projects.find(x=>x.id===refId);
+    const available=p?Math.max(0,projectAvail(p)):0;
+    projectOverrunAmount=Math.max(0,amount-available);
+
+    if(projectOverrunAmount>0){
+      projectOverrunSourceValue=projectOverrunSource.value;
+      if(projectOverrunSourceValue==="saving"&&projectOverrunAmount>b.saving){
+        return msg(`储蓄不足以支付专项超出的 ${M(projectOverrunAmount)}`);
+      }
+    }
+  }
+
   const id="e"+Date.now();
   const cycleDueDate=bucket==="bill"?openBillCycle(refId):"";
-  S.tx.push({id,date:td(),type:"expense",bucket,amount,refId,note,cycleDueDate});
+  S.tx.push({
+    id,
+    date:td(),
+    type:"expense",
+    bucket,
+    amount,
+    refId,
+    note,
+    cycleDueDate,
+    projectOverrunSource:projectOverrunSourceValue,
+    projectOverrunAmount
+  });
 
   save();
   const ef=accounting().effects[id]||{};
@@ -2626,6 +4261,9 @@ saveSpend.onclick=()=>{
 
   if(bucket==="bill"){
     msg(cycleDueDate?`账单已核销 ${cycleDueDate} 周期`:"账单已核销");
+  }else if(bucket==="project"&&N(ef.overPlan)>0){
+    const from=ef.projectOverrunSource==="safe"?"零花钱":"储蓄";
+    msg(`专项已记录，超出 ${M(ef.overPlan)} 已从${from}支付`);
   }else if(N(ef.uncovered)>0){
     msg(`已超计划；储蓄补了 ${M(ef.autoDraw)}，仍有缺口 ${M(ef.uncovered)}`);
   }else if(N(ef.autoDraw)>0){
@@ -2668,6 +4306,10 @@ function removeTx(id){
     msg("“无需支付”已撤销，该账单周期已恢复");
   }else if(target.type==="pocket_to_saving"){
     msg("零花钱转储蓄已撤销，余额已恢复");
+  }else if(target.type==="pocket_to_project"){
+    msg("零花钱转专项已撤销，零花钱和专项余额已恢复");
+  }else if(target.type==="extra_saving"){
+    msg("额外储蓄记录已删除");
   }else{
     msg("流水已删除，相关余额已重新计算");
   }
@@ -2711,6 +4353,8 @@ function summary(){
 本周期账单待支付：${currentCycleBillStatus().complete?"已完成":currentCycleBillStatus().none?"暂无":M(currentCycleBillStatus().outstandingAmount)}
 当前专项余额合计：${M(projectTotal)}
 本周期资金缺口：${M(Math.max(0,-N(cycle.projectedSaving)))}
+当前日常储蓄可用：${M(ordinarySavingsAvailable())}
+银行转存提醒额度：${bankReminderThresholdValue()>0?M(bankReminderThresholdValue()):"未设置"}
 
 收入计划：
 ${ips||"无"}
