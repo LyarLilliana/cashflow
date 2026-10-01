@@ -95,8 +95,91 @@ button{touch-action:manipulation}
 .bankReminderSavedHead .reminderModifyBtn:active{
   background:#F0F1EE;
 }
+
+.resultRangeBar{
+  margin-top:8px;
+  min-height:32px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:2px 3px;
+  color:var(--muted);
+  font-size:10.5px;
+}
+.resultRangeLabel{
+  flex:none;
+}
+.resultRangeToggle{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  padding:5px 2px;
+  font-size:10.5px;
+  font-weight:650;
+}
+.resultRangeToggle .rangeValue{
+  min-width:0;
+  max-width:210px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--text);
+}
+.resultRangeToggle .rangeAction{
+  color:var(--muted);
+  font-weight:600;
+}
+.resultRangePanel{
+  margin-top:4px;
+  padding:9px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#FAFBF9;
+}
+.resultRangePanel[hidden]{
+  display:none!important;
+}
+.resultRangePanel .historyQuick{
+  margin-top:0;
+  gap:5px;
+}
+.resultRangePanel .historyQuick button{
+  min-height:30px;
+  padding:5px 3px;
+  border:0;
+  background:transparent;
+  border-radius:9px;
+  font-size:10px;
+}
+.resultRangePanel .historyQuick button.active{
+  background:var(--accentSoft);
+  color:var(--accent);
+}
+.resultCustomDates{
+  margin-top:6px;
+  padding-top:7px;
+  border-top:1px solid var(--line);
+}
+.resultCustomDates[hidden]{
+  display:none!important;
+}
+.resultCustomDates label{
+  font-size:9px;
+}
+.resultCustomDates input{
+  min-height:36px;
+  height:36px;
+  border-radius:9px;
+  font-size:10.5px;
+}
 #resultRangeQuick{
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
 }
 #bankReminderEditor[hidden],
 #bankReminderEditBtn[hidden]{
@@ -1077,36 +1160,42 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     <div class="section">
       <div class="sectionTitle">结果概览</div>
 
-      <div class="card historyFilter">
-        <div class="historyFilterGrid">
-          <div>
-            <label>开始日期</label>
-            <input id="historyStartDate" type="date">
-          </div>
-          <div>
-            <label>结束日期</label>
-            <input id="historyEndDate" type="date">
-          </div>
-        </div>
-
-        <div class="historyQuick" id="resultRangeQuick">
-          <button id="historyCycleBtn">当前周期</button>
-          <button id="historyMonthBtn" class="active">本月</button>
-          <button id="historyYearBtn">本年</button>
-          <button id="historyAllBtn">全部</button>
-        </div>
-
-        <div class="historyFilterMeta">
-          <span id="historyRangeText">本月</span>
-          <span id="historyCountText">0 条流水</span>
-        </div>
-      </div>
-
       <div class="grid">
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
         <div class="card stat"><div class="k">预计储蓄增长</div><div class="v" id="mExpectedSaving">¥0</div><div class="s" id="mExpectedSavingSub">随收入、消费和资金转移实时变化</div></div>
         <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">0%</div><div class="s">预计储蓄增长 ÷ 统计范围内收入</div></div>
+      </div>
+
+      <div class="resultRangeBar">
+        <span class="resultRangeLabel">统计范围</span>
+        <button class="resultRangeToggle" id="resultRangeToggle">
+          <span class="rangeValue" id="historyRangeText">本月</span>
+          <span class="rangeAction">调整</span>
+        </button>
+      </div>
+
+      <div class="resultRangePanel" id="resultRangePanel" hidden>
+        <div class="historyQuick" id="resultRangeQuick">
+          <button id="historyCycleBtn">当前周期</button>
+          <button id="historyMonthBtn" class="active">本月</button>
+          <button id="historyYearBtn">本年</button>
+          <button id="historyAllBtn">全部</button>
+          <button id="historyCustomBtn">自定义</button>
+        </div>
+
+        <div class="resultCustomDates" id="historyCustomDates" hidden>
+          <div class="historyFilterGrid">
+            <div>
+              <label>开始日期</label>
+              <input id="historyStartDate" type="date">
+            </div>
+            <div>
+              <label>结束日期</label>
+              <input id="historyEndDate" type="date">
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="card" style="margin-top:10px">
@@ -1530,10 +1619,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v53";
-const OLD_KEYS=["safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v56";
+const OLD_KEYS=["safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:53,
+  version:56,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -3144,6 +3233,7 @@ function setHistoryMode(mode){
   historyMonthBtn.classList.toggle("active",mode==="month");
   historyYearBtn.classList.toggle("active",mode==="year");
   historyAllBtn.classList.toggle("active",mode==="all");
+  historyCustomBtn.classList.remove("active");
 
   if(mode==="cycle"){
     const r=currentCycleResultBounds();
@@ -3161,6 +3251,9 @@ function setHistoryMode(mode){
     historyStartDate.value="";
     historyEndDate.value="";
   }
+
+  historyCustomDates.hidden=true;
+  resultRangePanel.hidden=true;
 
   syncDateDisplays();
   renderHistory();
@@ -3276,7 +3369,6 @@ function renderHistoryTransactions(){
   const label=historyRangeLabel();
 
   historyRangeText.textContent=label;
-  historyCountText.textContent=`${rows.length} 条流水`;
 
   historyListRangeText.textContent=`${label}流水`;
   historyListCountText.textContent=rows.length>historyVisibleCount
@@ -3297,6 +3389,9 @@ historyStartDate.addEventListener("change",()=>{
   historyMonthBtn.classList.remove("active");
   historyYearBtn.classList.remove("active");
   historyAllBtn.classList.remove("active");
+  historyCustomBtn.classList.add("active");
+  resultRangePanel.hidden=false;
+  historyCustomDates.hidden=false;
   renderHistory();
 });
 
@@ -3307,6 +3402,9 @@ historyEndDate.addEventListener("change",()=>{
   historyMonthBtn.classList.remove("active");
   historyYearBtn.classList.remove("active");
   historyAllBtn.classList.remove("active");
+  historyCustomBtn.classList.add("active");
+  resultRangePanel.hidden=false;
+  historyCustomDates.hidden=false;
   renderHistory();
 });
 
@@ -3314,6 +3412,34 @@ historyCycleBtn.onclick=()=>setHistoryMode("cycle");
 historyMonthBtn.onclick=()=>setHistoryMode("month");
 historyYearBtn.onclick=()=>setHistoryMode("year");
 historyAllBtn.onclick=()=>setHistoryMode("all");
+
+resultRangeToggle.onclick=()=>{
+  const opening=resultRangePanel.hidden;
+  resultRangePanel.hidden=!opening;
+
+  if(!opening){
+    historyCustomDates.hidden=true;
+  }
+};
+
+historyCustomBtn.onclick=()=>{
+  const opening=historyCustomDates.hidden;
+  historyCustomDates.hidden=!opening;
+
+  if(opening){
+    historyCycleBtn.classList.remove("active");
+    historyMonthBtn.classList.remove("active");
+    historyYearBtn.classList.remove("active");
+    historyAllBtn.classList.remove("active");
+    historyCustomBtn.classList.add("active");
+  }else if(historyMode!=="custom"){
+    historyCustomBtn.classList.remove("active");
+    historyCycleBtn.classList.toggle("active",historyMode==="cycle");
+    historyMonthBtn.classList.toggle("active",historyMode==="month");
+    historyYearBtn.classList.toggle("active",historyMode==="year");
+    historyAllBtn.classList.toggle("active",historyMode==="all");
+  }
+};
 
 historyMoreBtn.onclick=()=>{
   historyVisibleCount+=HISTORY_PAGE_SIZE;
