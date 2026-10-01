@@ -911,7 +911,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     <div class="card" id="bankReminderNowCard" style="display:none;margin-top:12px">
       <div class="row">
         <div>
-          <div class="name">日常储蓄已达到银行转存额度</div>
+          <div class="name" id="bankReminderNowTitle">预计储蓄达到银行转存额度</div>
           <div class="meta" id="bankReminderNowMeta">可以考虑把这笔钱存入银行。</div>
         </div>
         <button class="primary" id="bankReminderNowBtn">已存入银行</button>
@@ -975,14 +975,14 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
       <div class="savingChangeSummary">
         <div class="card stat">
-          <div class="k">本月新增储蓄</div>
+          <div class="k">本月预计新增储蓄</div>
           <div class="v" id="savingMonthGrowth">¥0</div>
-          <div class="s">本月储蓄本金净增加</div>
+          <div class="s">已形成储蓄 + 本月预计会沉淀的周期结余</div>
         </div>
         <div class="card stat">
-          <div class="k">本年新增储蓄</div>
+          <div class="k">本年预计新增储蓄</div>
           <div class="v" id="savingYearGrowth">¥0</div>
-          <div class="s">本年储蓄本金净增加</div>
+          <div class="s">已形成储蓄 + 本年预计会沉淀的周期结余</div>
         </div>
       </div>
 
@@ -1012,7 +1012,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
         <div class="savingPeriodHead" style="margin-top:10px">
           <div>
-            <div class="small">这个范围新增储蓄</div>
+            <div class="small">这个范围预计新增储蓄</div>
             <div class="savingPeriodValue" id="savingPeriodValue">¥0</div>
           </div>
         </div>
@@ -1026,13 +1026,15 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="explainRow"><span>周期收入储蓄</span><strong id="savingRecurringIncomePart">¥0</strong></div>
         <div class="explainRow"><span>单次额外收入储蓄</span><strong id="savingOneOffIncomePart">¥0</strong></div>
         <div class="explainRow"><span>周期结束结余转储蓄</span><strong id="savingCycleClosePart">¥0</strong></div>
+        <div class="explainRow"><span>当前周期预计结余</span><strong id="savingPendingPart">¥0</strong></div>
         <div class="explainRow"><span>零花钱转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
         <div class="explainRow"><span>专项结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
         <div class="explainRow"><span>手动额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
         <div class="explainRow"><span>外部直接存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
         <div class="explainRow"><span>储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
         <div class="explainRow"><span>日常储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
-        <div class="explainRow total"><span>期间新增储蓄本金</span><strong id="savingGrowthTotal">¥0</strong></div>
+        <div class="explainRow total"><span>期间预计新增储蓄本金</span><strong id="savingGrowthTotal">¥0</strong></div>
+        <div class="note" style="margin-top:9px">“当前周期预计结余”仍属于零花钱预测值，会随继续消费变化；周期真正结束后才转为“周期结束结余转储蓄”。</div>
       </div>
 
       <div class="card savingChangeList" id="savingChangeList"></div>
@@ -1067,7 +1069,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="divider"></div>
 
         <div class="bankReminderRows">
-          <div class="explainRow"><span>当前日常储蓄可用</span><strong id="bankReminderCurrent">¥0</strong></div>
+          <div class="explainRow"><span>预计日常储蓄</span><strong id="bankReminderCurrent">¥0</strong></div>
+          <div class="explainRow"><span>其中已进入储蓄</span><strong id="bankReminderActual">¥0</strong></div>
+          <div class="explainRow"><span>预计周期结余</span><strong id="bankReminderPending">¥0</strong></div>
           <div class="explainRow"><span>设定转存额度</span><strong id="bankReminderTarget">未设置</strong></div>
           <div class="explainRow total"><span id="bankReminderGapLabel">距离提醒额度</span><strong id="bankReminderGap">—</strong></div>
         </div>
@@ -1078,7 +1082,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div class="bankReminderReadyCard">
             <div class="row">
               <div>
-                <div class="name">已经达到银行转存额度</div>
+                <div class="name" id="bankReminderReadyTitle">已经达到银行转存额度</div>
                 <div class="meta" id="bankReminderReadyMeta">可以把这部分日常储蓄存入银行。</div>
               </div>
               <button class="primary" id="bankReminderDepositBtn">已存入银行</button>
@@ -1551,10 +1555,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v50";
-const OLD_KEYS=["safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v52";
+const OLD_KEYS=["safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:50,
+  version:52,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -3233,19 +3237,8 @@ function historyRangeLabel(){
   return `截至 ${end}`;
 }
 
-function resultStatsForRange(start="",end=""){
-  const incomes=S.tx.filter(t=>{
-    if(t.type!=="income")return false;
-    const d=t.date||"";
-    if(start&&d<start)return false;
-    if(end&&d>end)return false;
-    return true;
-  });
-
-  const income=sm(incomes,t=>N(t.amount));
-  const spend=spendingBreakdownForRange(start,end);
+function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
   const saving=savingStatsForRange(start,end);
-
   const confirmedPrincipal=N(saving.principalNet);
   let pendingPocket=0;
 
@@ -3258,7 +3251,7 @@ function resultStatsForRange(start="",end=""){
       || "";
 
     const closeInside=
-      historyMode==="cycle"
+      forceCurrentCycle
       || (
         closeDate
         &&(!start||closeDate>=start)
@@ -3270,7 +3263,34 @@ function resultStatsForRange(start="",end=""){
     }
   }
 
-  const expected=confirmedPrincipal+pendingPocket;
+  return {
+    ...saving,
+    confirmedPrincipal,
+    pendingPocket,
+    expected:confirmedPrincipal+pendingPocket
+  };
+}
+
+function resultStatsForRange(start="",end=""){
+  const incomes=S.tx.filter(t=>{
+    if(t.type!=="income")return false;
+    const d=t.date||"";
+    if(start&&d<start)return false;
+    if(end&&d>end)return false;
+    return true;
+  });
+
+  const income=sm(incomes,t=>N(t.amount));
+  const spend=spendingBreakdownForRange(start,end);
+  const saving=expectedSavingGrowthForRange(
+    start,
+    end,
+    historyMode==="cycle"
+  );
+
+  const confirmedPrincipal=N(saving.confirmedPrincipal);
+  const pendingPocket=N(saving.pendingPocket);
+  const expected=N(saving.expected);
   const rate=income>0?expected/income*100:0;
   return {income,spend,saving,confirmedPrincipal,pendingPocket,expected,rate};
 }
@@ -3841,23 +3861,27 @@ function filteredSavingChangeEvents(start="",end=""){
 
 function renderSavingStats(){
   const range=savingRangeBounds();
-  const s=savingStatsForRange(range.start,range.end);
+  const s=expectedSavingGrowthForRange(
+    range.start,
+    range.end,
+    savingRangePreset==="cycle"
+  );
 
   const month=monthBounds(td());
-  const monthStats=savingStatsForRange(month.start,month.end);
+  const monthStats=expectedSavingGrowthForRange(month.start,month.end);
 
   const y=td().slice(0,4);
-  const yearStats=savingStatsForRange(`${y}-01-01`,`${y}-12-31`);
+  const yearStats=expectedSavingGrowthForRange(`${y}-01-01`,`${y}-12-31`);
 
-  savingMonthGrowth.textContent=M(monthStats.principalNet);
-  savingMonthGrowth.style.color=monthStats.principalNet<0?"var(--danger)":"var(--accent)";
+  savingMonthGrowth.textContent=M(monthStats.expected);
+  savingMonthGrowth.style.color=monthStats.expected<0?"var(--danger)":"var(--accent)";
 
-  savingYearGrowth.textContent=M(yearStats.principalNet);
-  savingYearGrowth.style.color=yearStats.principalNet<0?"var(--danger)":"var(--accent)";
+  savingYearGrowth.textContent=M(yearStats.expected);
+  savingYearGrowth.style.color=yearStats.expected<0?"var(--danger)":"var(--accent)";
 
   savingPeriodLabel.textContent=range.label;
-  savingPeriodValue.textContent=M(s.principalNet);
-  savingPeriodValue.style.color=s.principalNet<0?"var(--danger)":"var(--accent)";
+  savingPeriodValue.textContent=M(s.expected);
+  savingPeriodValue.style.color=s.expected<0?"var(--danger)":"var(--accent)";
 
   const events=filteredSavingChangeEvents(range.start,range.end);
   savingChangeCount.textContent=`${events.length} 条变化`;
@@ -3865,6 +3889,8 @@ function renderSavingStats(){
   savingRecurringIncomePart.textContent=M(s.recurringIncomeSaving);
   savingOneOffIncomePart.textContent=M(s.oneOffIncomeSaving);
   savingCycleClosePart.textContent=M(s.pocketClosed);
+  savingPendingPart.textContent=M(s.pendingPocket);
+  savingPendingPart.style.color=s.pendingPocket>0?"var(--accent)":"inherit";
   savingTransferPart.textContent=M(s.transfers);
   savingProjectSurplusPart.textContent=M(s.projectSurplus);
   savingExtraPart.textContent=M(s.extra);
@@ -3876,8 +3902,8 @@ function renderSavingStats(){
   savingBankTransferPart.textContent=s.bankExisting>0?`${M(s.bankExisting)} → 银行`:M(0);
   savingBankTransferPart.style.color=s.bankExisting>0?"var(--muted)":"inherit";
 
-  savingGrowthTotal.textContent=M(s.principalNet);
-  savingGrowthTotal.style.color=s.principalNet<0?"var(--danger)":"var(--accent)";
+  savingGrowthTotal.textContent=M(s.expected);
+  savingGrowthTotal.style.color=s.expected<0?"var(--danger)":"var(--accent)";
 
   savingChangeList.innerHTML=events.length
     ?events.slice(0,30).map(ev=>`
@@ -3950,14 +3976,33 @@ function bankReminderThresholdValue(){
 }
 
 function bankReminderState(){
-  const current=Math.max(0,ordinarySavingsAvailable());
+  const actual=Math.max(0,ordinarySavingsAvailable());
+  const cycle=currentCycleStats();
+  const pending=cycle.income
+    ?Math.max(0,N(cycle.pocketBalance))
+    :0;
+
+  // 转存提醒与“预计日常储蓄 / 预计储蓄增长”使用同一预计口径。
+  const current=actual+pending;
+
   const threshold=bankReminderThresholdValue();
   const enabled=threshold>0;
   const ready=enabled&&current>=threshold;
+  const actualReady=enabled&&actual>=threshold;
   const gap=enabled?Math.max(0,threshold-current):0;
   const progress=enabled?Math.max(0,Math.min(100,current/threshold*100)):0;
 
-  return {current,threshold,enabled,ready,gap,progress};
+  return {
+    current,
+    actual,
+    pending,
+    threshold,
+    enabled,
+    ready,
+    actualReady,
+    gap,
+    progress
+  };
 }
 
 let bankReminderEditing=false;
@@ -3972,6 +4017,9 @@ function renderBankDepositReminder(){
   bankReminderEditBtn.hidden=!r.enabled||bankReminderEditing;
 
   bankReminderCurrent.textContent=M(r.current);
+  bankReminderActual.textContent=M(r.actual);
+  bankReminderPending.textContent=M(r.pending);
+  bankReminderPending.style.color=r.pending>0?"var(--accent)":"inherit";
   bankReminderTarget.textContent=r.enabled?M(r.threshold):"未设置";
 
   if(!r.enabled){
@@ -3979,39 +4027,61 @@ function renderBankDepositReminder(){
     bankReminderGap.textContent="—";
     bankReminderProgress.style.width="0%";
     bankReminderReady.style.display="none";
-    bankReminderHint.textContent="设置一个额度，例如 ¥5,000。日常储蓄达到这个金额后，会提醒你分笔存入银行。";
+    bankReminderHint.textContent="设置一个额度，例如 ¥5,000。提醒进度按预计日常储蓄计算。";
   }else if(r.ready){
-    bankReminderGapLabel.textContent="已超过提醒额度";
+    bankReminderGapLabel.textContent="预计已超过提醒额度";
     bankReminderGap.textContent=M(r.current-r.threshold);
     bankReminderGap.style.color="var(--accent)";
     bankReminderProgress.style.width="100%";
     bankReminderReady.style.display="";
-    bankReminderReadyMeta.textContent=`当前可用 ${M(r.current)}，提醒额度 ${M(r.threshold)}。点击后会按同一套银行存款信息完成登记。`;
-    bankReminderHint.textContent="默认会把提醒额度作为本次存入金额，你仍可以在银行存款表单里修改金额、类型、期限和利率。";
+
+    if(r.actualReady){
+      bankReminderReadyTitle.textContent="已经达到银行转存额度";
+      bankReminderReadyMeta.textContent=`当前已有 ${M(r.actual)} 真正进入储蓄，提醒额度 ${M(r.threshold)}。`;
+      bankReminderDepositBtn.style.display="";
+      bankReminderHint.textContent="现在可以按实际已进入储蓄的余额登记银行存款。";
+    }else{
+      bankReminderReadyTitle.textContent="预计达到银行转存额度";
+      bankReminderReadyMeta.textContent=`预计日常储蓄 ${M(r.current)}，其中 ${M(r.pending)} 仍是当前周期预计结余。`;
+      bankReminderDepositBtn.style.display="none";
+      bankReminderHint.textContent="提醒已经按预计口径触发；预计结余真正沉淀进储蓄后，再执行银行转存。";
+    }
   }else{
     bankReminderGapLabel.textContent="距离提醒额度";
     bankReminderGap.textContent=M(r.gap);
     bankReminderGap.style.color="inherit";
     bankReminderProgress.style.width=`${r.progress}%`;
     bankReminderReady.style.display="none";
-    bankReminderHint.textContent=`当前已完成 ${Math.round(r.progress)}%。`;
+    bankReminderHint.textContent=`按预计日常储蓄计算，当前已完成 ${Math.round(r.progress)}%。`;
   }
 
   bankReminderNowCard.style.display=r.ready?"":"none";
+
   if(r.ready){
-    bankReminderNowMeta.textContent=`当前日常储蓄 ${M(r.current)}，已达到你设置的 ${M(r.threshold)}。`;
+    if(r.actualReady){
+      bankReminderNowTitle.textContent="日常储蓄已达到银行转存额度";
+      bankReminderNowMeta.textContent=`已进入储蓄 ${M(r.actual)}，提醒额度 ${M(r.threshold)}。`;
+      bankReminderNowBtn.style.display="";
+    }else{
+      bankReminderNowTitle.textContent="预计储蓄达到银行转存额度";
+      bankReminderNowMeta.textContent=`预计 ${M(r.current)}，其中 ${M(r.pending)} 尚为当前周期预计结余。`;
+      bankReminderNowBtn.style.display="none";
+    }
   }
 }
 
 function openBankDepositFromReminder(){
   const r=bankReminderState();
   if(!r.enabled)return msg("请先设置银行转存提醒额度");
-  if(!r.ready)return msg(`还差 ${M(r.gap)} 才达到银行转存提醒额度`);
+  if(!r.ready)return msg(`按预计储蓄计算，还差 ${M(r.gap)} 才达到提醒额度`);
+  if(!r.actualReady){
+    return msg(`预计已达到额度，但目前只有 ${M(r.actual)} 已真正进入储蓄`);
+  }
 
   openBankDeposit();
   bankDepositSheetTitle.textContent="确认已存入银行";
   bankDepositSource.value="existing";
-  bankDepositPrincipal.value=Math.min(r.threshold,r.current);
+  bankDepositPrincipal.value=Math.min(r.threshold,r.actual);
   bankDepositName.value="";
   bankDepositNote.value="由银行转存提醒登记";
   refreshBankDepositForm();
@@ -4820,12 +4890,11 @@ saveBankDeposit.onclick=()=>{
   if(id){
     msg("银行存款已修改");
   }else{
-    const remaining=Math.max(0,ordinarySavingsAvailable());
-    const threshold=bankReminderThresholdValue();
+    const reminderAfter=bankReminderState();
     const baseMsg=depositType==="fixed"?"定期存款已添加":"活期存款已添加";
 
-    if(source==="existing"&&threshold>0&&remaining>=threshold){
-      msg(`${baseMsg}；日常储蓄仍达到提醒额度，还可以继续转存下一笔`);
+    if(source==="existing"&&reminderAfter.actualReady){
+      msg(`${baseMsg}；实际已进入储蓄仍达到提醒额度，还可以继续转存下一笔`);
     }else{
       msg(baseMsg);
     }
