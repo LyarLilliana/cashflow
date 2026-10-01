@@ -69,6 +69,25 @@ button{touch-action:manipulation}
   gap:7px;
   margin-top:9px;
 }
+
+#resultRangeQuick{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+#bankReminderEditor[hidden],
+#bankReminderEditBtn[hidden]{
+  display:none!important;
+}
+.bankReminderSavedHead{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.bankReminderSavedHead .secondary{
+  flex:none;
+  padding:9px 12px;
+  min-height:38px;
+}
 .historyQuick button{
   min-height:38px;
   border:1px solid var(--line);
@@ -999,12 +1018,23 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
         <div class="divider"></div>
 
-        <div class="bankReminderForm">
+        <div class="bankReminderSavedHead">
           <div>
-            <label>提醒额度</label>
-            <input id="bankReminderThreshold" inputmode="decimal" type="number" min="0" placeholder="例如 5000">
+            <div class="name">转存额度</div>
+            <div class="meta">达到设定额度后会在这里提示银行转存。</div>
           </div>
-          <button class="secondary" id="saveBankReminderThreshold">保存提醒额度</button>
+          <button class="secondary" id="bankReminderEditBtn" hidden>修改提醒额度</button>
+        </div>
+
+        <div id="bankReminderEditor">
+          <div class="divider"></div>
+          <div class="bankReminderForm">
+            <div>
+              <label>提醒额度</label>
+              <input id="bankReminderThreshold" inputmode="decimal" type="number" min="0" placeholder="例如 5000">
+            </div>
+            <button class="secondary" id="saveBankReminderThreshold">保存提醒额度</button>
+          </div>
         </div>
 
         <div class="divider"></div>
@@ -1039,33 +1069,8 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   <!-- RESULT -->
   <section id="history" class="panel">
     <div class="section">
-      <div class="sectionTitle">本月结果</div>
-      <div class="grid">
-        <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
-        <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
-        <div class="card stat"><div class="k">本月预计储蓄增长</div><div class="v" id="mExpectedSaving">¥0</div><div class="s">只统计预计会在本月内形成的储蓄增长</div></div>
-        <div class="card stat"><div class="k">本月已确认储蓄净增</div><div class="v" id="mSaving">¥0</div><div class="s">只统计本月已经实际发生的储蓄变化</div></div>
-      </div>
-      <div class="card" style="margin-top:10px">
-        <div class="explainRow"><span>本月收入</span><strong id="mResultIncome">¥0</strong></div>
+      <div class="sectionTitle">结果概览</div>
 
-        <div class="divider"></div>
-        <div class="small" style="margin-bottom:5px">本月实际支出</div>
-        <div class="explainRow"><span>基础生活实际支出</span><strong id="mLivingActualSpend">¥0</strong></div>
-        <div class="explainRow"><span>零花钱 / 日常支出</span><strong id="mDailyActualSpend">¥0</strong></div>
-        <div class="explainRow"><span>固定账单实际支付</span><strong id="mBillActualSpend">¥0</strong></div>
-        <div class="explainRow"><span>专项实际支出</span><strong id="mProjectActualSpend">¥0</strong></div>
-        <div class="explainRow"><span>从储蓄直接支出</span><strong id="mSavingActualSpend">¥0</strong></div>
-        <div class="explainRow total"><span>本月消费合计</span><strong id="mActualSpendTotal">¥0</strong></div>
-
-        <div class="divider"></div>
-        <div class="explainRow"><span>本月储蓄率</span><strong id="mRate">0%</strong></div>
-        <div class="explainRow"><span>本月预计储蓄增长</span><strong id="mExpectedSavingDetail">¥0</strong></div>
-        <div class="explainRow total"><span>本月已确认储蓄净增</span><strong id="mNetSavingDetail">¥0</strong></div>
-      </div>
-    </div>
-    <div class="section">
-      <div class="sectionTitle">流水记录</div>
       <div class="card historyFilter">
         <div class="historyFilterGrid">
           <div>
@@ -1077,14 +1082,51 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
             <input id="historyEndDate" type="date">
           </div>
         </div>
-        <div class="historyQuick">
-          <button id="historyTodayBtn">今天</button>
+
+        <div class="historyQuick" id="resultRangeQuick">
+          <button id="historyCycleBtn">当前周期</button>
           <button id="historyMonthBtn" class="active">本月</button>
+          <button id="historyYearBtn">本年</button>
           <button id="historyAllBtn">全部</button>
         </div>
+
         <div class="historyFilterMeta">
-          <span id="historyRangeText">本月流水</span>
-          <span id="historyCountText">0 条</span>
+          <span id="historyRangeText">本月</span>
+          <span id="historyCountText">0 条流水</span>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
+        <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
+        <div class="card stat"><div class="k">预计储蓄增长</div><div class="v" id="mExpectedSaving">¥0</div><div class="s">随收入、消费和资金转移实时变化，最终成为这个范围的实际储蓄结果</div></div>
+        <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">0%</div><div class="s">预计储蓄增长 ÷ 统计范围内收入</div></div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <div class="explainRow"><span>统计范围收入</span><strong id="mResultIncome">¥0</strong></div>
+
+        <div class="divider"></div>
+        <div class="small" style="margin-bottom:5px">实际支出</div>
+        <div class="explainRow"><span>基础生活实际支出</span><strong id="mLivingActualSpend">¥0</strong></div>
+        <div class="explainRow"><span>零花钱 / 日常支出</span><strong id="mDailyActualSpend">¥0</strong></div>
+        <div class="explainRow"><span>固定账单实际支付</span><strong id="mBillActualSpend">¥0</strong></div>
+        <div class="explainRow"><span>专项实际支出</span><strong id="mProjectActualSpend">¥0</strong></div>
+        <div class="explainRow"><span>从储蓄直接支出</span><strong id="mSavingActualSpend">¥0</strong></div>
+        <div class="explainRow total"><span>消费合计</span><strong id="mActualSpendTotal">¥0</strong></div>
+
+        <div class="divider"></div>
+        <div class="explainRow"><span>储蓄率</span><strong id="mRateDetail">0%</strong></div>
+        <div class="explainRow total"><span>预计储蓄增长</span><strong id="mExpectedSavingDetail">¥0</strong></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sectionTitle">流水记录</div>
+      <div class="card">
+        <div class="historyFilterMeta" style="margin-top:0">
+          <span id="historyListRangeText">本月流水</span>
+          <span id="historyListCountText">0 条</span>
         </div>
       </div>
       <div class="card txList" style="margin-top:10px" id="monthTx"></div>
@@ -1482,10 +1524,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v44";
-const OLD_KEYS=["safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v46";
+const OLD_KEYS=["safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:44,
+  version:46,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -3053,19 +3095,51 @@ function monthBounds(date=td()){
   };
 }
 
+function yearBounds(date=td()){
+  const y=String(date).slice(0,4);
+  return {start:`${y}-01-01`,end:`${y}-12-31`};
+}
+
+function currentCycleResultBounds(){
+  const cycle=currentCycleStats();
+
+  if(!cycle.income){
+    return {start:td(),end:td()};
+  }
+
+  const start=cycle.income.date;
+  const nextDate=
+    cycle.nextCycleIncome?.date
+    || cycle.income.nextIncomeDate
+    || nextRecurringIncome()?.nextDate
+    || "";
+
+  const end=nextDate&&nextDate>start
+    ?addDays(nextDate,-1)
+    :td();
+
+  return {start,end:end<start?start:end};
+}
+
 function setHistoryMode(mode){
   historyMode=mode;
   historyVisibleCount=HISTORY_PAGE_SIZE;
 
-  historyTodayBtn.classList.toggle("active",mode==="today");
+  historyCycleBtn.classList.toggle("active",mode==="cycle");
   historyMonthBtn.classList.toggle("active",mode==="month");
+  historyYearBtn.classList.toggle("active",mode==="year");
   historyAllBtn.classList.toggle("active",mode==="all");
 
-  if(mode==="today"){
-    historyStartDate.value=td();
-    historyEndDate.value=td();
+  if(mode==="cycle"){
+    const r=currentCycleResultBounds();
+    historyStartDate.value=r.start;
+    historyEndDate.value=r.end;
   }else if(mode==="month"){
     const r=monthBounds();
+    historyStartDate.value=r.start;
+    historyEndDate.value=r.end;
+  }else if(mode==="year"){
+    const r=yearBounds();
     historyStartDate.value=r.start;
     historyEndDate.value=r.end;
   }else if(mode==="all"){
@@ -3074,7 +3148,13 @@ function setHistoryMode(mode){
   }
 
   syncDateDisplays();
-  renderHistoryTransactions();
+  renderHistory();
+}
+
+function historyTxDate(t){
+  return t?.type==="living_settlement"
+    ?(t.coveredDate||t.date||"")
+    :(t?.date||"");
 }
 
 function historyFilteredTx(){
@@ -3083,31 +3163,90 @@ function historyFilteredTx(){
 
   return [...S.tx]
     .filter(t=>{
-      const d=t.date||"";
+      const d=historyTxDate(t);
       if(start&&d<start)return false;
       if(end&&d>end)return false;
       return true;
     })
-    .sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
+    .sort((a,b)=>{
+      const da=historyTxDate(a),db=historyTxDate(b);
+      if(da!==db)return db.localeCompare(da);
+      return String(b.id).localeCompare(String(a.id));
+    });
 }
 
 function historyRangeLabel(){
   const start=historyStartDate.value;
   const end=historyEndDate.value;
 
-  if(!start&&!end)return "全部流水";
+  if(historyMode==="cycle"){
+    return `当前周期 · ${start}${end&&end!==start?" 至 "+end:""}`;
+  }
+  if(historyMode==="month"&&start){
+    return `${start.slice(0,7)} · 本月`;
+  }
+  if(historyMode==="year"&&start){
+    return `${start.slice(0,4)} · 本年`;
+  }
+  if(historyMode==="all")return "全部期间";
+
+  if(!start&&!end)return "全部期间";
   if(start&&end&&start===end)return start;
   if(start&&end)return `${start} 至 ${end}`;
   if(start)return `${start} 起`;
   return `截至 ${end}`;
 }
 
+function resultStatsForRange(start="",end=""){
+  const incomes=S.tx.filter(t=>{
+    if(t.type!=="income")return false;
+    const d=t.date||"";
+    if(start&&d<start)return false;
+    if(end&&d>end)return false;
+    return true;
+  });
+
+  const income=sm(incomes,t=>N(t.amount));
+  const spend=spendingBreakdownForRange(start,end);
+  const saving=savingStatsForRange(start,end);
+
+  let expected=N(saving.principalNet);
+
+  const cycle=currentCycleStats();
+  if(cycle.income){
+    const closeDate=
+      cycle.nextCycleIncome?.date
+      || cycle.income.nextIncomeDate
+      || nextRecurringIncome()?.nextDate
+      || "";
+
+    const closeInside=
+      historyMode==="cycle"
+      || (
+        closeDate
+        &&(!start||closeDate>=start)
+        &&(!end||closeDate<=end)
+      );
+
+    if(closeInside){
+      expected+=Math.max(0,N(cycle.pocketBalance));
+    }
+  }
+
+  const rate=income>0?expected/income*100:0;
+  return {income,spend,saving,expected,rate};
+}
+
 function renderHistoryTransactions(){
   const rows=historyFilteredTx();
   const shown=rows.slice(0,historyVisibleCount);
+  const label=historyRangeLabel();
 
-  historyRangeText.textContent=historyRangeLabel();
-  historyCountText.textContent=rows.length>historyVisibleCount
+  historyRangeText.textContent=label;
+  historyCountText.textContent=`${rows.length} 条流水`;
+
+  historyListRangeText.textContent=`${label}流水`;
+  historyListCountText.textContent=rows.length>historyVisibleCount
     ?`已显示 ${shown.length} / ${rows.length} 条`
     :`${rows.length} 条`;
 
@@ -3121,22 +3260,28 @@ function renderHistoryTransactions(){
 historyStartDate.addEventListener("change",()=>{
   historyMode="custom";
   historyVisibleCount=HISTORY_PAGE_SIZE;
-  historyTodayBtn.classList.remove("active");
+  historyCycleBtn.classList.remove("active");
   historyMonthBtn.classList.remove("active");
+  historyYearBtn.classList.remove("active");
   historyAllBtn.classList.remove("active");
-  renderHistoryTransactions();
+  renderHistory();
 });
+
 historyEndDate.addEventListener("change",()=>{
   historyMode="custom";
   historyVisibleCount=HISTORY_PAGE_SIZE;
-  historyTodayBtn.classList.remove("active");
+  historyCycleBtn.classList.remove("active");
   historyMonthBtn.classList.remove("active");
+  historyYearBtn.classList.remove("active");
   historyAllBtn.classList.remove("active");
-  renderHistoryTransactions();
+  renderHistory();
 });
-historyTodayBtn.onclick=()=>setHistoryMode("today");
+
+historyCycleBtn.onclick=()=>setHistoryMode("cycle");
 historyMonthBtn.onclick=()=>setHistoryMode("month");
+historyYearBtn.onclick=()=>setHistoryMode("year");
 historyAllBtn.onclick=()=>setHistoryMode("all");
+
 historyMoreBtn.onclick=()=>{
   historyVisibleCount+=HISTORY_PAGE_SIZE;
   renderHistoryTransactions();
@@ -3693,9 +3838,16 @@ savingAllBtn.onclick=()=>setSavingRangePreset("all");
 saveBankReminderThreshold.onclick=()=>{
   const amount=Math.max(0,N(bankReminderThreshold.value));
   S.settings.bankDepositThreshold=amount;
+  bankReminderEditing=false;
   save();
   render();
-  msg(amount>0?`银行转存提醒额度已设为 ${M(amount)}`:"银行转存提醒已关闭");
+  msg(amount>0?`提醒额度已保存：${M(amount)}`:"银行转存提醒已关闭");
+};
+
+bankReminderEditBtn.onclick=()=>{
+  bankReminderEditing=true;
+  renderBankDepositReminder();
+  setTimeout(()=>bankReminderThreshold.focus(),0);
 };
 
 bankReminderDepositBtn.onclick=openBankDepositFromReminder;
@@ -3727,10 +3879,17 @@ function bankReminderState(){
   return {current,threshold,enabled,ready,gap,progress};
 }
 
+let bankReminderEditing=false;
+
 function renderBankDepositReminder(){
   const r=bankReminderState();
 
   bankReminderThreshold.value=r.threshold>0?r.threshold:"";
+
+  const showEditor=!r.enabled||bankReminderEditing;
+  bankReminderEditor.hidden=!showEditor;
+  bankReminderEditBtn.hidden=!r.enabled||bankReminderEditing;
+
   bankReminderCurrent.textContent=M(r.current);
   bankReminderTarget.textContent=r.enabled?M(r.threshold):"未设置";
 
@@ -3754,7 +3913,7 @@ function renderBankDepositReminder(){
     bankReminderGap.style.color="inherit";
     bankReminderProgress.style.width=`${r.progress}%`;
     bankReminderReady.style.display="none";
-    bankReminderHint.textContent=`当前已完成 ${Math.round(r.progress)}%。达到 ${M(r.threshold)} 后会出现“已存入银行”。`;
+    bankReminderHint.textContent=`当前已完成 ${Math.round(r.progress)}%。`;
   }
 
   bankReminderNowCard.style.display=r.ready?"":"none";
@@ -3862,11 +4021,15 @@ function actualSpendingAmount(t){
   return 0;
 }
 
-function spendingBreakdownForMonth(ym=md()){
+function spendingBreakdownForRange(start="",end=""){
   const rows=S.tx.filter(t=>{
     const amount=actualSpendingAmount(t);
     if(amount<=0)return false;
-    return md(actualSpendingDate(t))===ym;
+
+    const d=actualSpendingDate(t);
+    if(start&&d<start)return false;
+    if(end&&d>end)return false;
+    return true;
   });
 
   let living=0,daily=0,bill=0,project=0,saving=0;
@@ -3879,8 +4042,6 @@ function spendingBreakdownForMonth(ym=md()){
       return;
     }
 
-    // A bill paid directly from pocket money still belongs to "fixed bills",
-    // even though its accounting bucket is safe.
     if(t.settledBillId || t.bucket==="bill"){
       bill+=amount;
       return;
@@ -3896,7 +4057,6 @@ function spendingBreakdownForMonth(ym=md()){
       return;
     }
 
-    // Everything else recorded as an actual expense is ordinary/day-to-day spend.
     daily+=amount;
   });
 
@@ -3904,42 +4064,42 @@ function spendingBreakdownForMonth(ym=md()){
   return {rows,living,daily,bill,project,saving,total};
 }
 
+function spendingBreakdownForMonth(ym=md()){
+  const [yy,mm]=ym.split("-").map(Number);
+  const last=new Date(yy,mm,0,12).getDate();
+  return spendingBreakdownForRange(
+    `${yy}-${pad2(mm)}-01`,
+    `${yy}-${pad2(mm)}-${pad2(last)}`
+  );
+}
+
 function renderHistory(){
-  const ym=md();
-  const spend=spendingBreakdownForMonth(ym);
-  const ms=monthlyCycleStats(ym);
+  const start=historyStartDate.value||"";
+  const end=historyEndDate.value||"";
+  const rs=resultStatsForRange(start,end);
 
-  const inc=ms.income;
-  const confirmed=ms.projectedSaving;
-  const expected=ms.expectedSaving;
-  const rate=inc>0?confirmed/inc*100:0;
+  mIncome.textContent=M(rs.income);
+  mSpend.textContent=M(rs.spend.total);
+  mExpectedSaving.textContent=M(rs.expected);
+  mRate.textContent=(Math.round(rs.rate*10)/10)+"%";
 
-  // “本月结果”里的所有数字都严格以当前自然月为统计边界。
-  // 不再混入“当前收入周期”的跨月数字。
-  mIncome.textContent=M(inc);
-  mSpend.textContent=M(spend.total);
-  mExpectedSaving.textContent=M(expected);
-  mSaving.textContent=M(confirmed);
-  mRate.textContent=(Math.round(rate*10)/10)+"%";
+  mResultIncome.textContent=M(rs.income);
+  mLivingActualSpend.textContent=M(rs.spend.living);
+  mDailyActualSpend.textContent=M(rs.spend.daily);
+  mBillActualSpend.textContent=M(rs.spend.bill);
+  mProjectActualSpend.textContent=M(rs.spend.project);
+  mSavingActualSpend.textContent=M(rs.spend.saving);
+  mActualSpendTotal.textContent=M(rs.spend.total);
 
-  mResultIncome.textContent=M(inc);
-  mLivingActualSpend.textContent=M(spend.living);
-  mDailyActualSpend.textContent=M(spend.daily);
-  mBillActualSpend.textContent=M(spend.bill);
-  mProjectActualSpend.textContent=M(spend.project);
-  mSavingActualSpend.textContent=M(spend.saving);
-  mActualSpendTotal.textContent=M(spend.total);
+  mRateDetail.textContent=(Math.round(rs.rate*10)/10)+"%";
+  mExpectedSavingDetail.textContent=M(rs.expected);
 
-  mExpectedSavingDetail.textContent=M(expected);
-  mNetSavingDetail.textContent=M(confirmed);
-
-  mSpend.style.color=spend.total>0?"inherit":"var(--muted)";
-  mActualSpendTotal.style.color=spend.total>0?"var(--text)":"var(--muted)";
-  mExpectedSaving.style.color=expected<0?"var(--danger)":"var(--accent)";
-  mExpectedSavingDetail.style.color=expected<0?"var(--danger)":"var(--accent)";
-  mSaving.style.color=confirmed<0?"var(--danger)":"var(--accent)";
-  mNetSavingDetail.style.color=confirmed<0?"var(--danger)":"var(--accent)";
-  mRate.style.color=rate<0?"var(--danger)":"inherit";
+  mSpend.style.color=rs.spend.total>0?"inherit":"var(--muted)";
+  mActualSpendTotal.style.color=rs.spend.total>0?"var(--text)":"var(--muted)";
+  mExpectedSaving.style.color=rs.expected<0?"var(--danger)":"var(--accent)";
+  mExpectedSavingDetail.style.color=rs.expected<0?"var(--danger)":"var(--accent)";
+  mRate.style.color=rs.rate<0?"var(--danger)":"inherit";
+  mRateDetail.style.color=rs.rate<0?"var(--danger)":"inherit";
 
   renderHistoryTransactions();
 }
@@ -4976,7 +5136,7 @@ document.addEventListener("focusin",()=>setTimeout(syncDateDisplays,0));
 enhanceDateInputs();
 enhanceCollapsibleSections();
 
-// 默认从“本月”开始查看历史流水。
+// 结果页默认本月，可切换当前周期、本年、全部或自定义日期。
 if(!historyStartDate.value&&!historyEndDate.value)setHistoryMode("month");
 
 // 储蓄统计也默认本月，样式与流水筛选保持一致。
