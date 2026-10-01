@@ -246,15 +246,6 @@ button{touch-action:manipulation}
 .savingAssetBreakdown{
   margin-top:10px;
 }
-.savingChangeSummary{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px;
-  margin-top:10px;
-}
-.savingChangeSummary .card{
-  margin:0;
-}
 .savingChangeList{
   margin-top:10px;
 }
@@ -324,9 +315,6 @@ button{touch-action:manipulation}
   height:100%;
   background:var(--accent);
   border-radius:999px;
-}
-@media(max-width:560px){
-  .savingChangeSummary{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 .bankReminderForm{
   display:grid;
@@ -973,19 +961,6 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     <div class="section">
       <div class="sectionTitle">储蓄变化</div>
 
-      <div class="savingChangeSummary">
-        <div class="card stat">
-          <div class="k">本月预计新增储蓄</div>
-          <div class="v" id="savingMonthGrowth">¥0</div>
-          <div class="s">已形成储蓄 + 本月预计会沉淀的周期结余</div>
-        </div>
-        <div class="card stat">
-          <div class="k">本年预计新增储蓄</div>
-          <div class="v" id="savingYearGrowth">¥0</div>
-          <div class="s">已形成储蓄 + 本年预计会沉淀的周期结余</div>
-        </div>
-      </div>
-
       <div class="card historyFilter" style="margin-top:10px">
         <div class="historyFilterGrid">
           <div>
@@ -1555,10 +1530,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v52";
-const OLD_KEYS=["safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v53";
+const OLD_KEYS=["safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:52,
+  version:53,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -3866,18 +3841,6 @@ function renderSavingStats(){
     range.end,
     savingRangePreset==="cycle"
   );
-
-  const month=monthBounds(td());
-  const monthStats=expectedSavingGrowthForRange(month.start,month.end);
-
-  const y=td().slice(0,4);
-  const yearStats=expectedSavingGrowthForRange(`${y}-01-01`,`${y}-12-31`);
-
-  savingMonthGrowth.textContent=M(monthStats.expected);
-  savingMonthGrowth.style.color=monthStats.expected<0?"var(--danger)":"var(--accent)";
-
-  savingYearGrowth.textContent=M(yearStats.expected);
-  savingYearGrowth.style.color=yearStats.expected<0?"var(--danger)":"var(--accent)";
 
   savingPeriodLabel.textContent=range.label;
   savingPeriodValue.textContent=M(s.expected);
