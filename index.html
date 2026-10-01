@@ -905,7 +905,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div><div class="s">与上方“当前零花钱”完全一致</div></div>
       <div class="card stat"><div class="k">本周期账单</div><div class="v" id="billBal">¥0</div><div class="s" id="billBalSub">本周期尚待支付的固定账单</div></div>
       <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div><div class="s">已为专项准备好的钱</div></div>
-      <div class="card stat"><div class="k">本周期预计可存</div><div class="v" id="savingBal">¥0</div><div class="s">已确定进入储蓄的钱；周期结束时剩余零花钱再自动并入</div></div>
+      <div class="card stat"><div class="k">本周期预计可存</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">已进入储蓄 + 当前剩余零花钱；零花钱继续消费时会实时变化</div></div>
     </div>
 
     <div class="card" id="bankReminderNowCard" style="display:none;margin-top:12px">
@@ -1124,7 +1124,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="grid">
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
-        <div class="card stat"><div class="k">预计储蓄增长</div><div class="v" id="mExpectedSaving">¥0</div><div class="s">随收入、消费和资金转移实时变化，最终成为这个范围的实际储蓄结果</div></div>
+        <div class="card stat"><div class="k">预计储蓄增长</div><div class="v" id="mExpectedSaving">¥0</div><div class="s" id="mExpectedSavingSub">随收入、消费和资金转移实时变化</div></div>
         <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">0%</div><div class="s">预计储蓄增长 ÷ 统计范围内收入</div></div>
       </div>
 
@@ -1549,10 +1549,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v48";
-const OLD_KEYS=["safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v49";
+const OLD_KEYS=["safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:48,
+  version:49,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -2826,7 +2826,18 @@ function renderNow(){
     billBal.style.color="inherit";
   }
 
-  savingBal.textContent=M(cycle.projectedSaving);
+  const cycleRange=currentCycleResultBounds();
+  const cycleSavingStats=savingStatsForRange(cycleRange.start,cycleRange.end);
+  const cycleConfirmed=N(cycleSavingStats.principalNet);
+  const cyclePendingPocket=Math.max(0,N(cycle.pocketBalance));
+  const cycleExpectedSaving=cycleConfirmed+cyclePendingPocket;
+
+  // “现在 → 本周期预计可存”与“结果 → 当前周期 → 预计储蓄增长”
+  // 使用同一语义：已进入储蓄 + 如果周期此刻结束会沉淀的剩余零花钱。
+  savingBal.textContent=M(cycleExpectedSaving);
+  savingBalSub.textContent=cyclePendingPocket>0
+    ?`已进入储蓄 ${M(cycleConfirmed)} + 当前剩余零花钱 ${M(cyclePendingPocket)}`
+    :`当前已进入储蓄 ${M(cycleConfirmed)}`;
 
   if(activeProjects().length===0){
     projectBal.textContent="暂无专项";
@@ -2841,7 +2852,7 @@ function renderNow(){
   const paint=(el,v)=>{el.style.color=v<=0?"var(--danger)":"inherit"};
   paint(safeNow,b.safe);
   paint(livingBal,b.safe);
-  paint(savingBal,cycle.projectedSaving);
+  paint(savingBal,cycleExpectedSaving);
 
   const next=nextRecurringIncome();
   if(next){
@@ -2890,7 +2901,7 @@ function renderNow(){
     </div></div>`;
   });
 
-  const cycleGap=Math.max(0,-N(cycle.projectedSaving));
+  const cycleGap=Math.max(0,-N(cycleExpectedSaving));
   if(cycleGap>0) rows.unshift(`<div class="item"><div class="row"><div><div class="name">本周期资金缺口</div><div class="meta">本周期“预计可存”已经低于 0，代表本周期收入连同原计划储蓄都已被用完。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div>`);
   upcomingBox.innerHTML=rows.length?rows.join(""):'<div class="note">暂无待处理固定账单或本周期资金缺口。</div>';
 
@@ -3233,7 +3244,8 @@ function resultStatsForRange(start="",end=""){
   const spend=spendingBreakdownForRange(start,end);
   const saving=savingStatsForRange(start,end);
 
-  let expected=N(saving.principalNet);
+  const confirmedPrincipal=N(saving.principalNet);
+  let pendingPocket=0;
 
   const cycle=currentCycleStats();
   if(cycle.income){
@@ -3252,12 +3264,13 @@ function resultStatsForRange(start="",end=""){
       );
 
     if(closeInside){
-      expected+=Math.max(0,N(cycle.pocketBalance));
+      pendingPocket=Math.max(0,N(cycle.pocketBalance));
     }
   }
 
+  const expected=confirmedPrincipal+pendingPocket;
   const rate=income>0?expected/income*100:0;
-  return {income,spend,saving,expected,rate};
+  return {income,spend,saving,confirmedPrincipal,pendingPocket,expected,rate};
 }
 
 function renderHistoryTransactions(){
@@ -4148,6 +4161,10 @@ function renderHistory(){
   mSpend.textContent=M(rs.spend.total);
   mExpectedSaving.textContent=M(rs.expected);
   mRate.textContent=(Math.round(rs.rate*10)/10)+"%";
+
+  mExpectedSavingSub.textContent=rs.pendingPocket>0
+    ?`已进入储蓄 ${M(rs.confirmedPrincipal)} + 预计周期结余 ${M(rs.pendingPocket)}`
+    :`当前统计范围已形成储蓄 ${M(rs.confirmedPrincipal)}`;
 
   mResultIncome.textContent=M(rs.income);
   mLivingActualSpend.textContent=M(rs.spend.living);
