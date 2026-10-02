@@ -1,4 +1,4 @@
-const CACHE = "safespend-v9-6-uniform-transaction-card";
+const CACHE = "safespend-v9-7-github-mobile-update";
 const ASSETS = [
   "./",
   "./index.html",

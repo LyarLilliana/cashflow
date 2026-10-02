@@ -1827,10 +1827,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v67";
-const OLD_KEYS=["safespend_cashflow_v67","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v68";
+const OLD_KEYS=["safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:67,
+  version:68,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -3012,7 +3012,10 @@ function projectFinanceDetailHtml(p,a){
         </div>
         <div class="projectLedgerAmount">
           -${M(t.amount)}
-          <button class="projectLedgerDelete" onclick="event.stopPropagation();removeTx('${t.id}')">删除</button>
+          <div class="projectPlanActions">
+            <button onclick="event.stopPropagation();openTxEdit('${t.id}')">修改</button>
+            <button class="delete" onclick="event.stopPropagation();removeTx('${t.id}')">删除</button>
+          </div>
         </div>
       </div>`;
     }).join("")
@@ -3021,7 +3024,7 @@ function projectFinanceDetailHtml(p,a){
   return `<div class="projectFinanceBox">
     <div class="projectFinanceNumbers">
       <div class="projectFinanceNumber"><span>总预算</span><strong>${M(budget)}</strong></div>
-      <div class="projectFinanceNumber"><span>已备资金</span><strong>${M(funded)}</strong></div>
+      <div class="projectFinanceNumber"><span>实际已备</span><strong>${M(funded)}</strong></div>
       <div class="projectFinanceNumber"><span>专项剩余</span><strong>${M(available)}</strong></div>
       <div class="projectFinanceNumber"><span>已经花掉</span><strong>${M(spent)}</strong></div>
     </div>
@@ -3316,9 +3319,9 @@ function renderNow(){
         planningHtml=`<div class="projectPlanTop">
           <div>
             <div class="projectPlanName">${esc(p.name)}</div>
-            <div class="projectPlanMeta">预算 ${M(p.budget)} · 资金已备妥 · 当前剩余 ${M(Math.max(0,avail))}</div>
+            <div class="projectPlanMeta">预算 ${M(p.budget)} · 实际已备 ${M(projectFunded(p))} · 当前剩余 ${M(Math.max(0,avail))}</div>
           </div>
-          <div class="projectPlanGap pos">已备妥</div>
+          <div class="projectPlanGap pos">已备 ${M(projectFunded(p))}</div>
         </div>`;
       }else if(plan.status==="no-date"){
         planningHtml=`<div class="projectPlanTop">
@@ -6260,6 +6263,9 @@ function openTxEdit(id){
     refreshTransferEditFields(t);
   }
 
+  // 编辑表单是动态生成的；此时再增强日期控件，保证 iOS 日期框
+  // 与 App 其他输入框使用完全一致的 46px 高度、圆角和 YYYY-MM-DD 显示。
+  enhanceDateInputs();
   syncDateDisplays();
   editTxSheet.classList.add("show");
 }
