@@ -998,7 +998,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div class="note" style="margin-top:8px">这里仅设目标。每一笔收入具体存多少，由对应的收入计划自己定义。</div>
           <div style="height:10px"></div>
           <button class="primary" style="width:100%" id="saveBasePlan">保存基础计划</button>
-        </div></div>
+</div></div>
       </div>
     </div>
 
@@ -1827,10 +1827,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v69";
-const OLD_KEYS=["safespend_cashflow_v68","safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v70";
+const OLD_KEYS=["safespend_cashflow_v69","safespend_cashflow_v68","safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:69,
+  version:70,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -1997,7 +1997,6 @@ function cycleWindowForIncome(incomeTx){
     next:pos>=0?rows[pos+1]:null
   };
 }
-
 function transactionBelongsToCycle(t,incomeTx,next){
   if(!t||t.id===incomeTx.id)return false;
 
@@ -2152,9 +2151,22 @@ function accounting(){
 
   const cycleClosures=virtualCycleCloseEvents();
 
+  const accountingDayPriority=t=>{
+    // SafeSpend 按“日期”记账。上一周期结算先执行，当日收入随后建立预算池，
+    // 当日支出最后消费预算池，避免同一天录入顺序造成账单或专项重复扣款。
+    if(t.type==="cycle_close_saving")return 0;
+    if(t.type==="income")return 1;
+    return 2;
+  };
+
   const ordered=[...S.tx,...depositLocks,...cycleClosures]
     .sort((a,b)=>{
       if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
+
+      const pa=accountingDayPriority(a);
+      const pb=accountingDayPriority(b);
+      if(pa!==pb)return pa-pb;
+
       const aa=a._sortStamp!==undefined?Number(a._sortStamp):txStamp(a);
       const bb=b._sortStamp!==undefined?Number(b._sortStamp):txStamp(b);
       if(aa!==bb)return aa-bb;
@@ -2281,9 +2293,7 @@ function accounting(){
 
     if(bucket==="bill"){
       // 固定账单先使用已经预留的账单资金。
-      // 实际金额高于预留金额时，超出的部分应当像普通超支一样从零花钱承担，
-      // 而不是直接把整段超额只记到储蓄里。这样修改实际账单金额时，
-      // 零花钱会按差额正确恢复。
+      // 实际金额高于预留时，超出部分由零花钱承担；零花不足再影响储蓄。
       const beforeBill=Math.max(0,N(raw.bills));
       const fromBill=Math.min(amount,beforeBill);
       const extra=Math.max(0,amount-fromBill);
@@ -2775,35 +2785,23 @@ function syncCurrentCycleBillReservation(bid){
   const cycle=currentCycleStats();
   const income=cycle.income;
 
-  // 只调整当前仍开放的周期，绝不重写已经结束的历史周期。
   if(!income||cycle.isClosed)return false;
 
   const start=income.date;
-  const end=
-    income.nextIncomeDate
-    ||nextRecurringIncome()?.nextDate
-    ||"";
-
+  const end=income.nextIncomeDate||nextRecurringIncome()?.nextDate||"";
   if(!end||end<=start)return false;
 
   if(!income.alloc)income.alloc={};
   if(!Array.isArray(income.alloc.billItems))income.alloc.billItems=[];
 
   const before=JSON.stringify(income.alloc.billItems);
-
-  // 当前收入周期内，这个账单的预留重新按照“现在的计划”计算。
   income.alloc.billItems=income.alloc.billItems.filter(x=>x.billId!==bid);
 
   if(b){
-    // 如果本周期已经点过“已支付”，优先沿用那次实际结算所绑定的周期，
-    // 避免修改扣款日以后在同一周期里凭空再生成第二笔预留。
     const paidRows=S.tx
       .filter(t=>
         t.type==="expense"
-        &&(
-          t.settledBillId===bid
-          ||(t.bucket==="bill"&&t.refId===bid)
-        )
+        &&(t.settledBillId===bid||(t.bucket==="bill"&&t.refId===bid))
         &&t.cycleDueDate
         &&t.cycleDueDate>=start
         &&t.cycleDueDate<end
@@ -2823,10 +2821,6 @@ function syncCurrentCycleBillReservation(bid){
         amount:N(b.amount)
       });
 
-      // 修复旧逻辑留下的“当前周期账单本应预留，
-      // 但结算时却从零花钱直接扣除”的记录。
-      // 将它改回从账单预留核销；同时因为上面新增了同额预留，
-      // 当前总资产不会被凭空增加。
       S.tx.forEach(t=>{
         if(
           t.type==="expense"
@@ -2843,7 +2837,6 @@ function syncCurrentCycleBillReservation(bid){
   }
 
   income.alloc.bills=sm(income.alloc.billItems,x=>N(x.amount));
-
   return before!==JSON.stringify(income.alloc.billItems);
 }
 
@@ -2933,8 +2926,7 @@ function markBillHandled(bid,dueDate){
   if(!b)return msg("这笔固定账单已经不存在");
   if(billSettled(bid,dueDate))return msg("这个缴纳周期已经支付过了");
 
-  // 防止“当前周期新加了固定账单，但旧收入流水里还没有预留”
-  // 导致点击已支付时突然从零花钱再扣一次。
+  // 每次核销前自检当前周期预留，兼容旧数据和中途新增账单。
   syncCurrentCycleBillReservation(bid);
 
   const reserved=billReserved(bid,dueDate);
@@ -3102,20 +3094,18 @@ function projectFinanceDetailHtml(p,a){
   const plannedOverBudget=projectPlannedOverBudget(p);
   const plannedCashGap=Math.max(0,plannedTotal-available);
 
-  const spentWithin=Math.min(budget,spent);
-  const availableWithin=Math.min(Math.max(0,budget-spentWithin),available);
-  const gapWithin=Math.max(0,budget-spentWithin-availableWithin);
+  // 资金条以“实际已备”作为现金基数。即使实际准备金额高于原预算，
+  // 多出来的现金也完整计入专项剩余和未规划可用。
+  const settledToSaving=Math.max(0,projectSettledToSaving(p));
+  const cashUsed=Math.max(0,funded-available-settledToSaving);
+  const plannedCoveredCash=Math.min(plannedTotal,available);
+  const freeAvailableCash=Math.max(0,available-plannedCoveredCash);
+  const cashDenom=Math.max(1,funded);
 
-  // 支出规划不提前扣余额，只把已经备好的可用资金进一步区分为
-  // 尚未安排用途 vs 已经规划、但还没真正花掉。
-  const plannedCoveredWithin=Math.min(plannedTotal,availableWithin);
-  const freeAvailableWithin=Math.max(0,availableWithin-plannedCoveredWithin);
-
-  const denom=Math.max(1,budget);
-  const spentPct=budget>0?Math.min(100,spentWithin/denom*100):0;
-  const plannedPct=budget>0?Math.min(100-spentPct,plannedCoveredWithin/denom*100):0;
-  const freeAvailablePct=budget>0?Math.min(100-spentPct-plannedPct,freeAvailableWithin/denom*100):0;
-  const gapPct=budget>0?Math.max(0,100-spentPct-plannedPct-freeAvailablePct):0;
+  const spentPct=funded>0?Math.min(100,cashUsed/cashDenom*100):0;
+  const plannedPct=funded>0?Math.min(100-spentPct,plannedCoveredCash/cashDenom*100):0;
+  const freeAvailablePct=funded>0?Math.min(100-spentPct-plannedPct,freeAvailableCash/cashDenom*100):0;
+  const settledPct=funded>0?Math.min(100-spentPct-plannedPct-freeAvailablePct,settledToSaving/cashDenom*100):0;
 
   const planHtml=plans.length
     ?plans.map(x=>{
@@ -3138,8 +3128,7 @@ function projectFinanceDetailHtml(p,a){
       </div>`;
     }).join("")
     :'<div class="note" style="margin-top:8px">还没有预先规划的专项支出。</div>';
-
-  const expenseHtml=expenses.length
+const expenseHtml=expenses.length
     ?expenses.map(t=>{
       const b=projectExpenseBreakdown(t);
       const sourceText=b.over>0
@@ -3169,27 +3158,28 @@ function projectFinanceDetailHtml(p,a){
       <div class="projectFinanceNumber"><span>已经花掉</span><strong>${M(spent)}</strong></div>
     </div>
 
-    ${budget>0?`<div class="projectMoneyBar">
+    ${funded>0?`<div class="projectMoneyBar">
       <span class="projectMoneyAvailable" style="width:${freeAvailablePct}%"></span>
       <span class="projectMoneySpent" style="width:${spentPct}%"></span>
-      <span class="projectMoneyGap" style="width:${gapPct}%"></span>
       <span class="projectMoneyPlanned" style="width:${plannedPct}%"></span>
+      ${settledPct>0?`<span class="projectMoneyGap" style="width:${settledPct}%"></span>`:""}
     </div>
     <div class="projectMoneyLegend">
-      <span><i style="background:var(--accent)"></i>未规划可用 ${M(freeAvailableWithin)}</span>
+      <span><i style="background:var(--accent)"></i>未规划可用 ${M(freeAvailableCash)}</span>
       <span><i style="background:#B98576"></i>已花 ${M(spent)}</span>
-      ${gapWithin>0?`<span><i style="background:#DDE1DC"></i>还差资金 ${M(gap)}</span>`:""}
       ${plannedTotal>0?`<span><i style="background:#D3A08F"></i>已规划待花 ${M(plannedTotal)}</span>`:""}
+      ${settledToSaving>0?`<span><i style="background:#DDE1DC"></i>已结算转储蓄 ${M(settledToSaving)}</span>`:""}
       ${plannedCashGap>0?`<span style="color:var(--danger)">规划中有 ${M(plannedCashGap)} 尚未备到资金</span>`:""}
       ${overBudget>0?`<span style="color:var(--danger)">超预算 ${M(overBudget)}</span>`:""}
+      ${funded>budget&&budget>0?`<span>实际已备比原预算多 ${M(funded-budget)}</span>`:""}
     </div>
-    <div class="projectLedgerMeta" style="margin-top:5px">绿色 = 已备且未规划；深棕 = 已花；灰色 = 尚未补足；最右浅棕 = 已规划待花。</div>`:""}
+    <div class="projectLedgerMeta" style="margin-top:5px">资金条以实际已备金额为基准，完整显示已花、已规划待花和当前可用资金。</div>`:""}
 
     <details class="projectLedger">
       <summary><span>支出规划 · ${plans.length} 项 · ${M(plannedTotal)}</span></summary>
 
       <div class="projectPlannedSummary">
-        <div>还未分配用途的预算<strong>${M(unplannedBudget)}</strong></div>
+        <div>还未分配用途的资金<strong>${M(freeAvailableCash)}</strong></div>
         <div class="${plannedCashGap>0?"projectPlanWarn":""}">当前资金覆盖规划${plannedCashGap>0?`还差`:`充足`}<strong>${plannedCashGap>0?M(plannedCashGap):"已覆盖"}</strong></div>
       </div>
 
@@ -3336,18 +3326,17 @@ function renderNow(){
     billBal.style.color="inherit";
   }
 
-  const cycleRange=currentCycleResultBounds();
-  const cycleSavingStats=savingStatsForRange(cycleRange.start,cycleRange.end);
-  const cycleConfirmed=N(cycleSavingStats.principalNet);
-  const cyclePendingPocket=Math.max(0,N(cycle.pocketBalance));
-  const cycleExpectedSaving=cycleConfirmed+cyclePendingPocket;
+  const cycleConfirmed=N(cycle.lockedSaving);
+  const cyclePocket=N(cycle.pocketBalance);
+  const cycleExpectedSaving=N(cycle.projectedSaving);
 
-  // “现在 → 本周期预计可存”与“结果 → 当前周期 → 预计储蓄增长”
-  // 使用同一语义：已进入储蓄 + 如果周期此刻结束会沉淀的剩余零花钱。
+  // 预计可存直接采用周期结算口径。正零花会沉淀，负零花会等额压低最终可存。
   savingBal.textContent=M(cycleExpectedSaving);
-  savingBalSub.textContent=cyclePendingPocket>0
-    ?`已进入储蓄 ${M(cycleConfirmed)} + 当前剩余零花钱 ${M(cyclePendingPocket)}`
-    :`当前已进入储蓄 ${M(cycleConfirmed)}`;
+  savingBalSub.textContent=cyclePocket>0
+    ?`计划/已锁定储蓄 ${M(cycleConfirmed)} + 当前剩余零花钱 ${M(cyclePocket)}`
+    :cyclePocket<0
+      ?`计划/已锁定储蓄 ${M(cycleConfirmed)} - 当前零花缺口 ${M(Math.abs(cyclePocket))}`
+      :`当前计划/已锁定储蓄 ${M(cycleConfirmed)}`;
 
   if(activeProjects().length===0){
     projectBal.textContent="暂无专项";
@@ -3983,10 +3972,20 @@ function historyRangeLabel(){
 
 function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
   const saving=savingStatsForRange(start,end);
+  const cycle=currentCycleStats();
+
+  if(forceCurrentCycle&&cycle.income){
+    return {
+      ...saving,
+      confirmedPrincipal:N(cycle.lockedSaving),
+      pendingPocket:N(cycle.pocketBalance),
+      expected:N(cycle.projectedSaving)
+    };
+  }
+
   const confirmedPrincipal=N(saving.principalNet);
   let pendingPocket=0;
 
-  const cycle=currentCycleStats();
   if(cycle.income){
     const closeDate=
       cycle.nextCycleIncome?.date
@@ -3995,12 +3994,9 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
       || "";
 
     const closeInside=
-      forceCurrentCycle
-      || (
-        closeDate
-        &&(!start||closeDate>=start)
-        &&(!end||closeDate<=end)
-      );
+      closeDate
+      &&(!start||closeDate>=start)
+      &&(!end||closeDate<=end);
 
     if(closeInside){
       pendingPocket=Math.max(0,N(cycle.pocketBalance));
@@ -4014,7 +4010,6 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
     expected:confirmedPrincipal+pendingPocket
   };
 }
-
 function resultStatsForRange(start="",end=""){
   const incomes=S.tx.filter(t=>{
     if(t.type!=="income")return false;
@@ -4138,7 +4133,6 @@ monthTx.addEventListener("pointermove",e=>{
 ["pointerup","pointercancel","pointerleave"].forEach(type=>{
   monthTx.addEventListener(type,()=>cancelTxLongPress());
 });
-
 monthTx.addEventListener("contextmenu",e=>{
   const item=e.target.closest(".item[data-tx-id]");
   if(!item||!monthTx.contains(item))return;
@@ -5111,8 +5105,10 @@ function renderHistory(){
   mRate.textContent=(Math.round(rs.rate*10)/10)+"%";
 
   mExpectedSavingSub.textContent=rs.pendingPocket>0
-    ?`已进入储蓄 ${M(rs.confirmedPrincipal)} + 预计周期结余 ${M(rs.pendingPocket)}`
-    :`当前统计范围已形成储蓄 ${M(rs.confirmedPrincipal)}`;
+    ?`计划/已锁定储蓄 ${M(rs.confirmedPrincipal)} + 预计周期结余 ${M(rs.pendingPocket)}`
+    :rs.pendingPocket<0
+      ?`计划/已锁定储蓄 ${M(rs.confirmedPrincipal)} - 当前零花缺口 ${M(Math.abs(rs.pendingPocket))}`
+      :`当前统计范围已形成储蓄 ${M(rs.confirmedPrincipal)}`;
 
   mResultIncome.textContent=M(rs.income);
   mLivingActualSpend.textContent=M(rs.spend.living);
@@ -5138,7 +5134,7 @@ function renderHistory(){
 /* PLAN actions */
 saveBasePlan.onclick=()=>{
   S.settings.dailyLiving=N(planDailyLiving.value);
-  S.settings.monthlyGoal=N(planMonthlyGoal.value);
+S.settings.monthlyGoal=N(planMonthlyGoal.value);
   save();render();msg("基础计划已保存");
 };
 incomePlanSaveType.onchange=()=>incomePlanSaveLabel.textContent=incomePlanSaveType.value==="percent"?"每次储蓄比例（%）":"每次储蓄金额";
@@ -5255,8 +5251,6 @@ saveBillEdit.onclick=()=>{
     b.startMonth="";
   }
 
-  // “当前周期”必须真的影响当前周期，而不只是改计划页文字。
-  // 金额、扣款日或开始周期变化时，重新同步当前开放周期的账单预留。
   syncCurrentCycleBillReservation(b.id);
 
   save();
@@ -6146,8 +6140,7 @@ function projectBalanceBeforeEdit(projectId,targetId,targetDate){
       amount+=N(x.amount);
       continue;
     }
-
-    if(x.type==="project_settlement"&&x.projectId===projectId){
+if(x.type==="project_settlement"&&x.projectId===projectId){
       amount-=Math.min(Math.max(0,amount),N(x.amount));
       continue;
     }
@@ -6974,10 +6967,7 @@ if(!historyStartDate.value&&!historyEndDate.value)setHistoryMode("month");
 // 储蓄统计也默认本月，样式与流水筛选保持一致。
 if(!savingStartDate.value&&!savingEndDate.value)setSavingRangePreset("month");
 
-// V9.8 数据修复：打开新版时自动检查当前开放周期。
-// 如果旧版本里“当前周期固定账单”没有真正写入收入预留，
-// 或已经错误地从零花钱直接核销，这里会自动重建预留并纠正核销来源。
-// 只处理当前开放周期，不改写已结束历史。
+// V9.9 升级时修复当前开放周期的固定账单预留。
 let currentBillRepairChanged=false;
 S.bills.forEach(b=>{
   if(syncCurrentCycleBillReservation(b.id))currentBillRepairChanged=true;

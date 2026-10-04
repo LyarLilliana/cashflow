@@ -1,4 +1,4 @@
-const CACHE = "safespend-v9-8-fixed-bill-debug";
+const CACHE = "safespend-v9-9-ledger-debug";
 const ASSETS = [
   "./",
   "./index.html",
