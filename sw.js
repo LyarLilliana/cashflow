@@ -1,4 +1,4 @@
-const CACHE = "safespend-v9-7-github-mobile-update";
+const CACHE = "safespend-v9-8-fixed-bill-debug";
 const ASSETS = [
   "./",
   "./index.html",

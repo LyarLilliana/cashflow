@@ -1827,10 +1827,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v68";
-const OLD_KEYS=["safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v69";
+const OLD_KEYS=["safespend_cashflow_v68","safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:68,
+  version:69,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -2279,10 +2279,39 @@ function accounting(){
       return;
     }
 
-    let before=0;
-    if(bucket==="safe")before=N(raw.safe);
-    else if(bucket==="bill")before=N(raw.bills);
+    if(bucket==="bill"){
+      // 固定账单先使用已经预留的账单资金。
+      // 实际金额高于预留金额时，超出的部分应当像普通超支一样从零花钱承担，
+      // 而不是直接把整段超额只记到储蓄里。这样修改实际账单金额时，
+      // 零花钱会按差额正确恢复。
+      const beforeBill=Math.max(0,N(raw.bills));
+      const fromBill=Math.min(amount,beforeBill);
+      const extra=Math.max(0,amount-fromBill);
 
+      raw.bills=beforeBill-fromBill;
+
+      const beforeSafe=N(raw.safe);
+      const overPocket=Math.max(0,extra-Math.max(0,beforeSafe));
+      const autoDraw=Math.min(overPocket,Math.max(0,saving));
+      const gap=Math.max(0,overPocket-autoDraw);
+
+      raw.safe-=extra;
+      saving-=autoDraw;
+      autoSavingUsed+=autoDraw;
+      uncovered+=gap;
+
+      effects[t.id]={
+        autoDraw,
+        manualDraw:0,
+        uncovered:gap,
+        overPlan:extra,
+        billFromReserve:fromBill,
+        billPocketDraw:extra
+      };
+      return;
+    }
+
+    const before=N(raw.safe);
     const overPlan=Math.max(0,amount-Math.max(0,before));
     const autoDraw=Math.min(overPlan,Math.max(0,saving));
     const gap=Math.max(0,overPlan-autoDraw);
@@ -2290,9 +2319,7 @@ function accounting(){
     saving-=autoDraw;
     autoSavingUsed+=autoDraw;
     uncovered+=gap;
-
-    if(bucket==="safe")raw.safe-=amount;
-    else if(bucket==="bill")raw.bills-=amount;
+    raw.safe-=amount;
 
     effects[t.id]={autoDraw,manualDraw:0,uncovered:gap,overPlan};
   });
@@ -2711,6 +2738,115 @@ function currentCycleBillStatus(){
 function currentCycleBillRows(){return currentCycleBillStatus().outstanding}
 function currentCycleBillReserve(){return currentCycleBillStatus().outstandingAmount}
 
+function billDueDatesInsideWindow(b,start,end){
+  if(!b||!start||!end||end<=start)return [];
+
+  const rows=[];
+  const cursor=D(start);
+  cursor.setDate(1);
+
+  const last=D(addDays(end,-1));
+  last.setDate(1);
+
+  let guard=0;
+  while(cursor<=last&&guard<24){
+    const y=cursor.getFullYear();
+    const m=cursor.getMonth()+1;
+    const due=billDueDate(b,y,m);
+
+    if(
+      due>=start
+      &&due<end
+      &&billCycleIsActive(b,due)
+      &&!billSkipped(b.id,due)
+    ){
+      rows.push(due);
+    }
+
+    cursor.setMonth(cursor.getMonth()+1);
+    guard++;
+  }
+
+  return rows;
+}
+
+function syncCurrentCycleBillReservation(bid){
+  const b=S.bills.find(x=>x.id===bid);
+  const cycle=currentCycleStats();
+  const income=cycle.income;
+
+  // 只调整当前仍开放的周期，绝不重写已经结束的历史周期。
+  if(!income||cycle.isClosed)return false;
+
+  const start=income.date;
+  const end=
+    income.nextIncomeDate
+    ||nextRecurringIncome()?.nextDate
+    ||"";
+
+  if(!end||end<=start)return false;
+
+  if(!income.alloc)income.alloc={};
+  if(!Array.isArray(income.alloc.billItems))income.alloc.billItems=[];
+
+  const before=JSON.stringify(income.alloc.billItems);
+
+  // 当前收入周期内，这个账单的预留重新按照“现在的计划”计算。
+  income.alloc.billItems=income.alloc.billItems.filter(x=>x.billId!==bid);
+
+  if(b){
+    // 如果本周期已经点过“已支付”，优先沿用那次实际结算所绑定的周期，
+    // 避免修改扣款日以后在同一周期里凭空再生成第二笔预留。
+    const paidRows=S.tx
+      .filter(t=>
+        t.type==="expense"
+        &&(
+          t.settledBillId===bid
+          ||(t.bucket==="bill"&&t.refId===bid)
+        )
+        &&t.cycleDueDate
+        &&t.cycleDueDate>=start
+        &&t.cycleDueDate<end
+      )
+      .sort((a,b)=>String(a.cycleDueDate).localeCompare(String(b.cycleDueDate)));
+
+    const dueDates=paidRows.length
+      ?[...new Set(paidRows.map(t=>t.cycleDueDate))]
+      :billDueDatesInsideWindow(b,start,end);
+
+    dueDates.forEach(dueDate=>{
+      if(billSkipped(bid,dueDate))return;
+
+      income.alloc.billItems.push({
+        billId:bid,
+        dueDate,
+        amount:N(b.amount)
+      });
+
+      // 修复旧逻辑留下的“当前周期账单本应预留，
+      // 但结算时却从零花钱直接扣除”的记录。
+      // 将它改回从账单预留核销；同时因为上面新增了同额预留，
+      // 当前总资产不会被凭空增加。
+      S.tx.forEach(t=>{
+        if(
+          t.type==="expense"
+          &&t.billHandledDirect
+          &&t.settledBillId===bid
+          &&t.cycleDueDate===dueDate
+          &&t.bucket==="safe"
+        ){
+          t.bucket="bill";
+          t.refId=bid;
+        }
+      });
+    });
+  }
+
+  income.alloc.bills=sm(income.alloc.billItems,x=>N(x.amount));
+
+  return before!==JSON.stringify(income.alloc.billItems);
+}
+
 function upcomingRecurringIncomeEventsUntil(dueDate){
   if(!dueDate)return [];
   const events=[];
@@ -2796,6 +2932,10 @@ function markBillHandled(bid,dueDate){
   const b=S.bills.find(x=>x.id===bid);
   if(!b)return msg("这笔固定账单已经不存在");
   if(billSettled(bid,dueDate))return msg("这个缴纳周期已经支付过了");
+
+  // 防止“当前周期新加了固定账单，但旧收入流水里还没有预留”
+  // 导致点击已支付时突然从零花钱再扣一次。
+  syncCurrentCycleBillReservation(bid);
 
   const reserved=billReserved(bid,dueDate);
   const id="e"+Date.now();
@@ -3060,7 +3200,7 @@ function projectFinanceDetailHtml(p,a){
     </details>
 
     <details class="projectLedger">
-      <summary><span>支出明细 · ${expenses.length} 笔</span></summary>
+      <summary><span>支出明细 · ${expenses.length} 笔 · ${M(spent)}</span></summary>
       ${expenseHtml}
     </details>
   </div>`;
@@ -5060,13 +5200,18 @@ addBill.onclick=()=>{
   const startMode=billStartMode.value;
   if(!name||amount<=0)return msg("请填写账单名称和金额");
 
-  S.bills.push({
+  const newBill={
     id:"b"+Date.now(),
     name,
     amount,
     dueDay,
     startMonth:billStartMonthForMode(startMode)
-  });
+  };
+  S.bills.push(newBill);
+
+  if(startMode==="current"){
+    syncCurrentCycleBillReservation(newBill.id);
+  }
 
   billName.value="";
   billAmount.value="";
@@ -5109,6 +5254,10 @@ saveBillEdit.onclick=()=>{
     // Legacy bill: keep historical behavior unless the user explicitly changes the start mode.
     b.startMonth="";
   }
+
+  // “当前周期”必须真的影响当前周期，而不只是改计划页文字。
+  // 金额、扣款日或开始周期变化时，重新同步当前开放周期的账单预留。
+  syncCurrentCycleBillReservation(b.id);
 
   save();
   closeSheet("editBillSheet");
@@ -6824,6 +6973,16 @@ if(!historyStartDate.value&&!historyEndDate.value)setHistoryMode("month");
 
 // 储蓄统计也默认本月，样式与流水筛选保持一致。
 if(!savingStartDate.value&&!savingEndDate.value)setSavingRangePreset("month");
+
+// V9.8 数据修复：打开新版时自动检查当前开放周期。
+// 如果旧版本里“当前周期固定账单”没有真正写入收入预留，
+// 或已经错误地从零花钱直接核销，这里会自动重建预留并纠正核销来源。
+// 只处理当前开放周期，不改写已结束历史。
+let currentBillRepairChanged=false;
+S.bills.forEach(b=>{
+  if(syncCurrentCycleBillReservation(b.id))currentBillRepairChanged=true;
+});
+if(currentBillRepairChanged)save();
 
 render();
 </script>
