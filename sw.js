@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-2-bill-cycle-audit";
+const CACHE = "safespend-v10-3-range-isolation";
 const ASSETS = [
   "./",
   "./index.html",
