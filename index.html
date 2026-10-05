@@ -3027,6 +3027,7 @@ function virtualCycleCloseEvents(){
 
 function accounting(){
   const raw={safe:0,bills:0};
+  const dailyLivingCover=dailyExpenseLivingCoverMap();
   const billPools={};
   const billPoolKey=(billId,dueDate)=>`${billId||""}|${dueDate||""}`;
   const refreshBillRaw=()=>{
@@ -3111,8 +3112,22 @@ function accounting(){
 
     if(t.type==="living_settlement"){
       const allowance=N(t.allowance),actual=livingSettlementEffectiveActual(t);
-      raw.safe += allowance-actual;
-      effects[t.id]={livingRelease:allowance-actual,livingActual:actual};
+      const date=t.coveredDate||t.date||"";
+      const grossRelease=allowance-actual;
+      const dailyDraw=Math.min(
+        Math.max(0,grossRelease),
+        Math.max(0,N(dailyLivingCover.byDate[date]))
+      );
+      const netRelease=grossRelease-dailyDraw;
+
+      // 当天剩余基础生活先承担“日常支出”，真正没用掉的部分才回到零花钱。
+      raw.safe += netRelease;
+      effects[t.id]={
+        livingRelease:netRelease,
+        livingReleaseGross:grossRelease,
+        livingToDaily:dailyDraw,
+        livingActual:actual
+      };
       return;
     }
 
@@ -3263,17 +3278,38 @@ function accounting(){
       return;
     }
 
+    const livingDraw=Math.min(
+      amount,
+      Math.max(0,N(dailyLivingCover.byTx[t.id]))
+    );
+    const pocketNeed=Math.max(0,amount-livingDraw);
+
     const before=N(raw.safe);
-    const overPlan=Math.max(0,amount-Math.max(0,before));
+    const pocketAvailable=Math.max(0,before);
+    const fromPocket=Math.min(pocketNeed,pocketAvailable);
+    const overPlan=Math.max(0,pocketNeed-fromPocket);
     const autoDraw=Math.min(overPlan,Math.max(0,saving));
     const gap=Math.max(0,overPlan-autoDraw);
 
     saving-=autoDraw;
     autoSavingUsed+=autoDraw;
     uncovered+=gap;
-    raw.safe-=amount;
 
-    effects[t.id]={autoDraw,manualDraw:0,uncovered:gap,overPlan};
+    // 已由基础生活或储蓄兜底的部分不能再把零花钱重复扣成负数。
+    // 只有真正由零花钱支付的部分，以及仍未覆盖的缺口，进入零花钱余额。
+    raw.safe=
+      Math.min(0,before)
+      +(pocketAvailable-fromPocket)
+      -gap;
+
+    effects[t.id]={
+      livingDraw,
+      pocketDraw:fromPocket,
+      autoDraw,
+      manualDraw:0,
+      uncovered:gap,
+      overPlan
+    };
   });
 
   return {raw,projects,saving,autoSavingUsed,manualSavingUsed,uncovered,effects};
@@ -3638,6 +3674,69 @@ function livingRemainingForDate(date=td()){
   if(settled)return 0;
   if(!info.covered)return 0;
   return Math.max(0,N(info.allowance)-livingBatchShareForDate(date));
+}
+
+// “日常支出”是消费分类，不等于它只能由零花钱支付。
+// 资金来源按用户规则依次为：当日基础生活剩余额度 → 零花钱 → 储蓄。
+// 这里把每一天剩余的基础生活额度按当天日常支出记录顺序分配出去，
+// 但不改变这些流水在消费统计里的“日常支出”分类。
+function dailyExpenseLivingCoverMap(){
+  const byTx={};
+  const byDate={};
+
+  const rows=S.tx
+    .filter(t=>
+      t.type==="expense"
+      &&(t.bucket==="safe"||t.bucket==="living")
+      &&!t.settledBillId
+    )
+    .sort((a,b)=>{
+      if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
+      const aa=txStamp(a),bb=txStamp(b);
+      if(aa!==bb)return aa-bb;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+  let currentDate="";
+  let remaining=0;
+
+  rows.forEach(t=>{
+    const date=String(t.date||"");
+    if(date!==currentDate){
+      currentDate=date;
+      const info=livingDayInfo(date);
+      const settlement=livingSettlementForDate(date);
+
+      if(!info.covered){
+        remaining=0;
+      }else{
+        const explicitLiving=settlement
+          ?livingSettlementEffectiveActual(settlement)
+          :livingBatchShareForDate(date);
+        remaining=Math.max(0,N(info.allowance)-N(explicitLiving));
+      }
+    }
+
+    const draw=Math.min(Math.max(0,N(t.amount)),remaining);
+    byTx[t.id]=draw;
+    byDate[date]=(byDate[date]||0)+draw;
+    remaining=Math.max(0,remaining-draw);
+  });
+
+  return {byTx,byDate};
+}
+
+function dailyLivingAvailableForNewExpense(date=td()){
+  const info=livingDayInfo(date);
+  if(!info.covered)return 0;
+
+  const settlement=livingSettlementForDate(date);
+  const explicitLiving=settlement
+    ?livingSettlementEffectiveActual(settlement)
+    :livingBatchShareForDate(date);
+  const gross=Math.max(0,N(info.allowance)-N(explicitLiving));
+  const used=N(dailyExpenseLivingCoverMap().byDate[date]);
+  return Math.max(0,gross-used);
 }
 
 function currentlyCoveredLivingDays(){
@@ -6367,10 +6466,10 @@ function renderSavingStats(){
     const cycle=currentCycleStats();
     savingPeriodValueLabel.textContent="本周期预计可存";
     savingGrowthTitle.textContent="本周期预计可存构成";
-    savingGrowthMeta.textContent="与结果页和日常储蓄使用同一口径。零花钱转储蓄只改变内部位置；既有储蓄取用不回扣本周期预计可存。";
+    savingGrowthMeta.textContent="与结果页和日常储蓄使用同一口径。日常支出按“当日基础生活 → 零花钱 → 储蓄”依次承担；内部转存不重复改变本周期预计可存。";
     savingIncreaseTitle.textContent="本周期构成";
     savingAdjustTitle.textContent="参考调整";
-    savingUseLabel.textContent="既有储蓄取用（不计入本周期）";
+    savingUseLabel.textContent="储蓄兜底 / 直接取用（参考）";
     savingGrowthTotalLabel.textContent="本周期预计可存";
     savingGrowthNote.textContent=cycle.income
       ?`已进入储蓄 ${M(cycle.lockedSaving)} + 预计周期结余 ${M(cycle.pocketBalance)} = ${M(cycle.projectedSaving)}。下方仍保留实际储蓄资产变化明细。`
@@ -8835,8 +8934,11 @@ function refreshSpendRefs(){
     spendRef.innerHTML="";
   }
 
+  const spendDay=spendDate.value||td();
+  const dayLiving=dailyLivingAvailableForNewExpense(spendDay);
+
   spendHint.textContent=t==="safe"
-    ?`当前零花钱 ${M(b.safe)}；日常支出会直接从零花钱扣除，花超后会压低“本周期预计可存”。`
+    ?`当天基础生活可先承担 ${M(dayLiving)}；之后使用零花钱 ${M(b.safe)}，仍不足才会动用储蓄。`
     :t==="saving"
       ?`当前储蓄余额 ${M(b.saving)}`
       :"请选择专项";
@@ -8845,6 +8947,7 @@ function refreshSpendRefs(){
 }
 spendBucket.onchange=refreshSpendRefs;
 spendRef.onchange=refreshProjectOverrunUI;
+spendDate.addEventListener("change",refreshSpendRefs);
 spendAmount.addEventListener("input",refreshProjectOverrunUI);
 projectOverrunSource.addEventListener("change",refreshProjectOverrunUI);
 saveSpend.onclick=()=>{
@@ -8927,7 +9030,7 @@ saveSpend.onclick=()=>{
   }else if(N(ef.uncovered)>0){
     msg(`已超计划；储蓄补了 ${M(ef.autoDraw)}，仍有缺口 ${M(ef.uncovered)}`);
   }else if(N(ef.autoDraw)>0){
-    msg(`超出计划 ${M(ef.overPlan)}，已自动动用储蓄 ${M(ef.autoDraw)}`);
+    msg(`当日基础生活与零花钱都不足，已自动动用储蓄 ${M(ef.autoDraw)}`);
   }else if(bucket==="saving"){
     msg("已从储蓄扣除，结果同步更新");
   }else{
