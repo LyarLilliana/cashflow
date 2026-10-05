@@ -72,7 +72,7 @@ button{touch-action:manipulation}
 
 
 #savingRangeQuick{
-  grid-template-columns:repeat(5,minmax(0,1fr));
+  grid-template-columns:repeat(4,minmax(0,1fr));
 }
 .bankReminderSavedHead{
   color:var(--muted);
@@ -179,7 +179,7 @@ button{touch-action:manipulation}
   font-size:10.5px;
 }
 #resultRangeQuick{
-  grid-template-columns:repeat(6,minmax(0,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
 }
 #bankReminderEditor[hidden],
 #bankReminderEditBtn[hidden]{
@@ -1360,7 +1360,6 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
         <div class="historyQuick" id="savingRangeQuick">
           <button id="savingCycleBtn">当前周期</button>
-          <button id="savingWeekBtn">本周</button>
           <button id="savingMonthBtn" class="active">本月</button>
           <button id="savingYearBtn">本年</button>
           <button id="savingAllBtn">全部</button>
@@ -1481,7 +1480,6 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="resultRangePanel" id="resultRangePanel" hidden>
         <div class="historyQuick" id="resultRangeQuick">
           <button id="historyCycleBtn">当前周期</button>
-          <button id="historyWeekBtn">本周</button>
           <button id="historyMonthBtn" class="active">本月</button>
           <button id="historyYearBtn">本年</button>
           <button id="historyAllBtn">全部</button>
@@ -4241,15 +4239,31 @@ txActionDeleteBtn.onclick=()=>{
 
 const HISTORY_PAGE_SIZE=30;
 let historyVisibleCount=HISTORY_PAGE_SIZE;
-let historyMode="month";
 
-function weekBounds(date=td()){
-  const d=D(date);
-  const day=d.getDay();
-  const offset=day===0?-6:1-day;
-  const start=addDays(date,offset);
-  return {start,end:addDays(start,6)};
+const RESULT_RANGE_PREF_KEY="safespend_result_range_v1";
+function readResultRangePref(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(RESULT_RANGE_PREF_KEY)||"{}");
+    const allowed=new Set(["cycle","month","year","all","custom"]);
+    return {
+      mode:allowed.has(raw.mode)?raw.mode:"month",
+      start:String(raw.start||""),
+      end:String(raw.end||"")
+    };
+  }catch(e){
+    return {mode:"month",start:"",end:""};
+  }
 }
+function writeResultRangePref(){
+  try{
+    localStorage.setItem(RESULT_RANGE_PREF_KEY,JSON.stringify({
+      mode:historyMode,
+      start:historyStartDate.value||"",
+      end:historyEndDate.value||""
+    }));
+  }catch(e){}
+}
+let historyMode="month";
 
 function monthBounds(date=td()){
   const d=D(date);
@@ -4292,7 +4306,6 @@ function setHistoryMode(mode){
   historyVisibleCount=HISTORY_PAGE_SIZE;
 
   historyCycleBtn.classList.toggle("active",mode==="cycle");
-  historyWeekBtn.classList.toggle("active",mode==="week");
   historyMonthBtn.classList.toggle("active",mode==="month");
   historyYearBtn.classList.toggle("active",mode==="year");
   historyAllBtn.classList.toggle("active",mode==="all");
@@ -4300,10 +4313,6 @@ function setHistoryMode(mode){
 
   if(mode==="cycle"){
     const r=currentCycleResultBounds();
-    historyStartDate.value=r.start;
-    historyEndDate.value=r.end;
-  }else if(mode==="week"){
-    const r=weekBounds();
     historyStartDate.value=r.start;
     historyEndDate.value=r.end;
   }else if(mode==="month"){
@@ -4323,6 +4332,7 @@ function setHistoryMode(mode){
   resultRangePanel.hidden=true;
 
   syncDateDisplays();
+  writeResultRangePref();
   renderHistory();
 }
 
@@ -4455,9 +4465,6 @@ function historyRangeLabel(){
 
   if(historyMode==="cycle"){
     return `当前周期 · ${start}${end&&end!==start?" 至 "+end:""}`;
-  }
-  if(historyMode==="week"&&start){
-    return `本周 · ${start}${end&&end!==start?" 至 "+end:""}`;
   }
   if(historyMode==="month"&&start){
     return `${start.slice(0,7)} · 本月`;
@@ -4636,13 +4643,13 @@ historyStartDate.addEventListener("change",()=>{
   historyMode="custom";
   historyVisibleCount=HISTORY_PAGE_SIZE;
   historyCycleBtn.classList.remove("active");
-  historyWeekBtn.classList.remove("active");
   historyMonthBtn.classList.remove("active");
   historyYearBtn.classList.remove("active");
   historyAllBtn.classList.remove("active");
   historyCustomBtn.classList.add("active");
   resultRangePanel.hidden=false;
   historyCustomDates.hidden=false;
+  writeResultRangePref();
   renderHistory();
 });
 
@@ -4650,18 +4657,17 @@ historyEndDate.addEventListener("change",()=>{
   historyMode="custom";
   historyVisibleCount=HISTORY_PAGE_SIZE;
   historyCycleBtn.classList.remove("active");
-  historyWeekBtn.classList.remove("active");
   historyMonthBtn.classList.remove("active");
   historyYearBtn.classList.remove("active");
   historyAllBtn.classList.remove("active");
   historyCustomBtn.classList.add("active");
   resultRangePanel.hidden=false;
   historyCustomDates.hidden=false;
+  writeResultRangePref();
   renderHistory();
 });
 
 historyCycleBtn.onclick=()=>setHistoryMode("cycle");
-historyWeekBtn.onclick=()=>setHistoryMode("week");
 historyMonthBtn.onclick=()=>setHistoryMode("month");
 historyYearBtn.onclick=()=>setHistoryMode("year");
 historyAllBtn.onclick=()=>setHistoryMode("all");
@@ -4688,7 +4694,6 @@ historyCustomBtn.onclick=()=>{
   }else if(historyMode!=="custom"){
     historyCustomBtn.classList.remove("active");
     historyCycleBtn.classList.toggle("active",historyMode==="cycle");
-    historyWeekBtn.classList.toggle("active",historyMode==="week");
     historyMonthBtn.classList.toggle("active",historyMode==="month");
     historyYearBtn.classList.toggle("active",historyMode==="year");
     historyAllBtn.classList.toggle("active",historyMode==="all");
@@ -4996,7 +5001,6 @@ function setSavingRangePreset(mode){
   savingRangePreset=mode;
 
   savingCycleBtn.classList.toggle("active",mode==="cycle");
-  savingWeekBtn.classList.toggle("active",mode==="week");
   savingMonthBtn.classList.toggle("active",mode==="month");
   savingYearBtn.classList.toggle("active",mode==="year");
   savingAllBtn.classList.toggle("active",mode==="all");
@@ -5005,10 +5009,6 @@ function setSavingRangePreset(mode){
 
   if(mode==="cycle"){
     const r=currentCycleResultBounds();
-    savingStartDate.value=r.start;
-    savingEndDate.value=r.end;
-  }else if(mode==="week"){
-    const r=weekBounds(today);
     savingStartDate.value=r.start;
     savingEndDate.value=r.end;
   }else if(mode==="month"){
@@ -5037,14 +5037,6 @@ function savingRangeBounds(){
       start,
       end,
       label:`当前周期 · ${start}${end&&end!==start?" 至 "+end:""}`
-    };
-  }
-
-  if(savingRangePreset==="week"&&start){
-    return {
-      start,
-      end,
-      label:`本周 · ${start}${end&&end!==start?" 至 "+end:""}`
     };
   }
 
@@ -5278,7 +5270,6 @@ function renderSavingStats(){
 savingStartDate.addEventListener("change",()=>{
   savingRangePreset="custom";
   savingCycleBtn.classList.remove("active");
-  savingWeekBtn.classList.remove("active");
   savingMonthBtn.classList.remove("active");
   savingYearBtn.classList.remove("active");
   savingAllBtn.classList.remove("active");
@@ -5288,7 +5279,6 @@ savingStartDate.addEventListener("change",()=>{
 savingEndDate.addEventListener("change",()=>{
   savingRangePreset="custom";
   savingCycleBtn.classList.remove("active");
-  savingWeekBtn.classList.remove("active");
   savingMonthBtn.classList.remove("active");
   savingYearBtn.classList.remove("active");
   savingAllBtn.classList.remove("active");
@@ -5296,7 +5286,6 @@ savingEndDate.addEventListener("change",()=>{
 });
 
 savingCycleBtn.onclick=()=>setSavingRangePreset("cycle");
-savingWeekBtn.onclick=()=>setSavingRangePreset("week");
 savingMonthBtn.onclick=()=>setSavingRangePreset("month");
 savingYearBtn.onclick=()=>setSavingRangePreset("year");
 savingAllBtn.onclick=()=>setSavingRangePreset("all");
@@ -7822,10 +7811,32 @@ document.addEventListener("focusin",()=>setTimeout(syncDateDisplays,0));
 enhanceDateInputs();
 enhanceCollapsibleSections();
 
-// 结果页默认本月，可切换当前周期、本年、全部或自定义日期。
-if(!historyStartDate.value&&!historyEndDate.value)setHistoryMode("month");
+// 结果页默认恢复上一次使用的统计范围。
+if(!historyStartDate.value&&!historyEndDate.value){
+  const pref=readResultRangePref();
 
-// 储蓄统计也默认本月，样式与流水筛选保持一致。
+  if(pref.mode==="custom"){
+    historyMode="custom";
+    const fallback=monthBounds();
+    historyStartDate.value=pref.start||fallback.start;
+    historyEndDate.value=pref.end||fallback.end;
+
+    historyCycleBtn.classList.remove("active");
+    historyMonthBtn.classList.remove("active");
+    historyYearBtn.classList.remove("active");
+    historyAllBtn.classList.remove("active");
+    historyCustomBtn.classList.add("active");
+
+    historyCustomDates.hidden=false;
+    resultRangePanel.hidden=true;
+    syncDateDisplays();
+    renderHistory();
+  }else{
+    setHistoryMode(pref.mode||"month");
+  }
+}
+
+// 储蓄统计默认本月，样式与流水筛选保持一致。
 if(!savingStartDate.value&&!savingEndDate.value)setSavingRangePreset("month");
 
 // V9.9 升级时修复当前开放周期的固定账单预留。
