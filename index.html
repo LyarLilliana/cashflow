@@ -1098,6 +1098,15 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   justify-content:space-between;
   gap:10px;
 }
+.projectDoneActionsOnly{
+  justify-content:flex-end;
+}
+.projectFundingFootnote{
+  padding:9px 2px 1px;
+  font-size:9px;
+  line-height:1.45;
+  color:var(--muted);
+}
 .archiveBtn,.restoreBtn{
   border:1px solid #D9DDD8;
   background:#F3F4F1;
@@ -4345,8 +4354,7 @@ function renderNow(){
 
       const actions=plan.gap===0&&N(p.budget)>0
         ?`<div class="projectDoneBox">
-            <div class="projectDoneLine">
-              <span class="small">专项结束后结算，剩余资金自动转入储蓄。</span>
+            <div class="projectDoneLine projectDoneActionsOnly">
               <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
                 <button class="archiveBtn" onclick="editProject('${p.id}')">修改</button>
                 <button class="archiveBtn" onclick="archiveProject('${p.id}')">结算并归档</button>
@@ -4362,7 +4370,10 @@ function renderNow(){
         ${projectFinanceDetailHtml(p,a)}
         ${actions}
       </div>`;
-    }).join("");
+    }).join("")+`
+      <div class="projectFundingFootnote">
+        * 专项结算并归档时，剩余资金会转入储蓄。
+      </div>`;
   }else{
     projectFundingSection.style.display="none";
     projectFundingBox.innerHTML="";
