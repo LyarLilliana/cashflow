@@ -1922,18 +1922,18 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
         <div class="savingPeriodHead" style="margin-top:10px">
           <div>
-            <div class="small">这个范围预计新增储蓄</div>
+            <div class="small" id="savingPeriodValueLabel">这个范围预计新增储蓄</div>
             <div class="savingPeriodValue" id="savingPeriodValue">¥0</div>
           </div>
         </div>
       </div>
 
       <div class="card summaryLedgerCard" style="margin-top:10px">
-        <div class="name">储蓄增长构成</div>
-        <div class="meta">只展示这个统计范围内形成或减少储蓄的项目；日常储蓄转银行只改变资金位置，不重复计入增长。</div>
+        <div class="name" id="savingGrowthTitle">储蓄增长构成</div>
+        <div class="meta" id="savingGrowthMeta">只展示这个统计范围内形成或减少储蓄的项目；日常储蓄转银行只改变资金位置，不重复计入增长。</div>
 
         <div class="summaryGroup">
-          <div class="summaryGroupTitle">增加</div>
+          <div class="summaryGroupTitle" id="savingIncreaseTitle">增加</div>
           <div class="summaryRow"><span>周期收入储蓄</span><strong id="savingRecurringIncomePart">¥0</strong></div>
           <div class="summaryRow"><span>单次额外收入储蓄</span><strong id="savingOneOffIncomePart">¥0</strong></div>
           <div class="summaryRow"><span>周期结束结余</span><strong id="savingCycleClosePart">¥0</strong></div>
@@ -1946,13 +1946,13 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         </div>
 
         <div class="summaryGroup">
-          <div class="summaryGroupTitle">调整</div>
-          <div class="summaryRow"><span>储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
+          <div class="summaryGroupTitle" id="savingAdjustTitle">调整</div>
+          <div class="summaryRow"><span id="savingUseLabel">储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
           <div class="summaryRow"><span>日常储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
-          <div class="summaryRow summaryTotal"><span>预计储蓄增长总和</span><strong id="savingGrowthTotal">¥0</strong></div>
+          <div class="summaryRow summaryTotal"><span id="savingGrowthTotalLabel">预计储蓄增长总和</span><strong id="savingGrowthTotal">¥0</strong></div>
         </div>
 
-        <div class="summaryNote">“当前周期预计结余”会随继续消费变化；周期结束后才正式沉淀为储蓄。</div>
+        <div class="summaryNote" id="savingGrowthNote">“当前周期预计结余”会随继续消费变化；周期结束后才正式沉淀为储蓄。</div>
       </div>
 
       <div class="card savingChangeList" id="savingChangeList"></div>
@@ -6290,11 +6290,42 @@ function filteredSavingChangeEvents(start="",end=""){
 
 function renderSavingStats(){
   const range=savingRangeBounds();
-  const s=expectedSavingGrowthForRange(
+  const cycleMode=savingRangePreset==="cycle";
+  const raw=expectedSavingGrowthForRange(
     range.start,
     range.end,
-    savingRangePreset==="cycle"
+    cycleMode
   );
+
+  let s=raw;
+  let referenceDeductions=N(raw.deductions);
+
+  // 当前周期必须和结果页、日常储蓄使用同一套 projectedSaving。
+  // 构成也只用同一个周期引擎拆解，避免把既有储蓄取用或资产位置变化
+  // 混进“本周期预计可存”后得到另一套数字。
+  if(cycleMode){
+    const cycle=currentCycleStats();
+    if(cycle.income){
+      const cycleTx=cycleTransactionsForIncome(cycle.income);
+      const extraIncomes=cycleTx.filter(t=>t.type==="income"&&!isCycleIncomeTx(t));
+      const recurringIncomeSaving=N(effectiveIncomeAllocation(cycle.income).saving);
+      const oneOffIncomeSaving=sm(extraIncomes,t=>N(effectiveIncomeAllocation(t).saving));
+
+      s={
+        ...raw,
+        recurringIncomeSaving,
+        oneOffIncomeSaving,
+        pocketClosed:0,
+        pendingPocket:N(cycle.pocketBalance),
+        transfers:N(cycle.pocketToSaving),
+        projectSurplus:0,
+        extra:0,
+        bankExternal:0,
+        interestGrowth:0,
+        expected:N(cycle.projectedSaving)
+      };
+    }
+  }
 
   savingPeriodLabel.textContent=range.label;
   savingPeriodValue.textContent=M(s.expected);
@@ -6307,14 +6338,21 @@ function renderSavingStats(){
   savingOneOffIncomePart.textContent=M(s.oneOffIncomeSaving);
   savingCycleClosePart.textContent=M(s.pocketClosed);
   savingPendingPart.textContent=M(s.pendingPocket);
-  savingPendingPart.style.color=s.pendingPocket>0?"var(--accent)":"inherit";
+  savingPendingPart.style.color=s.pendingPocket<0
+    ?"var(--danger)"
+    :s.pendingPocket>0
+      ?"var(--accent)"
+      :"inherit";
   savingTransferPart.textContent=M(s.transfers);
   savingProjectSurplusPart.textContent=M(s.projectSurplus);
   savingExtraPart.textContent=M(s.extra);
   savingExternalBankPart.textContent=M(s.bankExternal);
 
-  savingUsePart.textContent=s.deductions>0?`-${M(s.deductions)}`:M(0);
-  savingUsePart.style.color=s.deductions>0?"var(--danger)":"inherit";
+  const deductionsShown=cycleMode?referenceDeductions:N(s.deductions);
+  savingUsePart.textContent=deductionsShown>0?`-${M(deductionsShown)}`:M(0);
+  savingUsePart.style.color=deductionsShown>0
+    ?(cycleMode?"var(--muted)":"var(--danger)")
+    :"inherit";
 
   savingBankTransferPart.textContent=s.bankExisting>0?`${M(s.bankExisting)} → 银行`:M(0);
   savingBankTransferPart.style.color=s.bankExisting>0?"var(--muted)":"inherit";
@@ -6324,6 +6362,29 @@ function renderSavingStats(){
 
   savingGrowthTotal.textContent=M(s.expected);
   savingGrowthTotal.style.color=s.expected<0?"var(--danger)":"var(--accent)";
+
+  if(cycleMode){
+    const cycle=currentCycleStats();
+    savingPeriodValueLabel.textContent="本周期预计可存";
+    savingGrowthTitle.textContent="本周期预计可存构成";
+    savingGrowthMeta.textContent="与结果页和日常储蓄使用同一口径。零花钱转储蓄只改变内部位置；既有储蓄取用不回扣本周期预计可存。";
+    savingIncreaseTitle.textContent="本周期构成";
+    savingAdjustTitle.textContent="参考调整";
+    savingUseLabel.textContent="既有储蓄取用（不计入本周期）";
+    savingGrowthTotalLabel.textContent="本周期预计可存";
+    savingGrowthNote.textContent=cycle.income
+      ?`已进入储蓄 ${M(cycle.lockedSaving)} + 预计周期结余 ${M(cycle.pocketBalance)} = ${M(cycle.projectedSaving)}。下方仍保留实际储蓄资产变化明细。`
+      :"当前没有可计算的收入周期。";
+  }else{
+    savingPeriodValueLabel.textContent="这个范围预计新增储蓄";
+    savingGrowthTitle.textContent="储蓄增长构成";
+    savingGrowthMeta.textContent="只展示这个统计范围内形成或减少储蓄的项目；日常储蓄转银行只改变资金位置，不重复计入增长。";
+    savingIncreaseTitle.textContent="增加";
+    savingAdjustTitle.textContent="调整";
+    savingUseLabel.textContent="储蓄取用 / 超支扣减";
+    savingGrowthTotalLabel.textContent="预计储蓄增长总和";
+    savingGrowthNote.textContent="“当前周期预计结余”会随继续消费变化；周期结束后才正式沉淀为储蓄。";
+  }
 
   savingChangeList.innerHTML=events.length
     ?events.slice(0,30).map(ev=>`
