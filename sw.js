@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-11-project-footnote";
+const CACHE = "safespend-v10-12-compact-project-cards";
 const ASSETS = [
   "./",
   "./index.html",
