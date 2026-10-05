@@ -72,7 +72,7 @@ button{touch-action:manipulation}
 
 
 #savingRangeQuick{
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
 }
 .bankReminderSavedHead{
   color:var(--muted);
@@ -179,7 +179,7 @@ button{touch-action:manipulation}
   font-size:10.5px;
 }
 #resultRangeQuick{
-  grid-template-columns:repeat(5,minmax(0,1fr));
+  grid-template-columns:repeat(6,minmax(0,1fr));
 }
 #bankReminderEditor[hidden],
 #bankReminderEditBtn[hidden]{
@@ -1335,6 +1335,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
         <div class="historyQuick" id="savingRangeQuick">
           <button id="savingCycleBtn">当前周期</button>
+          <button id="savingWeekBtn">本周</button>
           <button id="savingMonthBtn" class="active">本月</button>
           <button id="savingYearBtn">本年</button>
           <button id="savingAllBtn">全部</button>
@@ -1455,6 +1456,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="resultRangePanel" id="resultRangePanel" hidden>
         <div class="historyQuick" id="resultRangeQuick">
           <button id="historyCycleBtn">当前周期</button>
+          <button id="historyWeekBtn">本周</button>
           <button id="historyMonthBtn" class="active">本月</button>
           <button id="historyYearBtn">本年</button>
           <button id="historyAllBtn">全部</button>
@@ -4141,6 +4143,14 @@ const HISTORY_PAGE_SIZE=30;
 let historyVisibleCount=HISTORY_PAGE_SIZE;
 let historyMode="month";
 
+function weekBounds(date=td()){
+  const d=D(date);
+  const day=d.getDay();
+  const offset=day===0?-6:1-day;
+  const start=addDays(date,offset);
+  return {start,end:addDays(start,6)};
+}
+
 function monthBounds(date=td()){
   const d=D(date);
   const y=d.getFullYear(),m=d.getMonth()+1;
@@ -4182,6 +4192,7 @@ function setHistoryMode(mode){
   historyVisibleCount=HISTORY_PAGE_SIZE;
 
   historyCycleBtn.classList.toggle("active",mode==="cycle");
+  historyWeekBtn.classList.toggle("active",mode==="week");
   historyMonthBtn.classList.toggle("active",mode==="month");
   historyYearBtn.classList.toggle("active",mode==="year");
   historyAllBtn.classList.toggle("active",mode==="all");
@@ -4189,6 +4200,10 @@ function setHistoryMode(mode){
 
   if(mode==="cycle"){
     const r=currentCycleResultBounds();
+    historyStartDate.value=r.start;
+    historyEndDate.value=r.end;
+  }else if(mode==="week"){
+    const r=weekBounds();
     historyStartDate.value=r.start;
     historyEndDate.value=r.end;
   }else if(mode==="month"){
@@ -4341,6 +4356,9 @@ function historyRangeLabel(){
   if(historyMode==="cycle"){
     return `当前周期 · ${start}${end&&end!==start?" 至 "+end:""}`;
   }
+  if(historyMode==="week"&&start){
+    return `本周 · ${start}${end&&end!==start?" 至 "+end:""}`;
+  }
   if(historyMode==="month"&&start){
     return `${start.slice(0,7)} · 本月`;
   }
@@ -4369,31 +4387,14 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
     };
   }
 
+  // 日历范围和自定义范围只统计范围内已经发生的储蓄变化。
+  // 当前周期跨出范围的零花结余预测不带入本周 / 本月 / 本年。
   const confirmedPrincipal=N(saving.principalNet);
-  let pendingPocket=0;
-
-  if(cycle.income){
-    const closeDate=
-      cycle.nextCycleIncome?.date
-      || cycle.income.nextIncomeDate
-      || nextRecurringIncome()?.nextDate
-      || "";
-
-    const closeInside=
-      closeDate
-      &&(!start||closeDate>=start)
-      &&(!end||closeDate<=end);
-
-    if(closeInside){
-      pendingPocket=Math.max(0,N(cycle.pocketBalance));
-    }
-  }
-
   return {
     ...saving,
     confirmedPrincipal,
-    pendingPocket,
-    expected:confirmedPrincipal+pendingPocket
+    pendingPocket:0,
+    expected:confirmedPrincipal
   };
 }
 function resultStatsForRange(start="",end=""){
@@ -4535,6 +4536,7 @@ historyStartDate.addEventListener("change",()=>{
   historyMode="custom";
   historyVisibleCount=HISTORY_PAGE_SIZE;
   historyCycleBtn.classList.remove("active");
+  historyWeekBtn.classList.remove("active");
   historyMonthBtn.classList.remove("active");
   historyYearBtn.classList.remove("active");
   historyAllBtn.classList.remove("active");
@@ -4548,6 +4550,7 @@ historyEndDate.addEventListener("change",()=>{
   historyMode="custom";
   historyVisibleCount=HISTORY_PAGE_SIZE;
   historyCycleBtn.classList.remove("active");
+  historyWeekBtn.classList.remove("active");
   historyMonthBtn.classList.remove("active");
   historyYearBtn.classList.remove("active");
   historyAllBtn.classList.remove("active");
@@ -4558,6 +4561,7 @@ historyEndDate.addEventListener("change",()=>{
 });
 
 historyCycleBtn.onclick=()=>setHistoryMode("cycle");
+historyWeekBtn.onclick=()=>setHistoryMode("week");
 historyMonthBtn.onclick=()=>setHistoryMode("month");
 historyYearBtn.onclick=()=>setHistoryMode("year");
 historyAllBtn.onclick=()=>setHistoryMode("all");
@@ -4584,6 +4588,7 @@ historyCustomBtn.onclick=()=>{
   }else if(historyMode!=="custom"){
     historyCustomBtn.classList.remove("active");
     historyCycleBtn.classList.toggle("active",historyMode==="cycle");
+    historyWeekBtn.classList.toggle("active",historyMode==="week");
     historyMonthBtn.classList.toggle("active",historyMode==="month");
     historyYearBtn.classList.toggle("active",historyMode==="year");
     historyAllBtn.classList.toggle("active",historyMode==="all");
@@ -4891,6 +4896,7 @@ function setSavingRangePreset(mode){
   savingRangePreset=mode;
 
   savingCycleBtn.classList.toggle("active",mode==="cycle");
+  savingWeekBtn.classList.toggle("active",mode==="week");
   savingMonthBtn.classList.toggle("active",mode==="month");
   savingYearBtn.classList.toggle("active",mode==="year");
   savingAllBtn.classList.toggle("active",mode==="all");
@@ -4899,6 +4905,10 @@ function setSavingRangePreset(mode){
 
   if(mode==="cycle"){
     const r=currentCycleResultBounds();
+    savingStartDate.value=r.start;
+    savingEndDate.value=r.end;
+  }else if(mode==="week"){
+    const r=weekBounds(today);
     savingStartDate.value=r.start;
     savingEndDate.value=r.end;
   }else if(mode==="month"){
@@ -4927,6 +4937,14 @@ function savingRangeBounds(){
       start,
       end,
       label:`当前周期 · ${start}${end&&end!==start?" 至 "+end:""}`
+    };
+  }
+
+  if(savingRangePreset==="week"&&start){
+    return {
+      start,
+      end,
+      label:`本周 · ${start}${end&&end!==start?" 至 "+end:""}`
     };
   }
 
@@ -5160,6 +5178,7 @@ function renderSavingStats(){
 savingStartDate.addEventListener("change",()=>{
   savingRangePreset="custom";
   savingCycleBtn.classList.remove("active");
+  savingWeekBtn.classList.remove("active");
   savingMonthBtn.classList.remove("active");
   savingYearBtn.classList.remove("active");
   savingAllBtn.classList.remove("active");
@@ -5169,6 +5188,7 @@ savingStartDate.addEventListener("change",()=>{
 savingEndDate.addEventListener("change",()=>{
   savingRangePreset="custom";
   savingCycleBtn.classList.remove("active");
+  savingWeekBtn.classList.remove("active");
   savingMonthBtn.classList.remove("active");
   savingYearBtn.classList.remove("active");
   savingAllBtn.classList.remove("active");
@@ -5176,6 +5196,7 @@ savingEndDate.addEventListener("change",()=>{
 });
 
 savingCycleBtn.onclick=()=>setSavingRangePreset("cycle");
+savingWeekBtn.onclick=()=>setSavingRangePreset("week");
 savingMonthBtn.onclick=()=>setSavingRangePreset("month");
 savingYearBtn.onclick=()=>setSavingRangePreset("year");
 savingAllBtn.onclick=()=>setSavingRangePreset("all");
@@ -5493,11 +5514,13 @@ function renderHistory(){
   mExpectedSaving.textContent=M(rs.expected);
   mRate.textContent=(Math.round(rs.rate*10)/10)+"%";
 
-  mExpectedSavingSub.textContent=rs.pendingPocket>0
-    ?`计划/已锁定储蓄 ${M(rs.confirmedPrincipal)} + 预计周期结余 ${M(rs.pendingPocket)}`
-    :rs.pendingPocket<0
-      ?`计划/已锁定储蓄 ${M(rs.confirmedPrincipal)} - 当前零花缺口 ${M(Math.abs(rs.pendingPocket))}`
-      :`当前统计范围已形成储蓄 ${M(rs.confirmedPrincipal)}`;
+  mExpectedSavingSub.textContent=historyMode==="cycle"
+    ?(rs.pendingPocket>0
+      ?`计划/已锁定储蓄 ${M(rs.confirmedPrincipal)} + 预计周期结余 ${M(rs.pendingPocket)}`
+      :rs.pendingPocket<0
+        ?`计划/已锁定储蓄 ${M(rs.confirmedPrincipal)} - 当前零花缺口 ${M(Math.abs(rs.pendingPocket))}`
+        :`当前周期已形成储蓄 ${M(rs.confirmedPrincipal)}`)
+    :`仅统计所选范围内储蓄净变化 ${M(rs.confirmedPrincipal)}`;
 
   mResultIncome.textContent=M(rs.income);
   mLivingActualSpend.textContent=M(rs.spend.living);
