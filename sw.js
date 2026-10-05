@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-20-bucket-matched-savable";
+const CACHE = "safespend-v10-21-cycle-projection-unified";
 const ASSETS = [
   "./",
   "./index.html",
