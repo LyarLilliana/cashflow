@@ -97,15 +97,13 @@ button{touch-action:manipulation}
 }
 
 .resultRangeBar{
-  margin-top:10px;
-  min-height:38px;
+  margin-top:8px;
+  min-height:32px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  padding:7px 10px;
-  border-radius:12px;
-  background:#F7F8F5;
+  padding:2px 3px;
   color:var(--muted);
   font-size:10.5px;
 }
@@ -1786,7 +1784,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
             <div class="small savingAssetBlockDesc">与结果页“本周期预计可存”完全一致</div>
 
             <div class="savingAssetRows">
-              <div class="explainRow"><span>本周期计划储蓄</span><strong id="savingCyclePlanned">¥0</strong></div>
+              <div class="explainRow"><span>已进入储蓄</span><strong id="savingCyclePlanned">¥0</strong></div>
               <div class="explainRow"><span>预计周期结余</span><strong id="savingCycleRemainder">¥0</strong></div>
             </div>
           </div>
@@ -2952,7 +2950,7 @@ function accounting(){
   let uncovered=0;
   const effects={};
 
-  const depositLocks=(S.deposits||[])
+  const depositLocks=startedBankDeposits()
     .filter(d=>d.source==="existing")
     .map(d=>({
       id:`bdlock_${d.id}`,
@@ -3118,6 +3116,20 @@ function accounting(){
     }
 
     if(bucket==="bill"||!!t.settledBillId){
+      if(billPaymentOutsideTrackedCycles(t)){
+        effects[t.id]={
+          autoDraw:0,
+          manualDraw:0,
+          uncovered:0,
+          overPlan:0,
+          billFromReserve:0,
+          billPocketDraw:0,
+          billCycleDueDate:t.cycleDueDate||"",
+          outsideTrackedCycle:true
+        };
+        return;
+      }
+
       // 固定账单只能使用“同一账单 + 同一缴纳周期”的预留。
       // 提前支付未来周期、补缴旧周期或超过本周期预留的部分都由零花钱承担。
       const bid=billPaymentRefId(t);
@@ -3571,6 +3583,36 @@ function livingPreviewForPlan(p,nextDateOverride=""){
     extra:false
   };
 }
+function txPrecedesIncome(tx,incomeTx){
+  if(!tx||!incomeTx)return false;
+  const txDate=String(tx.date||"");
+  const incomeDate=String(incomeTx.date||"");
+  if(txDate!==incomeDate)return txDate<incomeDate;
+  return txStamp(tx)<txStamp(incomeTx);
+}
+
+function billPaidBeforeIncome(bid,dueDate,incomeTx){
+  return sm(
+    S.tx.filter(tx=>
+      billPaymentMatchesCycle(tx,bid,dueDate)
+      &&txPrecedesIncome(tx,incomeTx)
+    ),
+    tx=>N(tx.amount)
+  );
+}
+
+function billPaymentOutsideTrackedCycles(t){
+  if(!t||t.type!=="expense"||!(t.settledBillId||t.bucket==="bill")||t.cycleIncomeId)return false;
+
+  // A direct bill payment recorded before any recurring-income cycle had started
+  // belongs to money outside SafeSpend's tracked cycle pools. Keep it in spending
+  // history, but do not let a later same-day income retroactively fund it.
+  return !cycleIncomeRows().some(income=>
+    income.date<t.date
+    ||(income.date===t.date&&txStamp(income)<txStamp(t))
+  );
+}
+
 function effectiveIncomeAllocation(t){
   const livingMap=livingReservationMap();
   const living=N(livingMap[t.id]?.amount);
@@ -3579,10 +3621,19 @@ function effectiveIncomeAllocation(t){
   let billItems=[];
   let bills=0;
   if(Array.isArray(t.alloc?.billItems)){
-    billItems=t.alloc.billItems.filter(x=>{
+    billItems=t.alloc.billItems.map(x=>{
       const b=existingBills.get(x.billId);
-      return !!b && billCycleIsActive(b,x.dueDate) && !billSkipped(x.billId,x.dueDate);
-    });
+      if(!b||!billCycleIsActive(b,x.dueDate)||billSkipped(x.billId,x.dueDate))return null;
+
+      // Only the amount still unpaid when this income was recorded belongs in
+      // this income's bill reserve. This prevents an already-paid bill from
+      // occupying the same income again.
+      const paidBefore=billPaidBeforeIncome(b.id,x.dueDate,t);
+      const remainingAtIncome=Math.max(0,N(b.amount)-paidBefore);
+      const amount=Math.min(Math.max(0,N(x.amount)),remainingAtIncome);
+
+      return amount>0.005?{...x,amount}:null;
+    }).filter(Boolean);
     bills=sm(billItems,x=>N(x.amount));
   }else{
     bills=N(t.alloc?.bills);
@@ -5695,6 +5746,9 @@ function enhanceCollapsibleSections(){
 function activeBankDeposits(){
   return (S.deposits||[]).filter(d=>N(d.principal)>0);
 }
+function startedBankDeposits(asOf=td()){
+  return activeBankDeposits().filter(d=>!d.startDate||d.startDate<=asOf);
+}
 
 
 function depositTypeLabel(d){
@@ -5752,7 +5806,7 @@ function depositInterestForRange(d,start="",end=""){
 }
 
 function bankPrincipalTotal(){
-  return sm(activeBankDeposits(),d=>N(d.principal));
+  return sm(startedBankDeposits(),d=>N(d.principal));
 }
 
 function bankStartedPrincipalForRange(start="",end=""){
@@ -5789,7 +5843,7 @@ function bankInterestForRange(start="",end=""){
 }
 
 function bankInterestTotal(){
-  return sm(activeBankDeposits(),d=>depositAccruedInterest(d,td()));
+  return sm(startedBankDeposits(),d=>depositAccruedInterest(d,td()));
 }
 
 function allSavingsCycles(){
@@ -6396,11 +6450,14 @@ function renderSavings(){
   savingFreePrincipal.textContent=M(cycleProjected);
   savingFreePrincipal.style.color=cycleProjected<0?"var(--danger)":"var(--text)";
 
-  const cyclePlanned=cycle.income?N(cycle.plannedSaving):0;
-  const cycleRemainder=cycleProjected-cyclePlanned;
+  // 本周期预计可存严格拆成两块：
+  // 已进入储蓄 + 当前仍留在零花钱、预计周期结束后沉淀的结余。
+  // 两项直接来自同一个 currentCycleStats()，相加必须等于 cycleProjected。
+  const cycleLocked=cycle.income?N(cycle.lockedSaving):0;
+  const cycleRemainder=cycle.income?N(cycle.pocketBalance):0;
 
-  savingCyclePlanned.textContent=M(cyclePlanned);
-  savingCyclePlanned.style.color=cyclePlanned<0?"var(--danger)":"inherit";
+  savingCyclePlanned.textContent=M(cycleLocked);
+  savingCyclePlanned.style.color=cycleLocked<0?"var(--danger)":"inherit";
   savingCycleRemainder.textContent=M(cycleRemainder);
   savingCycleRemainder.style.color=cycleRemainder<0?"var(--danger)":"inherit";
 
@@ -6414,7 +6471,8 @@ function renderSavings(){
   bankDepositList.innerHTML=deposits.length?deposits.map(d=>{
     const interestNow=depositAccruedInterest(d);
     const daily=depositDailyInterest(d);
-    const matured=!!(d.depositType==="fixed"&&d.maturityDate&&td()>=d.maturityDate);
+    const future=!!(d.startDate&&d.startDate>td());
+    const matured=!!(!future&&d.depositType==="fixed"&&d.maturityDate&&td()>=d.maturityDate);
 
     const rateText=N(d.annualRate).toFixed(3).replace(/0+$/,"").replace(/\.$/,"");
 
@@ -6424,7 +6482,7 @@ function renderSavings(){
           <div class="name">${esc(d.name||"银行存款")}</div>
           <div class="meta">${depositTypeLabel(d)} · ${depositTermLabel(d)} · 年利率 ${rateText}%</div>
           <div class="meta">${d.startDate||""}${d.depositType==="fixed"&&d.maturityDate?" ～ "+d.maturityDate:" · 无固定到期日"}</div>
-          <span class="depositStatus ${matured?"matured":""}">${matured?"已到期":d.depositType==="demand"?"活期计息中":"定期计息中"}</span>
+          <span class="depositStatus ${matured?"matured":""}">${future?`计划 ${d.startDate} 开始`:matured?"已到期":d.depositType==="demand"?"活期计息中":"定期计息中"}</span>
         </div>
         <div style="text-align:right">
           <div class="savingAccountValue">${M(d.principal)}</div>
@@ -7659,9 +7717,9 @@ function recalcPocketTransfer(){
     transferPocketNote.textContent="转入专项只是在零花钱与专项之间重新分配，不会被当成已经储蓄。专项以后若有结余，结算时再转入储蓄。";
   }else{
     transferEffectLabel.textContent="本周期预计可存";
-    transferProjectedSaving.textContent=M(cycle.projectedSaving+validAmount);
-    transferProjectedSaving.style.color=(cycle.projectedSaving+validAmount)<=0?"var(--danger)":"var(--accent)";
-    transferPocketNote.textContent="转入储蓄会立即增加本周期预计可存，也会计入本月储蓄净增。";
+    transferProjectedSaving.textContent=M(cycle.projectedSaving);
+    transferProjectedSaving.style.color=cycle.projectedSaving<=0?"var(--danger)":"var(--accent)";
+    transferPocketNote.textContent="转入储蓄只会把这笔钱从零花钱移动到“已进入储蓄”；本周期预计可存总额保持一致。";
   }
 }
 
@@ -7710,7 +7768,7 @@ savePocketTransfer.onclick=()=>{
   save();
   closeSheet("pocketTransferSheet");
   render();
-  msg(`${M(amount)} 已从零花钱转入储蓄；本周期预计可存和本月储蓄净增已同步增加`);
+  msg(`${M(amount)} 已从零花钱转入储蓄；本周期预计可存总额保持一致`);
 };
 
 
