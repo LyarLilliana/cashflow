@@ -1644,7 +1644,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div class="name" id="bankReminderNowTitle">预计储蓄达到银行转存额度</div>
           <div class="meta" id="bankReminderNowMeta">可以考虑把这笔钱存入银行。</div>
         </div>
-        <button class="primary" id="bankReminderNowBtn">已存入银行</button>
+        <button class="primary" id="bankReminderNowBtn">新增银行存款</button>
       </div>
     </div>
 
@@ -1724,7 +1724,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
             <div class="name" id="bankReminderAlertTitle">已经达到银行转存额度</div>
             <div class="meta" id="bankReminderAlertMeta">可以考虑把这部分日常储蓄存入银行。</div>
           </div>
-          <button class="primary" id="bankReminderAlertBtn">已存入银行</button>
+          <button class="primary" id="bankReminderAlertBtn">新增银行存款</button>
         </div>
       </div>
 
@@ -1848,7 +1848,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
                 <div class="name" id="bankReminderReadyTitle">已经达到银行转存额度</div>
                 <div class="meta" id="bankReminderReadyMeta">可以把这部分日常储蓄存入银行。</div>
               </div>
-              <button class="primary" id="bankReminderDepositBtn">已存入银行</button>
+              <button class="primary" id="bankReminderDepositBtn">新增银行存款</button>
             </div>
           </div>
         </div>
@@ -5951,7 +5951,7 @@ function renderBankDepositReminder(){
       bankReminderReadyTitle.textContent="已经达到银行转存额度";
       bankReminderReadyMeta.textContent=`当前已有 ${M(r.actual)} 真正进入储蓄，提醒额度 ${M(r.threshold)}。`;
       bankReminderDepositBtn.style.display="";
-      bankReminderHint.textContent="现在可以按实际已进入储蓄的余额登记银行存款。";
+      bankReminderHint.textContent="达到额度后，可进入“新增银行存款”按正常流程完成录入。";
     }else{
       bankReminderReadyTitle.textContent="预计达到银行转存额度";
       bankReminderReadyMeta.textContent=`预计日常储蓄 ${M(r.current)}，其中 ${M(r.pending)} 仍是当前周期预计结余。`;
@@ -5977,7 +5977,7 @@ function renderBankDepositReminder(){
       bankReminderNowBtn.style.display="";
 
       bankReminderAlertTitle.textContent="日常储蓄已达到银行转存额度";
-      bankReminderAlertMeta.textContent=`已进入储蓄 ${M(r.actual)}，可以登记银行存款。`;
+      bankReminderAlertMeta.textContent=`已进入储蓄 ${M(r.actual)}，可以进入新增银行存款录入。`;
       bankReminderAlertBtn.style.display="";
     }else{
       bankReminderNowTitle.textContent="预计储蓄达到银行转存额度";
@@ -5999,12 +5999,11 @@ function openBankDepositFromReminder(){
     return msg(`预计已达到额度，但目前只有 ${M(r.actual)} 已真正进入储蓄`);
   }
 
+  // 与“新增储蓄录入 → 新增银行存款”完全共用同一个录入流程。
+  // 提醒只负责带用户进入页面并预填建议转存金额，不直接完成银行入账。
   openBankDeposit();
-  bankDepositSheetTitle.textContent="确认已存入银行";
   bankDepositSource.value="existing";
   bankDepositPrincipal.value=Math.min(r.threshold,r.actual);
-  bankDepositName.value="";
-  bankDepositNote.value="由银行转存提醒登记";
   refreshBankDepositForm();
 }
 
