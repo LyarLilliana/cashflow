@@ -3747,7 +3747,7 @@ function renderNow(){
     livingSettleBtn.textContent=`今日基础生活已结算 · ${release>=0?"+":""}${M(release)} 零花钱`;
     livingSettleBtn.disabled=false;
   }else if(dayInfo.covered){
-    livingSettleBtn.textContent=`结算今日基础生活 · 预留 ${M(dayInfo.allowance)}`;
+    livingSettleBtn.textContent=`结算今日基础生活 · 剩余 ${M(livingRemainingForDate(td()))}`;
     livingSettleBtn.disabled=false;
   }else{
     livingSettleBtn.textContent="今日没有基础生活预留";
