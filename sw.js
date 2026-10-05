@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-9-expense-source-cleanup";
+const CACHE = "safespend-v10-9-savings-add-title";
 const ASSETS = [
   "./",
   "./index.html",
