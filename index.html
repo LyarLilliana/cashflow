@@ -1964,7 +1964,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="grid">
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
-        <div class="card stat"><div class="k" id="mOutcomeLabel">本月净结余</div><div class="v" id="mExpectedSaving">¥0</div><div class="s" id="mExpectedSavingSub">本月收入减去本月实际消费</div></div>
+        <div class="card stat"><div class="k" id="mOutcomeLabel">本月预计可存</div><div class="v" id="mExpectedSaving">¥0</div><div class="s" id="mExpectedSavingSub">按本月各资金桶实际归属独立结算</div></div>
         <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">—</div><div class="s" id="mRateSub">本月净结余 ÷ 本月收入</div></div>
       </div>
 
@@ -2018,7 +2018,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="summaryGroup">
           <div class="summaryGroupTitle">期间结果</div>
           <div class="summaryRow"><span>储蓄率</span><strong id="mRateDetail">—</strong></div>
-          <div class="summaryRow summaryTotal"><span id="mOutcomeDetailLabel">本月净结余</span><strong id="mExpectedSavingDetail">¥0</strong></div>
+          <div class="summaryRow summaryTotal"><span id="mOutcomeDetailLabel">本月预计可存</span><strong id="mExpectedSavingDetail">¥0</strong></div>
         </div>
       </div>
     </div>
@@ -3219,16 +3219,19 @@ function cycleStatsForIncome(incomeTx){
   const next=snap.next;
   const isClosed=!!next;
 
-  const lockedSaving=
-    snap.plannedSaving
-    +snap.pocketToSaving
-    +snap.projectSettlementSaving
-    -snap.manualSavingUse;
+  // “预计可存”只追踪本周期收入里仍可沉淀的资金。
+  // 单位一一对应：专项只动专项、账单只动账单、既有储蓄只动储蓄资产；
+  // 它们不能再次反向扣减本周期收入的预计可存。
+  const lockedSaving=snap.plannedSaving+snap.pocketToSaving;
 
-  // “本周期预计可存”按当前时点的完整结算口径：
-  // 已锁定储蓄 + 当前剩余零花钱。正余额是如果现在结束周期会沉淀的部分，
-  // 负余额则继续等额压低预计可存。
-  const projectedSaving=lockedSaving+snap.pocketBalance;
+  // pocketToSaving 只是零花 → 储蓄的位置变化，所以在总可存中净效应为 0。
+  // pocketToProject 会把零花转成专项用途，因此需要降低预计可存。
+  const projectedSaving=
+    snap.plannedSaving
+    +snap.pocketInitial
+    +snap.livingRelease
+    -snap.pocketSpent
+    -snap.pocketToProject;
 
   return {
     income:incomeTx,
@@ -5304,69 +5307,150 @@ function periodOutcomeLabels(mode=historyMode){
   if(mode==="cycle"){
     return {
       outcome:"本周期预计可存",
-      sub:"按当前周期预算、已发生支出和当前结余综合预计",
+      sub:"按本周期各资金桶实际归属独立结算",
       rateSub:"本周期预计可存 ÷ 本周期收入"
     };
   }
   if(mode==="month"){
     return {
-      outcome:"本月净结余",
-      sub:"本月收入 − 本月实际消费",
-      rateSub:"本月净结余 ÷ 本月收入"
+      outcome:"本月预计可存",
+      sub:"按本月各资金桶实际归属独立结算",
+      rateSub:"本月预计可存 ÷ 本月收入"
     };
   }
   if(mode==="year"){
     return {
-      outcome:"本年净结余",
-      sub:"本年收入 − 本年实际消费",
-      rateSub:"本年净结余 ÷ 本年收入"
+      outcome:"本年预计可存",
+      sub:"按本年各资金桶实际归属独立结算",
+      rateSub:"本年预计可存 ÷ 本年收入"
     };
   }
   if(mode==="all"){
     return {
-      outcome:"累计净结余",
-      sub:"累计收入 − 累计实际消费",
-      rateSub:"累计净结余 ÷ 累计收入"
+      outcome:"累计可存",
+      sub:"按全部期间各资金桶实际归属独立结算",
+      rateSub:"累计可存 ÷ 累计收入"
     };
   }
   return {
-    outcome:"范围净结余",
-    sub:"所选范围收入 − 所选范围实际消费",
-    rateSub:"范围净结余 ÷ 范围收入"
+    outcome:"范围预计可存",
+    sub:"按所选范围各资金桶实际归属独立结算",
+    rateSub:"范围预计可存 ÷ 范围收入"
+  };
+}
+
+function periodSavableForRange(start="",end=""){
+  const inRange=date=>{
+    const d=String(date||"");
+    if(start&&d<start)return false;
+    if(end&&d>end)return false;
+    return true;
+  };
+
+  const incomes=S.tx.filter(t=>t.type==="income"&&inRange(t.date));
+  const income=sm(incomes,t=>N(t.amount));
+
+  // 只拿“这段时间收入里本来就属于可存体系”的两部分作为起点：
+  // 直接储蓄 + 零花钱。基础生活 / 固定账单 / 专项预留已经从这里剥离，
+  // 后续对应支出因此不能再次扣一次。
+  const allocs=incomes.map(t=>effectiveIncomeAllocation(t));
+  const directSaving=sm(allocs,a=>N(a.saving));
+  const pocketInitial=sm(allocs,a=>N(a.safe));
+
+  // 基础生活结算后，未使用部分会重新释放到零花钱；
+  // 超支则以负数压低零花钱。
+  const livingRelease=sm(
+    S.tx.filter(t=>t.type==="living_settlement"&&inRange(t.coveredDate||t.date)),
+    t=>N(t.allowance)-livingSettlementEffectiveActual(t)
+  );
+
+  const effects=accounting().effects;
+
+  let pocketSpend=0;
+  let pocketToProject=0;
+
+  S.tx.forEach(t=>{
+    const d=historyTxDate(t);
+    if(!inRange(d))return;
+
+    if(t.type==="pocket_to_project"){
+      pocketToProject+=Math.max(0,N(t.amount));
+      return;
+    }
+
+    // 零花 → 储蓄只是同一个“可存池”内部换位置，总可存不变。
+    if(t.type==="pocket_to_saving")return;
+
+    if(t.type!=="expense")return;
+
+    const fx=effects?.[t.id]||{};
+
+    if(t.settledBillId||t.bucket==="bill"){
+      // 账单只把实际由零花钱承担的超额部分算进来。
+      pocketSpend+=Math.max(0,N(fx.billPocketDraw));
+      return;
+    }
+
+    if(t.bucket==="project"){
+      // 专项本金由专项自己承担；只有明确由零花钱补的超支影响预计可存。
+      pocketSpend+=Math.max(
+        0,
+        N(fx.projectPocketDraw),
+        t.projectOverrunSource==="safe"?N(t.projectOverrunAmount):0
+      );
+      return;
+    }
+
+    if(t.bucket==="saving"){
+      // 从既有储蓄取用属于储蓄资产变化，不回头扣本期预计可存。
+      return;
+    }
+
+    // 日常支出 / 旧版 living bucket 直接由零花钱承担。
+    pocketSpend+=Math.max(0,N(t.amount));
+  });
+
+  const expected=
+    directSaving
+    +pocketInitial
+    +livingRelease
+    -pocketSpend
+    -pocketToProject;
+
+  return {
+    income,
+    directSaving,
+    pocketInitial,
+    livingRelease,
+    pocketSpend,
+    pocketToProject,
+    expected
   };
 }
 
 function periodOutcomeForRange(start="",end="",mode=historyMode){
-  const incomes=S.tx.filter(t=>{
-    if(t.type!=="income")return false;
-    const d=t.date||"";
-    if(start&&d<start)return false;
-    if(end&&d>end)return false;
-    return true;
-  });
-
-  const income=sm(incomes,t=>N(t.amount));
   const spend=spendingBreakdownForRange(start,end);
 
-  // 结果页只回答“这个统计范围本身的现金流结果”。
-  // 银行本金转存、外部补录储蓄、额外储蓄和银行利息都属于资产页，
-  // 不参与这里的期间结果，也不会改变储蓄率。
-  let outcome=income-spend.total;
+  let savable=periodSavableForRange(start,end);
 
   if(mode==="cycle"){
     const cycle=currentCycleStats();
     if(cycle.income){
-      // 当前周期需要考虑尚未实际支付、但已经被预算占用的生活费、
-      // 固定账单和专项，所以使用周期引擎的“预计可存”。
-      outcome=N(cycle.projectedSaving);
+      // 当前周期继续使用同一套周期引擎；其 projectedSaving 已与上述单位匹配逻辑一致。
+      savable={
+        ...savable,
+        income:N(cycle.incomeTotal),
+        expected:N(cycle.projectedSaving)
+      };
     }
   }
 
   return {
-    income,
+    income:N(savable.income),
     spend,
-    expected:outcome,
-    rate:income>0?outcome/income*100:null
+    savable,
+    expected:N(savable.expected),
+    rate:N(savable.income)>0?N(savable.expected)/N(savable.income)*100:null
   };
 }
 
@@ -8684,7 +8768,7 @@ function summary(){
 本月专项预留：${M(ms.projectReserved)}
 本月已用零花钱：${M(ms.pocketSpent)}
 本月零花钱转储蓄：${M(ms.pocketToSaving)}
-本月净结余：${M(net)}
+本月预计可存：${M(net)}
 本月储蓄率：${rate===null?"—":(Math.round(rate*10)/10)+"%"}
 
 当前零花钱余额：${M(b.safe)}
