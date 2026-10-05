@@ -1782,7 +1782,8 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="explainRow"><span>外部直接存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
         <div class="explainRow"><span>储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
         <div class="explainRow"><span>日常储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
-        <div class="explainRow total"><span>期间预计新增储蓄本金</span><strong id="savingGrowthTotal">¥0</strong></div>
+        <div class="explainRow"><span>银行预估利息增长</span><strong id="savingInterestGrowthPart">¥0</strong></div>
+        <div class="explainRow total"><span>预计储蓄增长总和</span><strong id="savingGrowthTotal">¥0</strong></div>
         <div class="note" style="margin-top:9px">“当前周期预计结余”仍属于零花钱预测值，会随继续消费变化；周期真正结束后才转为“周期结束结余转储蓄”。</div>
       </div>
 
@@ -5048,23 +5049,50 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
   const saving=savingStatsForRange(start,end);
   const cycle=currentCycleStats();
 
-  if(forceCurrentCycle&&cycle.income){
-    return {
-      ...saving,
-      confirmedPrincipal:N(cycle.lockedSaving),
-      pendingPocket:N(cycle.pocketBalance),
-      expected:N(cycle.projectedSaving)
-    };
+  const inRange=date=>{
+    const d=String(date||"");
+    if(!d)return false;
+    if(start&&d<start)return false;
+    if(end&&d>end)return false;
+    return true;
+  };
+
+  // 已经发生的本金净变化始终来自所选统计范围。
+  const confirmedPrincipal=N(saving.principalNet);
+
+  // 当前开放周期尚未正式沉淀的正零花结余属于“预计”部分。
+  // 只有它预计结算的日期落在当前统计范围内时才计入；
+  // “当前周期”模式直接把本周期结束时可能沉淀的余额纳入预计。
+  let pendingPocket=0;
+  if(cycle.income&&!cycle.isClosed){
+    const closeDate=
+      cycle.nextCycleIncome?.date
+      ||cycle.income?.nextIncomeDate
+      ||nextRecurringIncome()?.nextDate
+      ||"";
+
+    const shouldInclude=
+      forceCurrentCycle
+      ||(closeDate&&inRange(closeDate))
+      ||(!closeDate&&!start&&!end);
+
+    if(shouldInclude){
+      pendingPocket=Math.max(0,N(cycle.pocketBalance));
+    }
   }
 
-  // 日历范围和自定义范围只统计范围内已经发生的储蓄变化。
-  // 当前周期跨出范围的零花结余预测不带入本周 / 本月 / 本年。
-  const confirmedPrincipal=N(saving.principalNet);
+  const expectedPrincipal=confirmedPrincipal+pendingPocket;
+  const interestGrowth=N(saving.interest);
+
+  // “预计储蓄增长”显示真正的总和：
+  // 本金净增 + 范围内预计会沉淀的周期结余 + 银行预估利息增长。
   return {
     ...saving,
     confirmedPrincipal,
-    pendingPocket:0,
-    expected:confirmedPrincipal
+    pendingPocket,
+    expectedPrincipal,
+    interestGrowth,
+    expected:expectedPrincipal+interestGrowth
   };
 }
 function resultStatsForRange(start="",end=""){
@@ -5813,6 +5841,9 @@ function renderSavingStats(){
   savingBankTransferPart.textContent=s.bankExisting>0?`${M(s.bankExisting)} → 银行`:M(0);
   savingBankTransferPart.style.color=s.bankExisting>0?"var(--muted)":"inherit";
 
+  savingInterestGrowthPart.textContent=M(s.interestGrowth);
+  savingInterestGrowthPart.style.color=s.interestGrowth>0?"var(--accent)":"inherit";
+
   savingGrowthTotal.textContent=M(s.expected);
   savingGrowthTotal.style.color=s.expected<0?"var(--danger)":"var(--accent)";
 
@@ -6175,13 +6206,10 @@ function renderHistory(){
   mExpectedSaving.textContent=M(rs.expected);
   mRate.textContent=(Math.round(rs.rate*10)/10)+"%";
 
-  mExpectedSavingSub.textContent=historyMode==="cycle"
-    ?(rs.pendingPocket>0
-      ?`计划/已锁定储蓄 ${M(rs.confirmedPrincipal)} + 预计周期结余 ${M(rs.pendingPocket)}`
-      :rs.pendingPocket<0
-        ?`计划/已锁定储蓄 ${M(rs.confirmedPrincipal)} - 当前零花缺口 ${M(Math.abs(rs.pendingPocket))}`
-        :`当前周期已形成储蓄 ${M(rs.confirmedPrincipal)}`)
-    :`仅统计所选范围内储蓄净变化 ${M(rs.confirmedPrincipal)}`;
+  const savingParts=[`储蓄本金净增 ${M(rs.confirmedPrincipal)}`];
+  if(rs.pendingPocket>0)savingParts.push(`预计周期结余 ${M(rs.pendingPocket)}`);
+  if(rs.saving.interestGrowth>0)savingParts.push(`银行利息 ${M(rs.saving.interestGrowth)}`);
+  mExpectedSavingSub.textContent=savingParts.join(" + ");
 
   mResultIncome.textContent=M(rs.income);
   mLivingActualSpend.textContent=M(rs.spend.living);
