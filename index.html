@@ -364,6 +364,38 @@ button{touch-action:manipulation}
   margin-top:12px;
   min-height:42px;
 }
+.savingAddSection{
+  margin-top:14px;
+}
+.savingAddCard{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.savingAddAction{
+  width:100%;
+  min-height:70px;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:4px;
+  padding:12px 13px;
+  text-align:left;
+}
+.savingAddActionTitle{
+  font-size:12px;
+  font-weight:780;
+  color:var(--text);
+}
+.savingAddActionMeta{
+  font-size:10px;
+  line-height:1.4;
+  color:var(--muted);
+}
+@media(max-width:420px){
+  .savingAddCard{grid-template-columns:1fr;}
+}
 .savingBankBlock .savingAssetBlockValue{
   color:var(--text);
 }
@@ -1255,7 +1287,6 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
             <div class="explainRow"><span>预计周期结余</span><strong id="savingPendingPocket">¥0</strong></div>
           </div>
 
-          <button class="ghost savingAssetAction" onclick="openExtraSaving()">记额外储蓄</button>
         </div>
 
         <div class="card savingAssetBlock savingBankBlock">
@@ -1268,8 +1299,21 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
             <div class="explainRow"><span>预估累计利息</span><strong id="savingBankInterest">¥0</strong></div>
           </div>
 
-          <button class="ghost savingAssetAction" onclick="openBankDeposit()">新增银行存款</button>
         </div>
+      </div>
+    </div>
+
+    <div class="section savingAddSection">
+      <div class="sectionTitle">新增</div>
+      <div class="card savingAddCard">
+        <button class="ghost savingAddAction" onclick="openExtraSaving()">
+          <span class="savingAddActionTitle">记额外储蓄</span>
+          <span class="savingAddActionMeta">把额外存下来的钱加入日常储蓄</span>
+        </button>
+        <button class="ghost savingAddAction" onclick="openBankDeposit()">
+          <span class="savingAddActionTitle">新增银行存款</span>
+          <span class="savingAddActionMeta">登记活期或定期银行资产</span>
+        </button>
       </div>
     </div>
 
