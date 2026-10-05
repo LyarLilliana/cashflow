@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-1-days-input-edit";
+const CACHE = "safespend-v10-1-savings-two-blocks";
 const ASSETS = [
   "./",
   "./index.html",
