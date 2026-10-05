@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-5-result-range-memory";
+const CACHE = "safespend-v10-6-unified-living-ui";
 const ASSETS = [
   "./",
   "./index.html",
