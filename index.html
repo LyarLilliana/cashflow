@@ -97,13 +97,15 @@ button{touch-action:manipulation}
 }
 
 .resultRangeBar{
-  margin-top:8px;
-  min-height:32px;
+  margin-top:10px;
+  min-height:38px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  padding:2px 3px;
+  padding:7px 10px;
+  border-radius:12px;
+  background:#F7F8F5;
   color:var(--muted);
   font-size:10.5px;
 }
@@ -327,33 +329,22 @@ button{touch-action:manipulation}
   font-size:12px;
   color:var(--text);
 }
-.depositProgress{
-  margin-top:9px;
-  height:7px;
-  border-radius:999px;
-  background:#ECEFEA;
-  overflow:hidden;
-}
-.depositProgress span{
-  display:block;
-  height:100%;
-  border-radius:999px;
-  background:var(--accent);
-}
 .depositActions{
   display:flex;
   justify-content:flex-end;
-  gap:7px;
-  margin-top:9px;
+  margin-top:7px;
 }
 .depositActions button{
-  border:1px solid var(--line);
-  background:#F7F8F5;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  padding:4px 2px;
+  min-height:0;
+  font-size:10px;
+  font-weight:650;
+}
+.depositActions button:active{
   color:var(--text);
-  border-radius:999px;
-  padding:6px 10px;
-  font-size:10.5px;
-  font-weight:700;
 }
 .depositStatus{
   display:inline-block;
@@ -1795,7 +1786,8 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
             <div class="small savingAssetBlockDesc">与结果页“本周期预计可存”完全一致</div>
 
             <div class="savingAssetRows">
-              <div class="explainRow"><span>本周期预计可存</span><strong id="savingCycleProjected">¥0</strong></div>
+              <div class="explainRow"><span>本周期计划储蓄</span><strong id="savingCyclePlanned">¥0</strong></div>
+              <div class="explainRow"><span>预计周期结余</span><strong id="savingCycleRemainder">¥0</strong></div>
             </div>
           </div>
 
@@ -1981,7 +1973,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <span class="resultRangeLabel">统计范围</span>
         <button class="resultRangeToggle" id="resultRangeToggle">
           <span class="rangeValue" id="historyRangeText">本月</span>
-          <span class="rangeAction">调整</span>
+          <span class="rangeAction">修改</span>
         </button>
       </div>
 
@@ -2010,21 +2002,13 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
       <div class="card summaryLedgerCard" style="margin-top:10px">
         <div class="summaryGroup" style="margin-top:0;padding-top:0;border-top:0">
-          <div class="summaryGroupTitle">消费</div>
+          <div class="summaryGroupTitle">消费明细</div>
           <div class="summaryRow"><span>基础生活</span><strong id="mLivingActualSpend">¥0</strong></div>
           <div class="summaryRow"><span>日常支出</span><strong id="mDailyActualSpend">¥0</strong></div>
           <div class="summaryRow"><span>固定账单</span><strong id="mBillActualSpend">¥0</strong></div>
           <div class="summaryRow"><span>专项支出</span><strong id="mProjectActualSpend">¥0</strong></div>
           <div class="summaryRow"><span>储蓄取用</span><strong id="mSavingActualSpend">¥0</strong></div>
-          <div class="summaryRow summaryTotal"><span>消费合计</span><strong id="mActualSpendTotal">¥0</strong></div>
-        </div>
-
-        <div class="summaryGroup periodResultGroup">
-          <div class="summaryGroupTitle">期间结果</div>
-          <div class="summaryRow"><span id="mPeriodIncomeLabel">本月总收入</span><strong id="mResultIncome">¥0</strong></div>
-          <div class="summaryRow"><span id="mOutcomeDetailLabel">本月预计可存</span><strong id="mExpectedSavingDetail">¥0</strong></div>
-          <div class="summaryRow"><span>储蓄率</span><strong id="mRateDetail">—</strong></div>
-        </div>
+          </div>
       </div>
     </div>
 
@@ -6412,8 +6396,13 @@ function renderSavings(){
   savingFreePrincipal.textContent=M(cycleProjected);
   savingFreePrincipal.style.color=cycleProjected<0?"var(--danger)":"var(--text)";
 
-  savingCycleProjected.textContent=M(cycleProjected);
-  savingCycleProjected.style.color=cycleProjected<0?"var(--danger)":"inherit";
+  const cyclePlanned=cycle.income?N(cycle.plannedSaving):0;
+  const cycleRemainder=cycleProjected-cyclePlanned;
+
+  savingCyclePlanned.textContent=M(cyclePlanned);
+  savingCyclePlanned.style.color=cyclePlanned<0?"var(--danger)":"inherit";
+  savingCycleRemainder.textContent=M(cycleRemainder);
+  savingCycleRemainder.style.color=cycleRemainder<0?"var(--danger)":"inherit";
 
   savingGrandTotal.textContent=M(total);
   savingGrandTotal.style.color=total<0?"var(--danger)":"var(--accent)";
@@ -6426,13 +6415,6 @@ function renderSavings(){
     const interestNow=depositAccruedInterest(d);
     const daily=depositDailyInterest(d);
     const matured=!!(d.depositType==="fixed"&&d.maturityDate&&td()>=d.maturityDate);
-
-    let pct=0;
-    if(d.depositType==="fixed"&&d.startDate&&d.maturityDate&&d.maturityDate>d.startDate){
-      const totalDays=diffDays(d.startDate,d.maturityDate);
-      const elapsed=Math.min(totalDays,diffDays(d.startDate,td()));
-      pct=totalDays>0?Math.max(0,Math.min(100,elapsed/totalDays*100)):0;
-    }
 
     const rateText=N(d.annualRate).toFixed(3).replace(/0+$/,"").replace(/\.$/,"");
 
@@ -6461,7 +6443,6 @@ function renderSavings(){
         <div>到期处理<strong>${d.depositType==="fixed"?depositRenewalLabel(d):"活期无固定到期"}</strong></div>
       </div>
 
-      ${d.depositType==="fixed"&&d.maturityDate?`<div class="depositProgress"><span style="width:${pct}%"></span></div>`:""}
       ${d.note?`<div class="meta" style="margin-top:7px">${esc(d.note)}</div>`:""}
 
       <div class="depositActions">
@@ -6549,8 +6530,6 @@ function renderHistory(){
 
   const outcomeLabels=periodOutcomeLabels(historyMode);
   mOutcomeLabel.textContent=outcomeLabels.outcome;
-  mOutcomeDetailLabel.textContent=outcomeLabels.outcome;
-  mPeriodIncomeLabel.textContent=outcomeLabels.income;
   mExpectedSavingSub.textContent=outcomeLabels.sub;
   mRateSub.textContent=outcomeLabels.rateSub;
 
@@ -6559,23 +6538,14 @@ function renderHistory(){
     :(Math.round(rs.rate*10)/10)+"%";
   mRate.textContent=incomeRateText;
 
-  mResultIncome.textContent=M(rs.income);
   mLivingActualSpend.textContent=M(rs.spend.living);
   mDailyActualSpend.textContent=M(rs.spend.daily);
   mBillActualSpend.textContent=M(rs.spend.bill);
   mProjectActualSpend.textContent=M(rs.spend.project);
   mSavingActualSpend.textContent=M(rs.spend.saving);
-  mActualSpendTotal.textContent=M(rs.spend.total);
-
-  mRateDetail.textContent=incomeRateText;
-  mExpectedSavingDetail.textContent=M(rs.expected);
-
   mSpend.style.color=rs.spend.total>0?"inherit":"var(--muted)";
-  mActualSpendTotal.style.color=rs.spend.total>0?"var(--text)":"var(--muted)";
   mExpectedSaving.style.color=rs.expected<0?"var(--danger)":"var(--accent)";
-  mExpectedSavingDetail.style.color=rs.expected<0?"var(--danger)":"var(--accent)";
   mRate.style.color=rs.rate!==null&&rs.rate<0?"var(--danger)":"inherit";
-  mRateDetail.style.color=rs.rate!==null&&rs.rate<0?"var(--danger)":"inherit";
 
   renderHistoryTransactions();
 }
