@@ -8188,7 +8188,7 @@ function openTxEdit(id){
         </div>
 
         <div>
-          <label>付款日期</label>
+          <label>流水日期（付款日期）</label>
           <input id="editDirectBillDate" type="date" max="${td()}" value="${esc(t.date||td())}">
         </div>
 
@@ -8199,7 +8199,7 @@ function openTxEdit(id){
       </div>
     `;
 
-    editTxHint.textContent="对应账单、实际支付金额、付款日期和备注都可以修改。保存后会重新匹配缴纳周期，并按当时是否已有账单预留重新计算零花钱与账单余额。";
+    editTxHint.textContent="对应账单、实际支付金额、流水日期和备注都可以修改。修改流水日期后，这笔固定账单会移动到新的日期，并重新匹配缴纳周期、统计范围和当时的账单预留。";
   }else if(t.type==="expense"){
     const bucket=t.bucket==="living"?"safe":t.bucket;
 
