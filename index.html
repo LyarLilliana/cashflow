@@ -4942,9 +4942,9 @@ function transactionEditable(t){
   if(!t)return false;
 
   if(t.type==="expense"){
-    // “已支付”快捷按钮生成的核销流水没有原始输入表单，
-    // 所以只允许删除，不伪造可编辑字段。
-    return !t.billHandledDirect&&!t.settledBillId;
+    // 支出流水统一可编辑。固定账单快捷核销使用专门的固定账单编辑表单，
+    // 保存后重新判断对应缴纳周期及资金来源。
+    return true;
   }
 
   return [
@@ -8170,6 +8170,36 @@ function openTxEdit(id){
 
     document.getElementById("editIncomePlan").addEventListener("change",()=>refreshIncomeEditFields(t));
     refreshIncomeEditFields(t);
+  }else if(t.type==="expense"&&(t.settledBillId||t.billHandledDirect)){
+    const billId=t.settledBillId||t.refId||"";
+    const bill=S.bills.find(x=>x.id===billId);
+
+    editTxTitle.textContent="修改固定账单流水";
+    editTxFields.innerHTML=`
+      <div class="formGrid one">
+        <div>
+          <label>对应固定账单</label>
+          <select id="editDirectBillRef">${txBillOptions(billId)}</select>
+        </div>
+
+        <div>
+          <label>实际支付金额</label>
+          <input id="editDirectBillAmount" inputmode="decimal" type="number" min="0" value="${N(t.amount)}">
+        </div>
+
+        <div>
+          <label>付款日期</label>
+          <input id="editDirectBillDate" type="date" max="${td()}" value="${esc(t.date||td())}">
+        </div>
+
+        <div>
+          <label>备注</label>
+          <input id="editDirectBillNote" value="${esc(t.note||bill?.name||"")}">
+        </div>
+      </div>
+    `;
+
+    editTxHint.textContent="对应账单、实际支付金额、付款日期和备注都可以修改。保存后会重新匹配缴纳周期，并按当时是否已有账单预留重新计算零花钱与账单余额。";
   }else if(t.type==="expense"){
     const bucket=t.bucket==="living"?"safe":t.bucket;
 
@@ -8519,6 +8549,40 @@ saveTxEdit.onclick=()=>{
     t.alloc.living=N(ea.living);
     t.alloc.bills=N(ea.bills);
     t.alloc.safe=N(ea.safe);
+  }else if(t.type==="expense"&&(t.settledBillId||t.billHandledDirect)){
+    const billId=document.getElementById("editDirectBillRef").value;
+    const amount=Math.max(0,N(document.getElementById("editDirectBillAmount").value));
+    const date=document.getElementById("editDirectBillDate").value||t.date||td();
+    const note=document.getElementById("editDirectBillNote").value.trim();
+
+    if(!billId)return msg("请选择对应固定账单");
+    if(amount<=0)return msg("请输入实际支付金额");
+    if(date>td())return msg("付款日期不能晚于今天");
+
+    const bill=S.bills.find(x=>x.id===billId);
+    const dueDate=bill
+      ?billCycleForEditedExpense(billId,date,t.id)
+      :(t.cycleDueDate||"");
+
+    // 若该账单当前仍存在，则按修改后的账单和日期重新匹配缴纳周期。
+    // 已有收入预留时从账单预留核销，其余情况由零花钱承担。
+    const useBillReserve=!!(
+      bill
+      &&dueDate
+      &&billReserved(billId,dueDate)
+    );
+
+    t.amount=amount;
+    t.date=date;
+    t.note=note||bill?.name||t.note||"";
+    t.settledBillId=billId;
+    t.billHandledDirect=true;
+    t.cycleDueDate=dueDate;
+    t.bucket=useBillReserve?"bill":"safe";
+    t.refId=useBillReserve?billId:"";
+    t.cycleIncomeId=cycleIncomeIdForDate(date);
+    t.projectOverrunAmount=0;
+    t.projectOverrunSource="";
   }else if(t.type==="expense"){
     const bucket=document.getElementById("editExpenseBucket").value;
     const amount=Math.max(0,N(document.getElementById("editExpenseAmount").value));
