@@ -1965,7 +1965,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
         <div class="card stat"><div class="k">预计储蓄增长</div><div class="v" id="mExpectedSaving">¥0</div><div class="s" id="mExpectedSavingSub">随收入、消费和资金转移实时变化</div></div>
-        <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">0%</div><div class="s">预计储蓄增长 ÷ 统计范围内收入</div></div>
+        <div class="card stat"><div class="k">收入储蓄率</div><div class="v" id="mRate">—</div><div class="s">本期收入形成储蓄 ÷ 本期收入</div></div>
       </div>
 
       <div class="resultRangeBar">
@@ -2017,7 +2017,8 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
         <div class="summaryGroup">
           <div class="summaryGroupTitle">储蓄</div>
-          <div class="summaryRow"><span>储蓄率</span><strong id="mRateDetail">0%</strong></div>
+          <div class="summaryRow"><span>本期收入形成储蓄</span><strong id="mIncomeSavingBasis">¥0</strong></div>
+          <div class="summaryRow"><span>收入储蓄率</span><strong id="mRateDetail">—</strong></div>
           <div class="summaryRow summaryTotal"><span>预计储蓄增长</span><strong id="mExpectedSavingDetail">¥0</strong></div>
         </div>
       </div>
@@ -5300,6 +5301,70 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
     expected:expectedPrincipal+interestGrowth
   };
 }
+function incomeSavingStatsForRange(start="",end="",forceCurrentCycle=false){
+  const inRange=date=>{
+    const d=String(date||"");
+    if(start&&d<start)return false;
+    if(end&&d>end)return false;
+    return true;
+  };
+
+  const incomes=S.tx.filter(t=>t.type==="income"&&inRange(t.date));
+  const income=sm(incomes,t=>N(t.amount));
+  const incomeIds=new Set(incomes.map(t=>t.id));
+
+  // 1. 收入到账时直接进入储蓄的部分。
+  const directSaving=sm(
+    incomes,
+    t=>N(effectiveIncomeAllocation(t).saving)
+  );
+
+  // 2. 零花钱主动转储蓄。优先按所属收入周期归因；
+  //    老流水缺少 cycleIncomeId 时再按日期回推。
+  const pocketTransfers=sm(
+    S.tx.filter(t=>{
+      if(t.type!=="pocket_to_saving")return false;
+      const cycleId=t.cycleIncomeId||cycleIncomeIdForDate(t.date);
+      return cycleId?incomeIds.has(cycleId):inRange(t.date);
+    }),
+    t=>N(t.amount)
+  );
+
+  // 3. 已结束周期留下的零花，归回产生它的那笔周期收入。
+  const closedPocket=sm(
+    virtualCycleCloseEvents().filter(ev=>incomeIds.has(ev.sourceIncomeId)),
+    ev=>N(ev.amount)
+  );
+
+  // 4. 当前开放周期尚未结束时，把预计还能留下的零花计入预计收入储蓄。
+  //    只在该周期的收入本身属于当前统计范围时纳入。
+  const cycle=currentCycleStats();
+  let pendingPocket=0;
+  if(
+    cycle.income
+    &&!cycle.isClosed
+    &&(forceCurrentCycle||incomeIds.has(cycle.income.id))
+  ){
+    pendingPocket=Math.max(0,N(cycle.pocketBalance));
+  }
+
+  const savedFromIncome=
+    directSaving
+    +pocketTransfers
+    +closedPocket
+    +pendingPocket;
+
+  return {
+    income,
+    directSaving,
+    pocketTransfers,
+    closedPocket,
+    pendingPocket,
+    savedFromIncome,
+    rate:income>0?savedFromIncome/income*100:null
+  };
+}
+
 function resultStatsForRange(start="",end=""){
   const incomes=S.tx.filter(t=>{
     if(t.type!=="income")return false;
@@ -5316,12 +5381,20 @@ function resultStatsForRange(start="",end=""){
     end,
     historyMode==="cycle"
   );
+  const incomeSaving=incomeSavingStatsForRange(
+    start,
+    end,
+    historyMode==="cycle"
+  );
 
   const confirmedPrincipal=N(saving.confirmedPrincipal);
   const pendingPocket=N(saving.pendingPocket);
   const expected=N(saving.expected);
-  const rate=income>0?expected/income*100:0;
-  return {income,spend,saving,confirmedPrincipal,pendingPocket,expected,rate};
+  const rate=incomeSaving.rate;
+  return {
+    income,spend,saving,incomeSaving,
+    confirmedPrincipal,pendingPocket,expected,rate
+  };
 }
 
 function renderHistoryTransactions(){
@@ -6409,7 +6482,10 @@ function renderHistory(){
   mIncome.textContent=M(rs.income);
   mSpend.textContent=M(rs.spend.total);
   mExpectedSaving.textContent=M(rs.expected);
-  mRate.textContent=(Math.round(rs.rate*10)/10)+"%";
+  const incomeRateText=rs.rate===null
+    ?"—"
+    :(Math.round(rs.rate*10)/10)+"%";
+  mRate.textContent=incomeRateText;
 
   const savingParts=[`储蓄本金净增 ${M(rs.confirmedPrincipal)}`];
   if(rs.pendingPocket>0)savingParts.push(`预计周期结余 ${M(rs.pendingPocket)}`);
@@ -6424,15 +6500,16 @@ function renderHistory(){
   mSavingActualSpend.textContent=M(rs.spend.saving);
   mActualSpendTotal.textContent=M(rs.spend.total);
 
-  mRateDetail.textContent=(Math.round(rs.rate*10)/10)+"%";
+  mIncomeSavingBasis.textContent=M(rs.incomeSaving.savedFromIncome);
+  mRateDetail.textContent=incomeRateText;
   mExpectedSavingDetail.textContent=M(rs.expected);
 
   mSpend.style.color=rs.spend.total>0?"inherit":"var(--muted)";
   mActualSpendTotal.style.color=rs.spend.total>0?"var(--text)":"var(--muted)";
   mExpectedSaving.style.color=rs.expected<0?"var(--danger)":"var(--accent)";
   mExpectedSavingDetail.style.color=rs.expected<0?"var(--danger)":"var(--accent)";
-  mRate.style.color=rs.rate<0?"var(--danger)":"inherit";
-  mRateDetail.style.color=rs.rate<0?"var(--danger)":"inherit";
+  mRate.style.color=rs.rate!==null&&rs.rate<0?"var(--danger)":"inherit";
+  mRateDetail.style.color=rs.rate!==null&&rs.rate<0?"var(--danger)":"inherit";
 
   renderHistoryTransactions();
 }
@@ -8602,7 +8679,9 @@ function summary(){
   const ms=monthlyCycleStats(md());
   const inc=ms.income;
   const net=ms.projectedSaving;
-  const rate=inc>0?net/inc*100:0;
+  const monthRange=monthBounds(td());
+  const incomeSavingMetric=incomeSavingStatsForRange(monthRange.start,monthRange.end,false);
+  const rate=incomeSavingMetric.rate;
 
   const a=accounting();
   const b={safe:a.raw.safe,bills:a.raw.bills};
@@ -8628,7 +8707,7 @@ function summary(){
 本月已用零花钱：${M(ms.pocketSpent)}
 本月零花钱转储蓄：${M(ms.pocketToSaving)}
 本月储蓄净增：${M(net)}
-本月储蓄率：${(Math.round(rate*10)/10)}%
+本月收入形成储蓄：${M(incomeSavingMetric.savedFromIncome)}\n本月收入储蓄率：${rate===null?"—":(Math.round(rate*10)/10)+"%"}
 
 当前零花钱余额：${M(b.safe)}
 本周期计划储蓄：${M(cycle.plannedSaving)}
