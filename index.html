@@ -4690,7 +4690,7 @@ function txHtml(t,del=false,edit=false){
 
   if(t.settledBillId){
     const b=S.bills.find(x=>x.id===t.settledBillId);
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">固定账单 · ${esc(b?.name||t.note||"已支付")}</div><div class="meta">${t.date} · 来源：固定账单${t.cycleDueDate?" · "+t.cycleDueDate+" 周期已支付":""}${t.bucket==="safe"?" · 零花钱承担":" · 账单预留核销"}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">固定账单 · ${esc(b?.name||t.note||"已支付")}</div><div class="meta">${t.date} · 固定账单${t.cycleDueDate?" · "+t.cycleDueDate+" 周期已支付":""}${t.bucket==="safe"?" · 零花钱承担":" · 账单预留核销"}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
   let extraMeta="";
@@ -4699,7 +4699,7 @@ function txHtml(t,del=false,edit=false){
     extraMeta=` · 超出 ${M(t.projectOverrunAmount)} 由${source}支付`;
   }
   const sourceLabel=expenseSourceLabel(t);
-  return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${sourceLabel?" · 来源："+esc(sourceLabel):""}${extraMeta}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+  return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${sourceLabel?" · "+esc(sourceLabel):""}${extraMeta}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
 }
 function transactionEditable(t){
   if(!t)return false;
