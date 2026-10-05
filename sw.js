@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-14-expected-saving-total";
+const CACHE = "safespend-v10-15-living-ledger-debug";
 const ASSETS = [
   "./",
   "./index.html",
