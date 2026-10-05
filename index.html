@@ -3122,11 +3122,10 @@ function cycleStatsForIncome(incomeTx){
     +snap.projectSettlementSaving
     -snap.manualSavingUse;
 
-  const closingPocketAdjustment=isClosed
-    ?snap.pocketBalance
-    :Math.min(0,snap.pocketBalance);
-
-  const projectedSaving=lockedSaving+closingPocketAdjustment;
+  // “本周期预计可存”按当前时点的完整结算口径：
+  // 已锁定储蓄 + 当前剩余零花钱。正余额是如果现在结束周期会沉淀的部分，
+  // 负余额则继续等额压低预计可存。
+  const projectedSaving=lockedSaving+snap.pocketBalance;
 
   return {
     income:incomeTx,
@@ -4350,9 +4349,12 @@ function renderNow(){
     dailyFree.style.color=(dailyPocket<0)?"var(--danger)":"inherit";
     dailyTotalSpend.textContent=M(dailyTotal);
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
-    dailyTotalMeta.textContent=batchToday>0
-      ?`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
-      :`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}`;
+    const todayLivingSettled=!!livingSettlementForDate(td());
+    dailyTotalMeta.textContent=todayLivingSettled
+      ?`今日基础生活已结清 · 建议零花 ${M(dailyPocket)}`
+      :batchToday>0
+        ?`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
+        :`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}`;
     safeSub.textContent=b.safe<0
       ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期预计可存”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
       :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
@@ -4368,9 +4370,12 @@ function renderNow(){
     dailyFree.style.color=(dailyPocket<0)?"var(--danger)":"inherit";
     dailyTotalSpend.textContent=M(dailyTotal);
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
-    dailyTotalMeta.textContent=batchToday>0
-      ?`今日基础生活剩余 ${M(livingRemaining)} + 当前零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
-      :`今日基础生活剩余 ${M(livingRemaining)} + 当前零花 ${M(dailyPocket)}`;
+    const todayLivingSettled=!!livingSettlementForDate(td());
+    dailyTotalMeta.textContent=todayLivingSettled
+      ?`今日基础生活已结清 · 当前零花 ${M(dailyPocket)}`
+      :batchToday>0
+        ?`今日基础生活剩余 ${M(livingRemaining)} + 当前零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
+        :`今日基础生活剩余 ${M(livingRemaining)} + 当前零花 ${M(dailyPocket)}`;
     safeSub.textContent=b.safe<0
       ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。计划页里还没有未来收入日期。`
       :"计划页里还没有未来收入日期。先完善收入计划，再记录现在。";
@@ -4536,7 +4541,11 @@ function renderNow(){
   const settled=livingSettlementForDate(td());
   if(settled){
     const release=N(settled.allowance)-livingSettlementEffectiveActual(settled);
-    livingSettleBtn.textContent=`基础生活 · 今日已结算 ${release>=0?"+":""}${M(release)}`;
+    livingSettleBtn.textContent=release>0
+      ?`基础生活 · 已结清 · +${M(release)} 已转零花`
+      :release<0
+        ?`基础生活 · 已结清 · 超支 ${M(Math.abs(release))}`
+        :"基础生活 · 今日已结清";
   }else if(dayInfo.covered){
     livingSettleBtn.textContent=`基础生活 · 今日剩余 ${M(livingRemainingForDate(td()))}`;
   }else{
@@ -4551,11 +4560,7 @@ function renderNow(){
   const recentCycleIncome=currentCycleStats().income;
   const recent=recentCycleIncome
     ?[recentCycleIncome,...cycleTransactionsForIncome(recentCycleIncome)]
-      .sort((a,b)=>{
-        const da=historyTxDate(a),db=historyTxDate(b);
-        if(da!==db)return db.localeCompare(da);
-        return String(b.id).localeCompare(String(a.id));
-      })
+      .sort(sortHistoryNewestFirst)
       .slice(0,8)
     :[];
 
@@ -4903,6 +4908,29 @@ function historyTxDate(t){
     :(t?.date||"");
 }
 
+function historyTxRecordStamp(t){
+  // Prefer an explicit settlement/creation timestamp when one exists.
+  // Legacy records encode Date.now() in their id, which txStamp() recovers.
+  return Math.max(
+    0,
+    N(t?.settledAt),
+    N(t?.recordedAt),
+    N(t?.createdAt),
+    N(t?.autoSettledAt),
+    txStamp(t)
+  );
+}
+
+function sortHistoryNewestFirst(a,b){
+  const da=historyTxDate(a),db=historyTxDate(b);
+  if(da!==db)return db.localeCompare(da);
+
+  const ta=historyTxRecordStamp(a),tb=historyTxRecordStamp(b);
+  if(ta!==tb)return tb-ta;
+
+  return String(b.id).localeCompare(String(a.id));
+}
+
 function historyFilteredTx(){
   const start=historyStartDate.value;
   const end=historyEndDate.value;
@@ -4914,11 +4942,7 @@ function historyFilteredTx(){
       if(end&&d>end)return false;
       return true;
     })
-    .sort((a,b)=>{
-      const da=historyTxDate(a),db=historyTxDate(b);
-      if(da!==db)return db.localeCompare(da);
-      return String(b.id).localeCompare(String(a.id));
-    });
+    .sort(sortHistoryNewestFirst);
 }
 
 function normalizeHistorySearch(v){
