@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-13-savings-hierarchy";
+const CACHE = "safespend-v10-13-bank-reminder-entry-flow";
 const ASSETS = [
   "./",
   "./index.html",
