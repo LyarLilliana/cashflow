@@ -228,6 +228,51 @@ button{touch-action:manipulation}
   margin-top:6px;
   color:var(--accent);
 }
+.savingAssetsUnifiedCard{
+  padding:17px;
+}
+.savingAssetsHead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.savingAssetsDivider{
+  height:1px;
+  margin:14px 0 12px;
+  background:var(--line);
+}
+.savingAssetSubBlocks{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:10px;
+}
+.savingAssetSubBlock{
+  min-width:0;
+  padding:12px 13px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:#F8F9F7;
+}
+.bankReminderAlertCard{
+  margin-top:10px;
+  border-color:#CFE0D8;
+  background:var(--accentSoft);
+}
+.bankReminderAlertRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.bankReminderAlertRow .primary{
+  flex:none;
+  min-width:96px;
+  padding:10px 11px;
+}
+.bankReminderSettingsSection{
+  margin-bottom:8px;
+}
 .savingFilterRow{
   display:grid;
   grid-template-columns:minmax(0,1fr) minmax(0,1fr);
@@ -336,27 +381,27 @@ button{touch-action:manipulation}
   padding:16px;
 }
 .savingAssetBlockTitle{
-  font-size:12px;
+  font-size:11px;
   font-weight:780;
   color:var(--muted);
 }
 .savingAssetBlockValue{
-  margin-top:5px;
-  font-size:27px;
+  margin-top:4px;
+  font-size:22px;
   line-height:1.1;
   font-weight:840;
-  letter-spacing:-.4px;
+  letter-spacing:-.3px;
 }
 .savingDailyBlock .savingAssetBlockValue{
   color:var(--text);
 }
 .savingAssetBlockDesc{
-  margin-top:6px;
-  line-height:1.5;
+  margin-top:5px;
+  line-height:1.45;
 }
 .savingAssetRows{
-  margin-top:12px;
-  padding-top:9px;
+  margin-top:10px;
+  padding-top:8px;
   border-top:1px solid var(--line);
 }
 .savingAssetAction{
@@ -365,12 +410,19 @@ button{touch-action:manipulation}
   min-height:42px;
 }
 .savingAddSection{
-  margin-top:14px;
+  margin-top:18px;
+}
+.savingAddSection .sectionTitle{
+  font-size:14px;
+  color:var(--muted);
 }
 .savingAddCard{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px;
+  gap:8px;
+  padding:12px;
+  box-shadow:none;
+  background:#FAFBF9;
 }
 .savingAddAction{
   width:100%;
@@ -851,6 +903,8 @@ button{touch-action:manipulation}
 @media(max-width:560px){
   .savingHeroValue{font-size:27px}
   .savingPeriodValue{font-size:22px}
+  .savingAssetSubBlocks{grid-template-columns:minmax(0,1fr)}
+  .bankReminderAlertRow{align-items:flex-start}
 }
 
 
@@ -1623,54 +1677,61 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     <div class="section">
       <div class="sectionTitle">当前储蓄资产</div>
 
-      <div class="card savingHeroCard">
-        <div class="k">现在属于储蓄的资产</div>
-        <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
-        <div class="s">预计日常储蓄 + 银行资产</div>
-      </div>
-
-      <div class="savingAssetBlocks">
-        <div class="card savingAssetBlock savingDailyBlock">
-          <div class="savingAssetBlockTitle">预计日常储蓄</div>
-          <div class="savingAssetBlockValue" id="savingFreePrincipal">¥0</div>
-          <div class="small savingAssetBlockDesc">当前日常储蓄余额，加上本周期预计沉淀的零花结余</div>
-
-          <div class="savingAssetRows">
-            <div class="explainRow"><span>已进入日常储蓄</span><strong id="savingActualPrincipal">¥0</strong></div>
-            <div class="explainRow"><span>预计周期结余</span><strong id="savingPendingPocket">¥0</strong></div>
+      <div class="card savingAssetsUnifiedCard">
+        <div class="savingAssetsHead">
+          <div>
+            <div class="k">现在属于储蓄的资产</div>
+            <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
+            <div class="s">预计日常储蓄 + 银行资产</div>
           </div>
-
         </div>
 
-        <div class="card savingAssetBlock savingBankBlock">
-          <div class="savingAssetBlockTitle">银行资产</div>
-          <div class="savingAssetBlockValue" id="savingBankTotal">¥0</div>
-          <div class="small savingAssetBlockDesc">银行存款本金，加上当前预估累计利息</div>
+        <div class="savingAssetsDivider"></div>
 
-          <div class="savingAssetRows">
-            <div class="explainRow"><span>银行存款本金</span><strong id="savingBankPrincipal">¥0</strong></div>
-            <div class="explainRow"><span>预估累计利息</span><strong id="savingBankInterest">¥0</strong></div>
+        <div class="savingAssetSubBlocks">
+          <div class="savingAssetSubBlock savingDailyBlock">
+            <div class="savingAssetBlockTitle">预计日常储蓄</div>
+            <div class="savingAssetBlockValue" id="savingFreePrincipal">¥0</div>
+            <div class="small savingAssetBlockDesc">当前日常储蓄余额，加上本周期预计沉淀的零花结余</div>
+
+            <div class="savingAssetRows">
+              <div class="explainRow"><span>已进入日常储蓄</span><strong id="savingActualPrincipal">¥0</strong></div>
+              <div class="explainRow"><span>预计周期结余</span><strong id="savingPendingPocket">¥0</strong></div>
+            </div>
           </div>
 
+          <div class="savingAssetSubBlock savingBankBlock">
+            <div class="savingAssetBlockTitle">银行资产</div>
+            <div class="savingAssetBlockValue" id="savingBankTotal">¥0</div>
+            <div class="small savingAssetBlockDesc">银行存款本金，加上当前预估累计利息</div>
+
+            <div class="savingAssetRows">
+              <div class="explainRow"><span>银行存款本金</span><strong id="savingBankPrincipal">¥0</strong></div>
+              <div class="explainRow"><span>预估累计利息</span><strong id="savingBankInterest">¥0</strong></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="section savingAddSection">
-      <div class="sectionTitle">新增储蓄录入</div>
-      <div class="card savingAddCard">
-        <button class="ghost savingAddAction" onclick="openExtraSaving()">
-          <span class="savingAddActionTitle">记额外储蓄</span>
-          <span class="savingAddActionMeta">把额外存下来的钱加入日常储蓄</span>
-        </button>
-        <button class="ghost savingAddAction" onclick="openBankDeposit()">
-          <span class="savingAddActionTitle">新增银行存款</span>
-          <span class="savingAddActionMeta">登记活期或定期银行资产</span>
-        </button>
+    <!-- 2. BANK DEPOSITS -->
+    <div class="section">
+      <div class="sectionTitle">银行存款</div>
+
+      <div class="card bankReminderAlertCard" id="bankReminderAlertCard" style="display:none">
+        <div class="bankReminderAlertRow">
+          <div style="min-width:0">
+            <div class="name" id="bankReminderAlertTitle">已经达到银行转存额度</div>
+            <div class="meta" id="bankReminderAlertMeta">可以考虑把这部分日常储蓄存入银行。</div>
+          </div>
+          <button class="primary" id="bankReminderAlertBtn">已存入银行</button>
+        </div>
       </div>
+
+      <div class="card" id="bankDepositList" style="margin-top:10px"></div>
     </div>
 
-    <!-- 2. SAVINGS CHANGES -->
+    <!-- 3. SAVINGS CHANGES -->
     <div class="section">
       <div class="sectionTitle">储蓄变化</div>
 
@@ -1728,13 +1789,27 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="card savingChangeList" id="savingChangeList"></div>
     </div>
 
-    <!-- 3. BANK DEPOSITS -->
-    <div class="section">
-      <div class="sectionTitle">银行存款</div>
+    <!-- 4. LOW-FREQUENCY SAVINGS ENTRY -->
+    <div class="section savingAddSection">
+      <div class="sectionTitle">新增储蓄录入</div>
+      <div class="card savingAddCard">
+        <button class="ghost savingAddAction" onclick="openExtraSaving()">
+          <span class="savingAddActionTitle">记额外储蓄</span>
+          <span class="savingAddActionMeta">把额外存下来的钱加入日常储蓄</span>
+        </button>
+        <button class="ghost savingAddAction" onclick="openBankDeposit()">
+          <span class="savingAddActionTitle">新增银行存款</span>
+          <span class="savingAddActionMeta">登记活期或定期银行资产</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 5. BANK TRANSFER REMINDER SETTINGS -->
+    <div class="section bankReminderSettingsSection">
+      <div class="sectionTitle">银行转存提醒</div>
 
       <div class="card">
-        <div class="name">银行转存提醒</div>
-        <div class="meta">日常储蓄累计到你设定的额度时，提醒你分笔存入银行。</div>
+        <div class="meta">日常储蓄累计到你设定的额度时提醒你分笔存入银行；未达到额度时，这里只作为提醒设置。</div>
 
         <div class="divider"></div>
 
@@ -1780,8 +1855,6 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
         <div class="note" id="bankReminderHint" style="margin-top:10px"></div>
       </div>
-
-      <div class="card" id="bankDepositList" style="margin-top:10px"></div>
     </div>
   </section>
 
@@ -5797,6 +5870,7 @@ bankReminderEditBtn.onclick=()=>{
 
 bankReminderDepositBtn.onclick=openBankDepositFromReminder;
 bankReminderNowBtn.onclick=openBankDepositFromReminder;
+bankReminderAlertBtn.onclick=openBankDepositFromReminder;
 
 
 
@@ -5894,16 +5968,25 @@ function renderBankDepositReminder(){
   }
 
   bankReminderNowCard.style.display=r.ready?"":"none";
+  bankReminderAlertCard.style.display=r.ready?"":"none";
 
   if(r.ready){
     if(r.actualReady){
       bankReminderNowTitle.textContent="日常储蓄已达到银行转存额度";
       bankReminderNowMeta.textContent=`已进入储蓄 ${M(r.actual)}，提醒额度 ${M(r.threshold)}。`;
       bankReminderNowBtn.style.display="";
+
+      bankReminderAlertTitle.textContent="日常储蓄已达到银行转存额度";
+      bankReminderAlertMeta.textContent=`已进入储蓄 ${M(r.actual)}，可以登记银行存款。`;
+      bankReminderAlertBtn.style.display="";
     }else{
       bankReminderNowTitle.textContent="预计储蓄达到银行转存额度";
       bankReminderNowMeta.textContent=`预计 ${M(r.current)}，其中 ${M(r.pending)} 尚为当前周期预计结余。`;
       bankReminderNowBtn.style.display="none";
+
+      bankReminderAlertTitle.textContent="预计储蓄达到银行转存额度";
+      bankReminderAlertMeta.textContent=`预计 ${M(r.current)}，其中 ${M(r.pending)} 仍是本周期预计结余。`;
+      bankReminderAlertBtn.style.display="none";
     }
   }
 }
@@ -5952,7 +6035,7 @@ function renderSavings(){
   savingBankTotal.style.color=(bankPrincipal+interest)<0?"var(--danger)":"inherit";
 
   savingFreePrincipal.textContent=M(expectedOrdinary);
-  savingFreePrincipal.style.color=expectedOrdinary<0?"var(--danger)":"var(--accent)";
+  savingFreePrincipal.style.color=expectedOrdinary<0?"var(--danger)":"var(--text)";
 
   savingActualPrincipal.textContent=M(ordinary);
   savingActualPrincipal.style.color=ordinary<0?"var(--danger)":"inherit";
