@@ -404,12 +404,7 @@ button{touch-action:manipulation}
   padding-top:8px;
   border-top:1px solid var(--line);
 }
-.savingCycleProjectionRow{
-  font-weight:760;
-}
-.savingCycleProjectionRow strong{
-  font-weight:820;
-}
+
 .savingAssetAction{
   width:100%;
   margin-top:12px;
@@ -1487,6 +1482,15 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   line-height:1.5;
   color:var(--muted);
 }
+.periodResultGroup .summaryRow{
+  min-height:32px;
+}
+.periodResultGroup .summaryRow strong{
+  font-weight:760;
+}
+.periodResultGroup .summaryRow:last-child{
+  border-bottom:0;
+}
 .bottom{
   position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.93);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
@@ -1778,7 +1782,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div>
             <div class="k">现在属于储蓄的资产</div>
             <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
-            <div class="s">已进入日常储蓄 + 银行资产</div>
+            <div class="s">日常储蓄 + 银行资产</div>
           </div>
         </div>
 
@@ -1788,14 +1792,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div class="savingAssetSubBlock savingDailyBlock">
             <div class="savingAssetBlockTitle">日常储蓄</div>
             <div class="savingAssetBlockValue" id="savingFreePrincipal">¥0</div>
-            <div class="small savingAssetBlockDesc">已经进入储蓄、尚未转入银行的资金</div>
+            <div class="small savingAssetBlockDesc">与结果页“本周期预计可存”完全一致</div>
 
             <div class="savingAssetRows">
-              <div class="explainRow savingCycleProjectionRow">
-                <span>本周期预计可存</span>
-                <strong id="savingCycleProjected">¥0</strong>
-              </div>
-              <div class="explainRow"><span>当前周期预计零花结余</span><strong id="savingPendingPocket">¥0</strong></div>
+              <div class="explainRow"><span>本周期预计可存</span><strong id="savingCycleProjected">¥0</strong></div>
             </div>
           </div>
 
@@ -1974,7 +1974,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
         <div class="card stat"><div class="k" id="mOutcomeLabel">本月预计可存</div><div class="v" id="mExpectedSaving">¥0</div><div class="s" id="mExpectedSavingSub">按本月各资金桶实际归属独立结算</div></div>
-        <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">—</div><div class="s" id="mRateSub">本月净结余 ÷ 本月收入</div></div>
+        <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">—</div><div class="s" id="mRateSub">本月预计可存 ÷ 本月总收入</div></div>
       </div>
 
       <div class="resultRangeBar">
@@ -2019,10 +2019,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div class="summaryRow summaryTotal"><span>消费合计</span><strong id="mActualSpendTotal">¥0</strong></div>
         </div>
 
-        <div class="summaryGroup">
+        <div class="summaryGroup periodResultGroup">
           <div class="summaryGroupTitle">期间结果</div>
-          <div class="summaryRow summaryTotal"><span id="mOutcomeDetailLabel">本月预计可存</span><strong id="mExpectedSavingDetail">¥0</strong></div>
           <div class="summaryRow"><span id="mPeriodIncomeLabel">本月总收入</span><strong id="mResultIncome">¥0</strong></div>
+          <div class="summaryRow"><span id="mOutcomeDetailLabel">本月预计可存</span><strong id="mExpectedSavingDetail">¥0</strong></div>
           <div class="summaryRow"><span>储蓄率</span><strong id="mRateDetail">—</strong></div>
         </div>
       </div>
@@ -6394,33 +6394,26 @@ function renderSavings(){
 
   const bankPrincipal=bankPrincipalTotal();
   const interest=bankInterestTotal();
-  const ordinary=ordinarySavingsAvailable();
-
   const cycle=currentCycleStats();
-  const pendingPocket=cycle.income
-    ?Math.max(0,N(cycle.pocketBalance))
-    :0;
   const cycleProjected=cycle.income
     ?N(cycle.projectedSaving)
     :0;
 
-  // 当前储蓄资产只显示真正已经进入储蓄体系的存量。
-  // “本周期预计可存”是期间结果，单独展示，并直接使用与结果页完全相同的 currentCycleStats().projectedSaving。
-  const total=ordinary+bankPrincipal+interest;
+  // 单一口径：日常储蓄 = 本周期预计可存。
+  // 结果页和储蓄页都直接读取 currentCycleStats().projectedSaving，
+  // 不再另算“实际日常储蓄 + 预计结余”这一套平行总数。
+  const total=cycleProjected+bankPrincipal+interest;
 
   savingBankPrincipal.textContent=M(bankPrincipal);
   savingBankInterest.textContent=M(interest);
   savingBankTotal.textContent=M(bankPrincipal+interest);
   savingBankTotal.style.color=(bankPrincipal+interest)<0?"var(--danger)":"inherit";
 
-  savingFreePrincipal.textContent=M(ordinary);
-  savingFreePrincipal.style.color=ordinary<0?"var(--danger)":"var(--text)";
+  savingFreePrincipal.textContent=M(cycleProjected);
+  savingFreePrincipal.style.color=cycleProjected<0?"var(--danger)":"var(--text)";
 
   savingCycleProjected.textContent=M(cycleProjected);
-  savingCycleProjected.style.color=cycleProjected<0?"var(--danger)":"var(--accent)";
-
-  savingPendingPocket.textContent=M(pendingPocket);
-  savingPendingPocket.style.color=pendingPocket>0?"var(--accent)":"inherit";
+  savingCycleProjected.style.color=cycleProjected<0?"var(--danger)":"inherit";
 
   savingGrandTotal.textContent=M(total);
   savingGrandTotal.style.color=total<0?"var(--danger)":"var(--accent)";
