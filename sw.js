@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-13-bank-reminder-entry-flow";
+const CACHE = "safespend-v10-14-expected-saving-total";
 const ASSETS = [
   "./",
   "./index.html",
