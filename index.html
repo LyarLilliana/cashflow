@@ -889,6 +889,51 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 .archiveProject{padding:11px 0;border-top:1px solid var(--line)}
 .heroMiniActions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
 .heroMiniActions button{width:100%;min-height:42px}
+.heroMiniActions .wideAction{grid-column:1/-1}
+.dailyBudgetMeta{
+  margin-top:7px;
+  font-size:10.5px;
+  line-height:1.5;
+  color:var(--muted);
+}
+.savingPrimaryBreakdown{
+  margin-top:10px;
+  padding:14px;
+  border:1px solid #CFE0D8;
+  border-radius:17px;
+  background:var(--accentSoft);
+}
+.savingPrimaryBreakdown .label{font-size:11px;color:var(--muted)}
+.savingPrimaryBreakdown .value{
+  margin-top:5px;
+  font-size:25px;
+  line-height:1.1;
+  font-weight:820;
+  color:var(--accent);
+}
+.savingBreakdownGroup{
+  margin-top:10px;
+  padding:12px 13px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:#FAFBF9;
+}
+.savingBreakdownGroupTitle{
+  margin-bottom:5px;
+  font-size:10.5px;
+  font-weight:760;
+  color:var(--muted);
+}
+.livingBatchHint{
+  margin-top:8px;
+  padding:10px 11px;
+  border-radius:13px;
+  background:#F7F8F5;
+  font-size:11px;
+  line-height:1.55;
+  color:var(--muted);
+}
+.livingBatchHint strong{color:var(--text)}
 .transferSummary{margin-top:10px;background:#F7F8F5;border-radius:16px;padding:13px}
 
 
@@ -1090,11 +1135,14 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="heroMiniActions">
         <button class="ghost" id="livingSettleBtn" onclick="openLivingSettlement()">结算今日基础生活</button>
         <button class="ghost" id="pocketToSavingBtn" onclick="openPocketTransfer()">零花钱转储蓄</button>
+        <button class="ghost wideAction" id="livingBatchBtn" onclick="openLivingBatch()">记录多日基础生活支出</button>
       </div>
       <div class="explain">
         <div class="explainRow"><span>零花钱余额</span><strong id="whySafe">¥0</strong></div>
         <div class="explainRow"><span>距离下一次周期收入</span><strong id="whyDays">—</strong></div>
-        <div class="explainRow total"><span>建议每日自由额度</span><strong id="dailyFree">¥0</strong></div>
+        <div class="explainRow"><span>建议每日零花钱</span><strong id="dailyFree">¥0</strong></div>
+        <div class="explainRow total"><span>建议每日总可花</span><strong id="dailyTotalSpend">¥0</strong></div>
+        <div class="dailyBudgetMeta" id="dailyTotalMeta">今日基础生活剩余 + 建议每日零花钱</div>
       </div>
     </div>
 
@@ -1156,13 +1204,26 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       </div>
 
       <div class="card savingAssetBreakdown">
-        <div class="explainRow"><span>预计日常储蓄</span><strong id="savingFreePrincipal">¥0</strong></div>
-        <div class="explainRow"><span>其中已进入储蓄</span><strong id="savingActualPrincipal">¥0</strong></div>
-        <div class="explainRow"><span>预计周期结余</span><strong id="savingPendingPocket">¥0</strong></div>
-        <div class="explainRow"><span>银行存款本金</span><strong id="savingBankPrincipal">¥0</strong></div>
-        <div class="explainRow"><span>预估累计利息</span><strong id="savingBankInterest">¥0</strong></div>
-        <div class="note" style="margin-top:9px">
-          “预计日常储蓄”直接采用当前周期的预计储蓄口径：已经进入储蓄的钱 + 当前仍未花掉、预计周期结束后会沉淀的零花钱。后者会随继续消费实时变化。
+        <div class="savingPrimaryBreakdown">
+          <div class="label">预计日常储蓄</div>
+          <div class="value" id="savingFreePrincipal">¥0</div>
+          <div class="small" style="margin-top:6px">当前日常储蓄余额，加上本周期预计沉淀的零花结余</div>
+        </div>
+
+        <div class="savingBreakdownGroup">
+          <div class="savingBreakdownGroupTitle">日常储蓄构成</div>
+          <div class="explainRow"><span>已进入日常储蓄</span><strong id="savingActualPrincipal">¥0</strong></div>
+          <div class="explainRow"><span>预计周期结余</span><strong id="savingPendingPocket">¥0</strong></div>
+        </div>
+
+        <div class="savingBreakdownGroup">
+          <div class="savingBreakdownGroupTitle">银行资产</div>
+          <div class="explainRow"><span>银行存款本金</span><strong id="savingBankPrincipal">¥0</strong></div>
+          <div class="explainRow"><span>预估累计利息</span><strong id="savingBankInterest">¥0</strong></div>
+        </div>
+
+        <div class="note" style="margin-top:10px">
+          顶部总储蓄资产由预计日常储蓄、银行存款本金和预估累计利息共同组成。日常储蓄内部再分为已进入储蓄和预计周期结余。
         </div>
       </div>
     </div>
@@ -1638,19 +1699,31 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       </div>
     </div>
     <div style="height:10px"></div>
+    <div class="subCard" id="livingBatchTodayCard" style="display:none">
+      <div class="row">
+        <div>
+          <div class="name">多日支出今日自动分摊</div>
+          <div class="meta" id="livingBatchTodayMeta">已从买菜等多日支出自动计入</div>
+        </div>
+        <div class="amount" id="livingBatchTodayAmount">¥0</div>
+      </div>
+    </div>
+    <div style="height:10px"></div>
     <div class="formGrid one">
       <div>
-        <label>今天实际用于基础生活的金额</label>
+        <label>今天另外用于基础生活的金额</label>
         <input id="livingActualSpent" inputmode="decimal" type="number" min="0" value="0">
       </div>
     </div>
     <div class="explain">
       <div class="explainRow"><span>今日预留</span><strong id="livingSumAllowance">¥0</strong></div>
-      <div class="explainRow"><span>实际基础生活支出</span><strong id="livingSumSpent">¥0</strong></div>
+      <div class="explainRow"><span>多日支出自动分摊</span><strong id="livingSumBatch">¥0</strong></div>
+      <div class="explainRow"><span>今天另外支出</span><strong id="livingSumManual">¥0</strong></div>
+      <div class="explainRow"><span>今日基础生活合计</span><strong id="livingSumSpent">¥0</strong></div>
       <div class="explainRow total"><span id="livingReleaseLabel">转入零花钱</span><strong id="livingReleaseAmount">¥0</strong></div>
     </div>
     <div class="note" style="margin-top:9px">
-      今天没花这笔基础生活预算时填 0，整笔预留会转入零花钱。只花了一部分时，结余转入零花钱；超过今日标准时，超出的部分减少零花钱。
+      多日支出会自动进入对应日期。这里填写当天额外发生的基础生活支出，系统会把两部分合并后完成今日结算。
     </div>
     <div class="actions">
       <button class="ghost" onclick="closeSheet('livingSheet')">取消</button>
@@ -1659,6 +1732,47 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   </div>
 </div>
 
+
+<div class="sheet" id="livingBatchSheet">
+  <div class="sheetCard">
+    <div class="sheetTitle" id="livingBatchSheetTitle">记录多日基础生活支出</div>
+    <input type="hidden" id="livingBatchEditId">
+
+    <div class="formGrid">
+      <div>
+        <label>总金额</label>
+        <input id="livingBatchAmount" inputmode="decimal" type="number" min="0" placeholder="例如 210">
+      </div>
+      <div>
+        <label>覆盖天数</label>
+        <input id="livingBatchDays" inputmode="numeric" type="number" min="1" max="60" value="7">
+      </div>
+      <div>
+        <label>付款日期</label>
+        <input id="livingBatchDate" type="date">
+      </div>
+      <div>
+        <label>从哪天开始分摊</label>
+        <input id="livingBatchStart" type="date">
+      </div>
+      <div style="grid-column:1/-1">
+        <label>用途 / 备注</label>
+        <input id="livingBatchNote" placeholder="例如 买菜、牛奶水果" value="买菜">
+      </div>
+    </div>
+
+    <div class="livingBatchHint">
+      <div>覆盖日期：<strong id="livingBatchRange">—</strong></div>
+      <div>日均分摊：<strong id="livingBatchDaily">¥0</strong></div>
+      <div style="margin-top:4px">结果页把整笔消费记在付款日，每日基础生活按覆盖日期分摊，总消费保持单次计入。</div>
+    </div>
+
+    <div class="actions">
+      <button class="ghost" onclick="closeSheet('livingBatchSheet')">取消</button>
+      <button class="primary" id="saveLivingBatch">保存并分摊</button>
+    </div>
+  </div>
+</div>
 
 <div class="sheet" id="pocketTransferSheet">
   <div class="sheetCard">
@@ -1827,10 +1941,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v70";
-const OLD_KEYS=["safespend_cashflow_v69","safespend_cashflow_v68","safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v71";
+const OLD_KEYS=["safespend_cashflow_v70","safespend_cashflow_v69","safespend_cashflow_v68","safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:70,
+  version:71,
   settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -1881,6 +1995,18 @@ function normalize(d){
     return x;
   });
   s.tx=Array.isArray(d.tx)?d.tx:[];
+  s.tx=s.tx.map(t=>{
+    const x={...t};
+    if(x.type==="living_settlement"&&x.manualActualSpent===undefined){
+      x.manualActualSpent=N(x.actualSpent);
+    }
+    if(x.type==="living_batch"){
+      x.days=Math.max(1,Math.min(60,Math.round(N(x.days)||1)));
+      x.startDate=x.startDate||x.date||"";
+      x.note=x.note||"多日基础生活";
+    }
+    return x;
+  });
   return s;
 }
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
@@ -2069,7 +2195,7 @@ function cyclePocketSnapshot(incomeTx){
     sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount))
     +sm(expenses.filter(t=>t.bucket==="project"&&t.projectOverrunSource==="saving"),t=>N(t.projectOverrunAmount));
 
-  const livingRelease=sm(settlements,t=>N(t.allowance)-N(t.actualSpent));
+  const livingRelease=sm(settlements,t=>N(t.allowance)-livingSettlementEffectiveActual(t));
   const pocketToSaving=sm(savingTransfers,t=>N(t.amount));
   const pocketToProject=sm(projectTransfers,t=>N(t.amount));
   const projectSettlementSaving=sm(
@@ -2200,9 +2326,14 @@ function accounting(){
     }
 
     if(t.type==="living_settlement"){
-      const allowance=N(t.allowance),actual=N(t.actualSpent);
+      const allowance=N(t.allowance),actual=livingSettlementEffectiveActual(t);
       raw.safe += allowance-actual;
-      effects[t.id]={livingRelease:allowance-actual};
+      effects[t.id]={livingRelease:allowance-actual,livingActual:actual};
+      return;
+    }
+
+    if(t.type==="living_batch"){
+      // 多日基础生活支出在付款日进入消费统计，预算影响按覆盖日期进入每日结算。
       return;
     }
 
@@ -2431,7 +2562,7 @@ function monthlyCycleStats(ym=md()){
     cycles,
     income:sm(allIncomes,t=>N(t.amount)),
     livingReserved:sm(cycles,c=>N(c.livingReserved)),
-    livingActualSpent:sm(settlements,t=>N(t.actualSpent)),
+    livingActualSpent:sm(settlements,t=>livingSettlementManualActual(t))+sm(S.tx.filter(t=>t.type==="living_batch"&&md(t.date)===ym),t=>N(t.amount)),
     livingReleased:sm(settlements,t=>N(t.allowance)-N(t.actualSpent)),
     fixedReserved:sm(cycles,c=>N(c.fixedReserved)),
     projectReserved:sm(cycles,c=>N(c.projectReserved)),
@@ -2536,6 +2667,59 @@ function livingDayInfo(date=td()){
 }
 function livingSettlementForDate(date=td()){
   return S.tx.find(t=>t.type==="living_settlement"&&t.coveredDate===date)||null;
+}
+
+function livingBatchRows(){
+  return S.tx.filter(t=>t.type==="living_batch");
+}
+function livingBatchAllocationRows(t){
+  const days=Math.max(1,Math.min(60,Math.round(N(t?.days)||1)));
+  const start=t?.startDate||t?.date||"";
+  if(!start)return [];
+
+  const cents=Math.max(0,Math.round(N(t.amount)*100));
+  const base=Math.floor(cents/days);
+  const remainder=cents-base*days;
+
+  return Array.from({length:days},(_,i)=>({
+    date:addDays(start,i),
+    amount:(base+(i<remainder?1:0))/100
+  }));
+}
+function livingBatchShareForDate(date){
+  return sm(livingBatchRows(),t=>{
+    const row=livingBatchAllocationRows(t).find(x=>x.date===date);
+    return N(row?.amount);
+  });
+}
+function livingBatchSourcesForDate(date){
+  return livingBatchRows().map(t=>{
+    const row=livingBatchAllocationRows(t).find(x=>x.date===date);
+    return row?{t,amount:N(row.amount)}:null;
+  }).filter(Boolean);
+}
+function livingSettlementManualActual(t){
+  if(!t)return 0;
+  return Math.max(0,N(t.manualActualSpent!==undefined?t.manualActualSpent:t.actualSpent));
+}
+function livingSettlementEffectiveActual(t){
+  if(!t)return 0;
+  const date=t.coveredDate||t.date||"";
+  return livingSettlementManualActual(t)+livingBatchShareForDate(date);
+}
+function syncLivingSettlementTotals(){
+  S.tx.forEach(t=>{
+    if(t.type!=="living_settlement")return;
+    if(t.manualActualSpent===undefined)t.manualActualSpent=N(t.actualSpent);
+    t.actualSpent=livingSettlementEffectiveActual(t);
+  });
+}
+function livingRemainingForDate(date=td()){
+  const info=livingDayInfo(date);
+  const settled=livingSettlementForDate(date);
+  if(settled)return 0;
+  if(!info.covered)return 0;
+  return Math.max(0,N(info.allowance)-livingBatchShareForDate(date));
 }
 
 function currentlyCoveredLivingDays(){
@@ -3356,17 +3540,37 @@ function renderNow(){
   const next=nextRecurringIncome();
   if(next){
     const days=diffDays(td(),next.nextDate);
+    const dailyPocket=days>0?b.safe/days:b.safe;
+    const livingRemaining=livingRemainingForDate(td());
+    const dailyTotal=dailyPocket+livingRemaining;
+    const batchToday=livingBatchShareForDate(td());
+
     whyDays.textContent=`${days} 天`;
-    dailyFree.textContent=days>0?M(b.safe/days):M(b.safe);
-    dailyFree.style.color=(b.safe<=0)?"var(--danger)":"inherit";
+    dailyFree.textContent=M(dailyPocket);
+    dailyFree.style.color=(dailyPocket<0)?"var(--danger)":"inherit";
+    dailyTotalSpend.textContent=M(dailyTotal);
+    dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
+    dailyTotalMeta.textContent=batchToday>0
+      ?`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
+      :`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}`;
     safeSub.textContent=b.safe<0
       ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期预计可存”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
       :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
     nextIncomeBox.innerHTML=`<div class="row"><div><div class="name">${esc(next.name)}</div><div class="meta">${next.nextDate} · ${freqLabel(next.freq)} · 计划储蓄 ${saveRuleLabel(next)}</div></div><div class="amount pos">${M(next.amount)}</div></div>`;
   }else{
+    const dailyPocket=b.safe;
+    const livingRemaining=livingRemainingForDate(td());
+    const dailyTotal=dailyPocket+livingRemaining;
+    const batchToday=livingBatchShareForDate(td());
+
     whyDays.textContent="—";
-    dailyFree.textContent=M(b.safe);
-    dailyFree.style.color=(b.safe<=0)?"var(--danger)":"inherit";
+    dailyFree.textContent=M(dailyPocket);
+    dailyFree.style.color=(dailyPocket<0)?"var(--danger)":"inherit";
+    dailyTotalSpend.textContent=M(dailyTotal);
+    dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
+    dailyTotalMeta.textContent=batchToday>0
+      ?`今日基础生活剩余 ${M(livingRemaining)} + 当前零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
+      :`今日基础生活剩余 ${M(livingRemaining)} + 当前零花 ${M(dailyPocket)}`;
     safeSub.textContent=b.safe<0
       ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。计划页里还没有未来收入日期。`
       :"计划页里还没有未来收入日期。先完善收入计划，再记录现在。";
@@ -3533,7 +3737,7 @@ function renderNow(){
   const dayInfo=livingDayInfo(td());
   const settled=livingSettlementForDate(td());
   if(settled){
-    const release=N(settled.allowance)-N(settled.actualSpent);
+    const release=N(settled.allowance)-livingSettlementEffectiveActual(settled);
     livingSettleBtn.textContent=`今日基础生活已结算 · ${release>=0?"+":""}${M(release)} 零花钱`;
     livingSettleBtn.disabled=false;
   }else if(dayInfo.covered){
@@ -3590,9 +3794,18 @@ function txHtml(t,del=false,edit=false){
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title}</div><div class="meta">${metaParts.join(" · ")}</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   if(t.type==="living_settlement"){
-    const release=N(t.allowance)-N(t.actualSpent);
+    const actual=livingSettlementEffectiveActual(t);
+    const batch=livingBatchShareForDate(t.coveredDate||t.date);
+    const release=N(t.allowance)-actual;
     const title=release>=0?"基础生活结余转零花钱":"基础生活超出今日标准";
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title}</div><div class="meta">${t.coveredDate||t.date} · 今日预留 ${M(t.allowance)} · 实际 ${M(t.actualSpent)}</div></div><div class="txRight"><div class="txAmount ${release>=0?"pos":"neg"}">${release>=0?"+":""}${M(release)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+    const batchMeta=batch>0?` · 多日分摊 ${M(batch)}`:"";
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title}</div><div class="meta">${t.coveredDate||t.date} · 今日预留 ${M(t.allowance)} · 合计 ${M(actual)}${batchMeta}</div></div><div class="txRight"><div class="txAmount ${release>=0?"pos":"neg"}">${release>=0?"+":""}${M(release)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+  }
+  if(t.type==="living_batch"){
+    const rows=livingBatchAllocationRows(t);
+    const end=rows.length?rows[rows.length-1].date:t.startDate;
+    const avg=N(t.amount)/Math.max(1,N(t.days));
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">多日基础生活${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date} 付款 · ${t.startDate} 至 ${end} · ${t.days} 天 · 日均约 ${M(avg)}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   const map={safe:"零花钱 / 日常支出",living:"零花钱 / 日常支出",bill:"固定账单",project:"专项支出",saving:"储蓄取用"};
 
@@ -3657,6 +3870,7 @@ function transactionEditable(t){
   return [
     "income",
     "living_settlement",
+    "living_batch",
     "extra_saving",
     "pocket_to_saving",
     "pocket_to_project"
@@ -3678,6 +3892,7 @@ function transactionActionTitle(t){
   }
 
   if(t.type==="living_settlement")return "基础生活结算";
+  if(t.type==="living_batch")return `多日基础生活${t.note?" · "+t.note:""}`;
   if(t.type==="extra_saving")return "额外储蓄";
   if(t.type==="pocket_to_saving")return "零花钱转储蓄";
   if(t.type==="pocket_to_project"){
@@ -3710,7 +3925,10 @@ function transactionActionTitle(t){
 function transactionActionAmountText(t){
   if(!t)return "";
   if(t.type==="living_settlement"){
-    return `实际支出 ${M(t.actualSpent)} · 预留 ${M(t.allowance)}`;
+    return `合计 ${M(livingSettlementEffectiveActual(t))} · 预留 ${M(t.allowance)}`;
+  }
+  if(t.type==="living_batch"){
+    return `${M(t.amount)} · ${t.days} 天`;
   }
   if(t.type==="bill_skip")return "无需支付";
   if(t.amount!==undefined)return M(t.amount);
@@ -3873,7 +4091,9 @@ function transactionSearchText(t){
     t.amount,
     t.actualSpent,
     t.allowance,
-    t.projectOverrunAmount
+    t.projectOverrunAmount,
+    t.startDate,
+    t.days
   ];
 
   const bucketLabels={
@@ -3921,6 +4141,7 @@ function transactionSearchText(t){
   }
 
   if(t.type==="living_settlement")parts.push("基础生活 结算");
+  if(t.type==="living_batch")parts.push("多日 基础生活 买菜 分摊 预付");
   if(t.type==="extra_saving")parts.push("额外储蓄");
   if(t.type==="pocket_to_saving")parts.push("零花钱转储蓄");
   if(t.type==="pocket_to_project")parts.push("零花钱转专项");
@@ -4964,7 +5185,7 @@ function renderSavings(){
   savingBankInterest.textContent=M(interest);
 
   savingFreePrincipal.textContent=M(expectedOrdinary);
-  savingFreePrincipal.style.color=expectedOrdinary<0?"var(--danger)":"inherit";
+  savingFreePrincipal.style.color=expectedOrdinary<0?"var(--danger)":"var(--accent)";
 
   savingActualPrincipal.textContent=M(ordinary);
   savingActualPrincipal.style.color=ordinary<0?"var(--danger)":"inherit";
@@ -5038,7 +5259,8 @@ function actualSpendingDate(t){
 function actualSpendingAmount(t){
   if(!t)return 0;
   if(t.type==="expense")return Math.max(0,N(t.amount));
-  if(t.type==="living_settlement")return Math.max(0,N(t.actualSpent));
+  if(t.type==="living_batch")return Math.max(0,N(t.amount));
+  if(t.type==="living_settlement")return livingSettlementManualActual(t);
   return 0;
 }
 
@@ -5058,7 +5280,7 @@ function spendingBreakdownForRange(start="",end=""){
   rows.forEach(t=>{
     const amount=actualSpendingAmount(t);
 
-    if(t.type==="living_settlement"){
+    if(t.type==="living_settlement"||t.type==="living_batch"){
       living+=amount;
       return;
     }
@@ -5597,9 +5819,19 @@ function openLivingSettlement(){
   if((!info.covered||info.allowance<=0)&&!existing)return msg("今天没有需要结算的基础生活预留");
 
   const allowance=N(existing?.allowance||info.allowance);
-  livingActualSpent.value=existing?N(existing.actualSpent):0;
+  const batch=livingBatchShareForDate(td());
+  const sources=livingBatchSourcesForDate(td());
+  const manual=existing?livingSettlementManualActual(existing):0;
+
+  livingActualSpent.value=manual;
   livingAllowance.textContent=M(allowance);
   livingSumAllowance.textContent=M(allowance);
+  livingBatchTodayAmount.textContent=M(batch);
+  livingSumBatch.textContent=M(batch);
+  livingBatchTodayCard.style.display=batch>0?"":"none";
+  livingBatchTodayMeta.textContent=sources.length
+    ?sources.map(x=>`${x.t.note||"多日支出"} ${M(x.amount)}`).join(" · ")
+    :"";
   livingSettleMeta.textContent=existing
     ?`${td()} · 已结算，可重新修改 · 今日标准 ${M(allowance)}`
     :`${td()} · 今日标准 ${M(allowance)}`;
@@ -5610,10 +5842,14 @@ function recalcLivingSettlement(){
   const info=livingDayInfo(td());
   const existing=livingSettlementForDate(td());
   const allowance=N(existing?.allowance||info.allowance);
-  const actual=Math.max(0,N(livingActualSpent.value));
+  const batch=livingBatchShareForDate(td());
+  const manual=Math.max(0,N(livingActualSpent.value));
+  const actual=batch+manual;
   const release=allowance-actual;
 
   livingSumAllowance.textContent=M(allowance);
+  livingSumBatch.textContent=M(batch);
+  livingSumManual.textContent=M(manual);
   livingSumSpent.textContent=M(actual);
 
   if(release>=0){
@@ -5633,11 +5869,14 @@ saveLivingSettlement.onclick=()=>{
   const existing=livingSettlementForDate(td());
   if((!info.covered||info.allowance<=0)&&!existing)return msg("今天没有基础生活预留");
 
-  const actual=Math.max(0,N(livingActualSpent.value));
+  const manual=Math.max(0,N(livingActualSpent.value));
+  const batch=livingBatchShareForDate(td());
+  const actual=manual+batch;
   const allowance=N(existing?.allowance||info.allowance);
   const release=allowance-actual;
 
   if(existing){
+    existing.manualActualSpent=manual;
     existing.actualSpent=actual;
     existing.allowance=allowance;
     existing.editedAt=Date.now();
@@ -5649,6 +5888,7 @@ saveLivingSettlement.onclick=()=>{
       coveredDate:td(),
       sourceIncomeId:info.incomeId,
       allowance,
+      manualActualSpent:manual,
       actualSpent:actual
     });
   }
@@ -5663,7 +5903,68 @@ saveLivingSettlement.onclick=()=>{
   else msg(`超出今日标准 ${M(Math.abs(release))}，已减少零花钱`);
 };
 
+/* Multi-day living expense */
+function openLivingBatch(id=""){
+  const t=id?S.tx.find(x=>x.id===id&&x.type==="living_batch"):null;
+  livingBatchEditId.value=t?.id||"";
+  livingBatchSheetTitle.textContent=t?"修改多日基础生活支出":"记录多日基础生活支出";
+  livingBatchAmount.value=t?.amount||"";
+  livingBatchDays.value=t?.days||7;
+  livingBatchDate.value=t?.date||td();
+  livingBatchDate.max=td();
+  livingBatchStart.value=t?.startDate||td();
+  livingBatchNote.value=t?.note||"买菜";
+  recalcLivingBatchPreview();
+  syncDateDisplays();
+  livingBatchSheet.classList.add("show");
+}
+function recalcLivingBatchPreview(){
+  const amount=Math.max(0,N(livingBatchAmount.value));
+  const days=Math.max(1,Math.min(60,Math.round(N(livingBatchDays.value)||1)));
+  const start=livingBatchStart.value||td();
+  const end=addDays(start,days-1);
+  livingBatchRange.textContent=`${start} 至 ${end} · ${days} 天`;
+  livingBatchDaily.textContent=M(amount/days);
+}
+[livingBatchAmount,livingBatchDays,livingBatchStart].forEach(x=>x.addEventListener("input",recalcLivingBatchPreview));
 
+saveLivingBatch.onclick=()=>{
+  const editId=livingBatchEditId.value;
+  const amount=Math.max(0,N(livingBatchAmount.value));
+  const days=Math.max(1,Math.min(60,Math.round(N(livingBatchDays.value)||1)));
+  const date=livingBatchDate.value||td();
+  const startDate=livingBatchStart.value||date;
+  const note=livingBatchNote.value.trim()||"多日基础生活";
+
+  if(amount<=0)return msg("请输入多日基础生活总金额");
+  if(date>td())return msg("付款日期需要选择今天或更早日期");
+
+  const existing=editId?S.tx.find(x=>x.id===editId&&x.type==="living_batch"):null;
+  if(existing){
+    existing.amount=amount;
+    existing.days=days;
+    existing.date=date;
+    existing.startDate=startDate;
+    existing.note=note;
+    existing.editedAt=Date.now();
+  }else{
+    S.tx.push({
+      id:"lb"+Date.now(),
+      date,
+      type:"living_batch",
+      amount,
+      days,
+      startDate,
+      note
+    });
+  }
+
+  syncLivingSettlementTotals();
+  save();
+  closeSheet("livingBatchSheet");
+  render();
+  msg(`${M(amount)} 已按 ${days} 天分摊到基础生活`);
+};
 
 
 /* Extra savings */
@@ -6339,24 +6640,55 @@ function openTxEdit(id){
 
     refreshExpenseEditFields(t,t.refId||"");
   }else if(t.type==="living_settlement"){
+    const batch=livingBatchShareForDate(t.coveredDate||t.date);
     editTxTitle.textContent="修改基础生活结算";
     editTxFields.innerHTML=`
       <div class="subCard">
         <div class="row">
           <div>
             <div class="name">${esc(t.coveredDate||t.date||"")}</div>
-            <div class="meta">当天基础生活预留 ${M(t.allowance)}</div>
+            <div class="meta">当天基础生活预留 ${M(t.allowance)}${batch>0?` · 多日分摊 ${M(batch)}`:""}</div>
           </div>
         </div>
       </div>
       <div class="formGrid one" style="margin-top:10px">
         <div>
-          <label>当天实际用于基础生活的金额</label>
-          <input id="editLivingActual" inputmode="decimal" type="number" min="0" value="${N(t.actualSpent)}">
+          <label>当天另外用于基础生活的金额</label>
+          <input id="editLivingActual" inputmode="decimal" type="number" min="0" value="${livingSettlementManualActual(t)}">
         </div>
       </div>
     `;
-    editTxHint.textContent="这条流水当时只有“实际基础生活支出”需要手动填写，因此这里完整恢复这一项。";
+    editTxHint.textContent="多日支出由系统自动分摊，这里修改当天另外发生的基础生活金额。";
+  }else if(t.type==="living_batch"){
+    const rows=livingBatchAllocationRows(t);
+    const end=rows.length?rows[rows.length-1].date:t.startDate;
+    editTxTitle.textContent="修改多日基础生活支出";
+    editTxFields.innerHTML=`
+      <div class="formGrid">
+        <div>
+          <label>总金额</label>
+          <input id="editLivingBatchAmount" inputmode="decimal" type="number" min="0" value="${N(t.amount)}">
+        </div>
+        <div>
+          <label>覆盖天数</label>
+          <input id="editLivingBatchDays" inputmode="numeric" type="number" min="1" max="60" value="${Math.max(1,N(t.days))}">
+        </div>
+        <div>
+          <label>付款日期</label>
+          <input id="editLivingBatchDate" type="date" max="${td()}" value="${esc(t.date||td())}">
+        </div>
+        <div>
+          <label>从哪天开始分摊</label>
+          <input id="editLivingBatchStart" type="date" value="${esc(t.startDate||t.date||td())}">
+        </div>
+        <div style="grid-column:1/-1">
+          <label>用途 / 备注</label>
+          <input id="editLivingBatchNote" value="${esc(t.note||"")}">
+        </div>
+      </div>
+      <div class="livingBatchHint">当前覆盖至 <strong>${esc(end||"")}</strong>。保存后，相关日期的基础生活结算会同步更新。</div>
+    `;
+    editTxHint.textContent="修改总金额、覆盖天数或起始日期后，每日分摊会自动重新计算。";
   }else if(t.type==="extra_saving"){
     editTxTitle.textContent="修改额外储蓄";
     editTxFields.innerHTML=`
@@ -6581,7 +6913,24 @@ saveTxEdit.onclick=()=>{
       t.projectOverrunSource="";
     }
   }else if(t.type==="living_settlement"){
-    t.actualSpent=Math.max(0,N(document.getElementById("editLivingActual").value));
+    t.manualActualSpent=Math.max(0,N(document.getElementById("editLivingActual").value));
+    t.actualSpent=livingSettlementEffectiveActual(t);
+  }else if(t.type==="living_batch"){
+    const amount=Math.max(0,N(document.getElementById("editLivingBatchAmount").value));
+    const days=Math.max(1,Math.min(60,Math.round(N(document.getElementById("editLivingBatchDays").value)||1)));
+    const date=document.getElementById("editLivingBatchDate").value||t.date||td();
+    const startDate=document.getElementById("editLivingBatchStart").value||date;
+    const note=document.getElementById("editLivingBatchNote").value.trim();
+
+    if(amount<=0)return msg("请输入多日基础生活总金额");
+    if(date>td())return msg("付款日期需要选择今天或更早日期");
+
+    t.amount=amount;
+    t.days=days;
+    t.date=date;
+    t.startDate=startDate;
+    t.note=note;
+    syncLivingSettlementTotals();
   }else if(t.type==="extra_saving"){
     const date=document.getElementById("editExtraSavingDate").value||t.date||td();
     const amount=Math.max(0,N(document.getElementById("editExtraSavingAmount").value));
@@ -6810,6 +7159,7 @@ function removeTx(id){
   }
 
   S.tx=S.tx.filter(x=>x.id!==id);
+  if(target.type==="living_batch")syncLivingSettlementTotals();
   save();
   render();
 
@@ -6817,6 +7167,8 @@ function removeTx(id){
     msg("收入记录已删除；基础生活覆盖和固定账单预留已重新计算");
   }else if(target.type==="living_settlement"){
     msg("基础生活结算已撤销，今日预留已恢复");
+  }else if(target.type==="living_batch"){
+    msg("多日基础生活支出已删除，每日分摊已同步更新");
   }else if(target.type==="bill_skip"){
     msg("“无需支付”已撤销，该账单周期已恢复");
   }else if(target.type==="pocket_to_saving"){
@@ -6973,6 +7325,10 @@ S.bills.forEach(b=>{
   if(syncCurrentCycleBillReservation(b.id))currentBillRepairChanged=true;
 });
 if(currentBillRepairChanged)save();
+
+// V10.0：多日基础生活支出会动态影响相关日期的结算总额。
+syncLivingSettlementTotals();
+save();
 
 render();
 </script>
