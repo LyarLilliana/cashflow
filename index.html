@@ -1743,7 +1743,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       </div>
       <div style="grid-column:1/-1">
         <label>覆盖天数</label>
-        <input id="livingBatchDays" inputmode="numeric" type="number" min="1" max="365" value="7">
+        <input id="livingBatchDays" inputmode="numeric" type="text" pattern="[0-9]*" value="7">
       </div>
       <div style="grid-column:1/-1">
         <label>用途 / 备注</label>
@@ -5922,23 +5922,49 @@ function inclusiveLivingBatchDays(start,end){
   if(!start||!end||end<start)return 1;
   return clampLivingBatchDays(dayNumber(end)-dayNumber(start)+1);
 }
+function draftLivingBatchDays(v){
+  const raw=String(v??"").trim();
+  if(raw==="")return null;
+  const n=Math.round(Number(raw));
+  if(!Number.isFinite(n)||n<1)return null;
+  return Math.min(365,n);
+}
 function refreshLivingBatchPreview(){
   const amount=Math.max(0,N(livingBatchAmount.value));
   const start=livingBatchStart.value||td();
-  const days=clampLivingBatchDays(livingBatchDays.value);
+  const days=draftLivingBatchDays(livingBatchDays.value);
+  if(days===null){
+    livingBatchRange.textContent=`${start} 至 ${livingBatchEnd.value||"—"} · — 天`;
+    livingBatchDaily.textContent="—";
+    return;
+  }
   const end=livingBatchEnd.value||addDays(start,days-1);
   livingBatchRange.textContent=`${start} 至 ${end} · ${days} 天`;
   livingBatchDaily.textContent=M(amount/days);
 }
 function linkLivingBatchFromDays(){
   if(livingBatchLinking)return;
+  const days=draftLivingBatchDays(livingBatchDays.value);
+  if(days===null){
+    refreshLivingBatchPreview();
+    return;
+  }
   livingBatchLinking=true;
   const start=livingBatchStart.value||td();
-  const days=clampLivingBatchDays(livingBatchDays.value);
-  livingBatchDays.value=days;
   livingBatchEnd.value=addDays(start,days-1);
   livingBatchEnd.min=start;
   livingBatchLinking=false;
+  syncDateDisplays();
+  refreshLivingBatchPreview();
+}
+function commitLivingBatchDays(){
+  if(livingBatchLinking)return;
+  const start=livingBatchStart.value||td();
+  const fallback=inclusiveLivingBatchDays(start,livingBatchEnd.value||start);
+  const days=draftLivingBatchDays(livingBatchDays.value)??fallback;
+  livingBatchDays.value=days;
+  livingBatchEnd.min=start;
+  livingBatchEnd.value=addDays(start,days-1);
   syncDateDisplays();
   refreshLivingBatchPreview();
 }
@@ -5946,7 +5972,8 @@ function linkLivingBatchFromStart(){
   if(livingBatchLinking)return;
   livingBatchLinking=true;
   const start=livingBatchStart.value||td();
-  const days=clampLivingBatchDays(livingBatchDays.value);
+  const days=draftLivingBatchDays(livingBatchDays.value)
+    ??inclusiveLivingBatchDays(start,livingBatchEnd.value||start);
   livingBatchStart.value=start;
   livingBatchEnd.min=start;
   livingBatchEnd.value=addDays(start,days-1);
@@ -5987,6 +6014,8 @@ function openLivingBatch(id=""){
 }
 livingBatchAmount.addEventListener("input",refreshLivingBatchPreview);
 livingBatchDays.addEventListener("input",linkLivingBatchFromDays);
+livingBatchDays.addEventListener("change",commitLivingBatchDays);
+livingBatchDays.addEventListener("blur",commitLivingBatchDays);
 livingBatchStart.addEventListener("change",linkLivingBatchFromStart);
 livingBatchEnd.addEventListener("change",linkLivingBatchFromEnd);
 
@@ -6743,7 +6772,7 @@ function openTxEdit(id){
         </div>
         <div style="grid-column:1/-1">
           <label>覆盖天数</label>
-          <input id="editLivingBatchDays" inputmode="numeric" type="number" min="1" max="365" value="${coverage.days}">
+          <input id="editLivingBatchDays" inputmode="numeric" type="text" pattern="[0-9]*" value="${coverage.days}">
         </div>
         <div style="grid-column:1/-1">
           <label>用途 / 备注</label>
@@ -6759,19 +6788,37 @@ function openTxEdit(id){
     let editLivingBatchLinking=false;
     const refreshEditLivingBatch=()=>{
       const start=eStart.value||td();
-      const days=clampLivingBatchDays(eDays.value);
+      const days=draftLivingBatchDays(eDays.value);
+      if(days===null){
+        eHint.textContent=`${start} 至 ${eEnd.value||"—"} · — 天。输入完成后会自动校验并联动日期。`;
+        return;
+      }
       const end=eEnd.value||addDays(start,days-1);
       eHint.textContent=`${start} 至 ${end} · ${days} 天。开始日期同时作为付款日期。`;
     };
     const editFromDays=()=>{
       if(editLivingBatchLinking)return;
+      const days=draftLivingBatchDays(eDays.value);
+      if(days===null){
+        refreshEditLivingBatch();
+        return;
+      }
       editLivingBatchLinking=true;
       const start=eStart.value||td();
-      const days=clampLivingBatchDays(eDays.value);
-      eDays.value=days;
       eEnd.min=start;
       eEnd.value=addDays(start,days-1);
       editLivingBatchLinking=false;
+      syncDateDisplays();
+      refreshEditLivingBatch();
+    };
+    const commitEditDays=()=>{
+      if(editLivingBatchLinking)return;
+      const start=eStart.value||td();
+      const fallback=inclusiveLivingBatchDays(start,eEnd.value||start);
+      const days=draftLivingBatchDays(eDays.value)??fallback;
+      eDays.value=days;
+      eEnd.min=start;
+      eEnd.value=addDays(start,days-1);
       syncDateDisplays();
       refreshEditLivingBatch();
     };
@@ -6779,7 +6826,8 @@ function openTxEdit(id){
       if(editLivingBatchLinking)return;
       editLivingBatchLinking=true;
       const start=eStart.value||td();
-      const days=clampLivingBatchDays(eDays.value);
+      const days=draftLivingBatchDays(eDays.value)
+        ??inclusiveLivingBatchDays(start,eEnd.value||start);
       eEnd.min=start;
       eEnd.value=addDays(start,days-1);
       editLivingBatchLinking=false;
@@ -6802,6 +6850,8 @@ function openTxEdit(id){
       refreshEditLivingBatch();
     };
     eDays.addEventListener("input",editFromDays);
+    eDays.addEventListener("change",commitEditDays);
+    eDays.addEventListener("blur",commitEditDays);
     eStart.addEventListener("change",editFromStart);
     eEnd.addEventListener("change",editFromEnd);
     editTxHint.textContent="开始日期、结束日期和覆盖天数三者联动；每日分摊会同步重新计算。";
