@@ -326,6 +326,52 @@ button{touch-action:manipulation}
 }
 
 
+.savingAssetBlocks{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:10px;
+  margin-top:10px;
+}
+.savingAssetBlock{
+  padding:16px;
+}
+.savingAssetBlockTitle{
+  font-size:12px;
+  font-weight:780;
+  color:var(--muted);
+}
+.savingAssetBlockValue{
+  margin-top:5px;
+  font-size:27px;
+  line-height:1.1;
+  font-weight:840;
+  letter-spacing:-.4px;
+}
+.savingDailyBlock .savingAssetBlockValue{
+  color:var(--accent);
+}
+.savingAssetBlockDesc{
+  margin-top:6px;
+  line-height:1.5;
+}
+.savingAssetRows{
+  margin-top:12px;
+  padding-top:9px;
+  border-top:1px solid var(--line);
+}
+.savingAssetAction{
+  width:100%;
+  margin-top:12px;
+  min-height:42px;
+}
+.savingBankBlock .savingAssetBlockValue{
+  color:var(--text);
+}
+@media(min-width:680px){
+  .savingAssetBlocks{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
 .savingAssetBreakdown{
   margin-top:10px;
 }
@@ -1195,35 +1241,34 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="card savingHeroCard">
         <div class="k">现在属于储蓄的资产</div>
         <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
-        <div class="s">预计日常储蓄 + 银行存款本金 + 预估累计利息</div>
-
-        <div class="heroMiniActions" style="margin-top:13px">
-          <button class="ghost" onclick="openExtraSaving()">记额外储蓄</button>
-          <button class="ghost" onclick="openBankDeposit()">新增银行存款</button>
-        </div>
+        <div class="s">预计日常储蓄 + 银行资产</div>
       </div>
 
-      <div class="card savingAssetBreakdown">
-        <div class="savingPrimaryBreakdown">
-          <div class="label">预计日常储蓄</div>
-          <div class="value" id="savingFreePrincipal">¥0</div>
-          <div class="small" style="margin-top:6px">当前日常储蓄余额，加上本周期预计沉淀的零花结余</div>
+      <div class="savingAssetBlocks">
+        <div class="card savingAssetBlock savingDailyBlock">
+          <div class="savingAssetBlockTitle">预计日常储蓄</div>
+          <div class="savingAssetBlockValue" id="savingFreePrincipal">¥0</div>
+          <div class="small savingAssetBlockDesc">当前日常储蓄余额，加上本周期预计沉淀的零花结余</div>
+
+          <div class="savingAssetRows">
+            <div class="explainRow"><span>已进入日常储蓄</span><strong id="savingActualPrincipal">¥0</strong></div>
+            <div class="explainRow"><span>预计周期结余</span><strong id="savingPendingPocket">¥0</strong></div>
+          </div>
+
+          <button class="ghost savingAssetAction" onclick="openExtraSaving()">记额外储蓄</button>
         </div>
 
-        <div class="savingBreakdownGroup">
-          <div class="savingBreakdownGroupTitle">日常储蓄构成</div>
-          <div class="explainRow"><span>已进入日常储蓄</span><strong id="savingActualPrincipal">¥0</strong></div>
-          <div class="explainRow"><span>预计周期结余</span><strong id="savingPendingPocket">¥0</strong></div>
-        </div>
+        <div class="card savingAssetBlock savingBankBlock">
+          <div class="savingAssetBlockTitle">银行资产</div>
+          <div class="savingAssetBlockValue" id="savingBankTotal">¥0</div>
+          <div class="small savingAssetBlockDesc">银行存款本金，加上当前预估累计利息</div>
 
-        <div class="savingBreakdownGroup">
-          <div class="savingBreakdownGroupTitle">银行资产</div>
-          <div class="explainRow"><span>银行存款本金</span><strong id="savingBankPrincipal">¥0</strong></div>
-          <div class="explainRow"><span>预估累计利息</span><strong id="savingBankInterest">¥0</strong></div>
-        </div>
+          <div class="savingAssetRows">
+            <div class="explainRow"><span>银行存款本金</span><strong id="savingBankPrincipal">¥0</strong></div>
+            <div class="explainRow"><span>预估累计利息</span><strong id="savingBankInterest">¥0</strong></div>
+          </div>
 
-        <div class="note" style="margin-top:10px">
-          顶部总储蓄资产由预计日常储蓄、银行存款本金和预估累计利息共同组成。日常储蓄内部再分为已进入储蓄和预计周期结余。
+          <button class="ghost savingAssetAction" onclick="openBankDeposit()">新增银行存款</button>
         </div>
       </div>
     </div>
@@ -5188,6 +5233,8 @@ function renderSavings(){
 
   savingBankPrincipal.textContent=M(bankPrincipal);
   savingBankInterest.textContent=M(interest);
+  savingBankTotal.textContent=M(bankPrincipal+interest);
+  savingBankTotal.style.color=(bankPrincipal+interest)<0?"var(--danger)":"inherit";
 
   savingFreePrincipal.textContent=M(expectedOrdinary);
   savingFreePrincipal.style.color=expectedOrdinary<0?"var(--danger)":"var(--accent)";
