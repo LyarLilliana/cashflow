@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-10-savings-color-match";
+const CACHE = "safespend-v10-11-project-fund-visual";
 const ASSETS = [
   "./",
   "./index.html",
