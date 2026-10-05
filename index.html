@@ -1964,8 +1964,8 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="grid">
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
-        <div class="card stat"><div class="k">预计储蓄增长</div><div class="v" id="mExpectedSaving">¥0</div><div class="s" id="mExpectedSavingSub">随收入、消费和资金转移实时变化</div></div>
-        <div class="card stat"><div class="k">收入储蓄率</div><div class="v" id="mRate">—</div><div class="s">本期收入形成储蓄 ÷ 本期收入</div></div>
+        <div class="card stat"><div class="k" id="mOutcomeLabel">本月净结余</div><div class="v" id="mExpectedSaving">¥0</div><div class="s" id="mExpectedSavingSub">本月收入减去本月实际消费</div></div>
+        <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">—</div><div class="s" id="mRateSub">本月净结余 ÷ 本月收入</div></div>
       </div>
 
       <div class="resultRangeBar">
@@ -2016,10 +2016,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         </div>
 
         <div class="summaryGroup">
-          <div class="summaryGroupTitle">储蓄</div>
-          <div class="summaryRow"><span>本期收入形成储蓄</span><strong id="mIncomeSavingBasis">¥0</strong></div>
-          <div class="summaryRow"><span>收入储蓄率</span><strong id="mRateDetail">—</strong></div>
-          <div class="summaryRow summaryTotal"><span>预计储蓄增长</span><strong id="mExpectedSavingDetail">¥0</strong></div>
+          <div class="summaryGroupTitle">期间结果</div>
+          <div class="summaryRow"><span>储蓄率</span><strong id="mRateDetail">—</strong></div>
+          <div class="summaryRow summaryTotal"><span id="mOutcomeDetailLabel">本月净结余</span><strong id="mExpectedSavingDetail">¥0</strong></div>
         </div>
       </div>
     </div>
@@ -5301,71 +5300,43 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
     expected:expectedPrincipal+interestGrowth
   };
 }
-function incomeSavingStatsForRange(start="",end="",forceCurrentCycle=false){
-  const inRange=date=>{
-    const d=String(date||"");
-    if(start&&d<start)return false;
-    if(end&&d>end)return false;
-    return true;
-  };
-
-  const incomes=S.tx.filter(t=>t.type==="income"&&inRange(t.date));
-  const income=sm(incomes,t=>N(t.amount));
-  const incomeIds=new Set(incomes.map(t=>t.id));
-
-  // 1. 收入到账时直接进入储蓄的部分。
-  const directSaving=sm(
-    incomes,
-    t=>N(effectiveIncomeAllocation(t).saving)
-  );
-
-  // 2. 零花钱主动转储蓄。优先按所属收入周期归因；
-  //    老流水缺少 cycleIncomeId 时再按日期回推。
-  const pocketTransfers=sm(
-    S.tx.filter(t=>{
-      if(t.type!=="pocket_to_saving")return false;
-      const cycleId=t.cycleIncomeId||cycleIncomeIdForDate(t.date);
-      return cycleId?incomeIds.has(cycleId):inRange(t.date);
-    }),
-    t=>N(t.amount)
-  );
-
-  // 3. 已结束周期留下的零花，归回产生它的那笔周期收入。
-  const closedPocket=sm(
-    virtualCycleCloseEvents().filter(ev=>incomeIds.has(ev.sourceIncomeId)),
-    ev=>N(ev.amount)
-  );
-
-  // 4. 当前开放周期尚未结束时，把预计还能留下的零花计入预计收入储蓄。
-  //    只在该周期的收入本身属于当前统计范围时纳入。
-  const cycle=currentCycleStats();
-  let pendingPocket=0;
-  if(
-    cycle.income
-    &&!cycle.isClosed
-    &&(forceCurrentCycle||incomeIds.has(cycle.income.id))
-  ){
-    pendingPocket=Math.max(0,N(cycle.pocketBalance));
+function periodOutcomeLabels(mode=historyMode){
+  if(mode==="cycle"){
+    return {
+      outcome:"本周期预计可存",
+      sub:"按当前周期预算、已发生支出和当前结余综合预计",
+      rateSub:"本周期预计可存 ÷ 本周期收入"
+    };
   }
-
-  const savedFromIncome=
-    directSaving
-    +pocketTransfers
-    +closedPocket
-    +pendingPocket;
-
+  if(mode==="month"){
+    return {
+      outcome:"本月净结余",
+      sub:"本月收入 − 本月实际消费",
+      rateSub:"本月净结余 ÷ 本月收入"
+    };
+  }
+  if(mode==="year"){
+    return {
+      outcome:"本年净结余",
+      sub:"本年收入 − 本年实际消费",
+      rateSub:"本年净结余 ÷ 本年收入"
+    };
+  }
+  if(mode==="all"){
+    return {
+      outcome:"累计净结余",
+      sub:"累计收入 − 累计实际消费",
+      rateSub:"累计净结余 ÷ 累计收入"
+    };
+  }
   return {
-    income,
-    directSaving,
-    pocketTransfers,
-    closedPocket,
-    pendingPocket,
-    savedFromIncome,
-    rate:income>0?savedFromIncome/income*100:null
+    outcome:"范围净结余",
+    sub:"所选范围收入 − 所选范围实际消费",
+    rateSub:"范围净结余 ÷ 范围收入"
   };
 }
 
-function resultStatsForRange(start="",end=""){
+function periodOutcomeForRange(start="",end="",mode=historyMode){
   const incomes=S.tx.filter(t=>{
     if(t.type!=="income")return false;
     const d=t.date||"";
@@ -5376,25 +5347,31 @@ function resultStatsForRange(start="",end=""){
 
   const income=sm(incomes,t=>N(t.amount));
   const spend=spendingBreakdownForRange(start,end);
-  const saving=expectedSavingGrowthForRange(
-    start,
-    end,
-    historyMode==="cycle"
-  );
-  const incomeSaving=incomeSavingStatsForRange(
-    start,
-    end,
-    historyMode==="cycle"
-  );
 
-  const confirmedPrincipal=N(saving.confirmedPrincipal);
-  const pendingPocket=N(saving.pendingPocket);
-  const expected=N(saving.expected);
-  const rate=incomeSaving.rate;
+  // 结果页只回答“这个统计范围本身的现金流结果”。
+  // 银行本金转存、外部补录储蓄、额外储蓄和银行利息都属于资产页，
+  // 不参与这里的期间结果，也不会改变储蓄率。
+  let outcome=income-spend.total;
+
+  if(mode==="cycle"){
+    const cycle=currentCycleStats();
+    if(cycle.income){
+      // 当前周期需要考虑尚未实际支付、但已经被预算占用的生活费、
+      // 固定账单和专项，所以使用周期引擎的“预计可存”。
+      outcome=N(cycle.projectedSaving);
+    }
+  }
+
   return {
-    income,spend,saving,incomeSaving,
-    confirmedPrincipal,pendingPocket,expected,rate
+    income,
+    spend,
+    expected:outcome,
+    rate:income>0?outcome/income*100:null
   };
+}
+
+function resultStatsForRange(start="",end=""){
+  return periodOutcomeForRange(start,end,historyMode);
 }
 
 function renderHistoryTransactions(){
@@ -6482,15 +6459,17 @@ function renderHistory(){
   mIncome.textContent=M(rs.income);
   mSpend.textContent=M(rs.spend.total);
   mExpectedSaving.textContent=M(rs.expected);
+
+  const outcomeLabels=periodOutcomeLabels(historyMode);
+  mOutcomeLabel.textContent=outcomeLabels.outcome;
+  mOutcomeDetailLabel.textContent=outcomeLabels.outcome;
+  mExpectedSavingSub.textContent=outcomeLabels.sub;
+  mRateSub.textContent=outcomeLabels.rateSub;
+
   const incomeRateText=rs.rate===null
     ?"—"
     :(Math.round(rs.rate*10)/10)+"%";
   mRate.textContent=incomeRateText;
-
-  const savingParts=[`储蓄本金净增 ${M(rs.confirmedPrincipal)}`];
-  if(rs.pendingPocket>0)savingParts.push(`预计周期结余 ${M(rs.pendingPocket)}`);
-  if(rs.saving.interestGrowth>0)savingParts.push(`银行利息 ${M(rs.saving.interestGrowth)}`);
-  mExpectedSavingSub.textContent=savingParts.join(" + ");
 
   mResultIncome.textContent=M(rs.income);
   mLivingActualSpend.textContent=M(rs.spend.living);
@@ -6500,7 +6479,6 @@ function renderHistory(){
   mSavingActualSpend.textContent=M(rs.spend.saving);
   mActualSpendTotal.textContent=M(rs.spend.total);
 
-  mIncomeSavingBasis.textContent=M(rs.incomeSaving.savedFromIncome);
   mRateDetail.textContent=incomeRateText;
   mExpectedSavingDetail.textContent=M(rs.expected);
 
@@ -8677,11 +8655,11 @@ function summary(){
   const spend=spendingBreakdownForMonth(md());
   const totalSpent=spend.total;
   const ms=monthlyCycleStats(md());
-  const inc=ms.income;
-  const net=ms.projectedSaving;
   const monthRange=monthBounds(td());
-  const incomeSavingMetric=incomeSavingStatsForRange(monthRange.start,monthRange.end,false);
-  const rate=incomeSavingMetric.rate;
+  const monthOutcome=periodOutcomeForRange(monthRange.start,monthRange.end,"month");
+  const inc=monthOutcome.income;
+  const net=monthOutcome.expected;
+  const rate=monthOutcome.rate;
 
   const a=accounting();
   const b={safe:a.raw.safe,bills:a.raw.bills};
@@ -8695,7 +8673,7 @@ function summary(){
 本月收入：${M(inc)}
 本月总消费：${M(totalSpent)}
 其中基础生活实际支出：${M(spend.living)}
-其中零花钱 / 日常支出：${M(spend.daily)}
+其中日常支出：${M(spend.daily)}
 其中固定账单实际支付：${M(spend.bill)}
 其中专项实际支出：${M(spend.project)}
 其中从储蓄直接支出：${M(spend.saving)}
@@ -8706,8 +8684,8 @@ function summary(){
 本月专项预留：${M(ms.projectReserved)}
 本月已用零花钱：${M(ms.pocketSpent)}
 本月零花钱转储蓄：${M(ms.pocketToSaving)}
-本月储蓄净增：${M(net)}
-本月收入形成储蓄：${M(incomeSavingMetric.savedFromIncome)}\n本月收入储蓄率：${rate===null?"—":(Math.round(rate*10)/10)+"%"}
+本月净结余：${M(net)}
+本月储蓄率：${rate===null?"—":(Math.round(rate*10)/10)+"%"}
 
 当前零花钱余额：${M(b.safe)}
 本周期计划储蓄：${M(cycle.plannedSaving)}
