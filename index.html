@@ -4540,10 +4540,20 @@ function renderNow(){
   const dayInfo=livingDayInfo(td());
   const settled=livingSettlementForDate(td());
   if(settled){
-    // “现在”页显示的是基础生活账户的当前余额。
-    // 当天一旦结算，剩余资金已完成释放/超支处理，因此基础生活余额统一归零；
-    // 结算产生的 +/− 变化只在零花钱余额和流水记录里体现。
-    livingSettleBtn.textContent="基础生活 · 今日已结算 · ¥0";
+    const release=N(settled.allowance)-livingSettlementEffectiveActual(settled);
+
+    if(release>0){
+      const releaseRemaining=livingReleaseRemaining(settled);
+      const untouched=Math.abs(releaseRemaining-release)<0.005;
+
+      livingSettleBtn.textContent=untouched
+        ?`基础生活 · 已结算 · 转入零花 ${M(releaseRemaining)}`
+        :`基础生活 · 已结算 · 转入零花剩余 ${M(releaseRemaining)}`;
+    }else if(release<0){
+      livingSettleBtn.textContent=`基础生活 · 已结算 · 超支 ${M(Math.abs(release))}`;
+    }else{
+      livingSettleBtn.textContent="基础生活 · 今日已结算 · ¥0";
+    }
   }else if(dayInfo.covered){
     livingSettleBtn.textContent=`基础生活 · 今日剩余 ${M(livingRemainingForDate(td()))}`;
   }else{
@@ -4566,6 +4576,20 @@ function renderNow(){
     ?recent.map(t=>txHtml(t,false,false)).join("")
     :'<div class="note">本周期还没有流水。</div>';
 }
+function expenseSourceLabel(t){
+  if(!t||t.type!=="expense")return "";
+
+  if(t.settledBillId||t.bucket==="bill")return "固定账单";
+
+  if(t.bucket==="project"){
+    const p=S.projects.find(x=>x.id===t.refId);
+    return p?`专项 · ${p.name}`:"专项";
+  }
+
+  if(t.bucket==="saving")return "储蓄";
+  return "日常支出";
+}
+
 function txHtml(t,del=false,edit=false){
   if(t.type==="income"){
     const p=S.incomePlans.find(x=>x.id===t.planId);
@@ -4666,16 +4690,16 @@ function txHtml(t,del=false,edit=false){
 
   if(t.settledBillId){
     const b=S.bills.find(x=>x.id===t.settledBillId);
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">固定账单 · ${esc(b?.name||t.note||"已支付")}</div><div class="meta">${t.date}${t.cycleDueDate?" · "+t.cycleDueDate+" 周期已支付":""}${t.bucket==="safe"?" · 从零花钱支付":" · 从账单预留核销"}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">固定账单 · ${esc(b?.name||t.note||"已支付")}</div><div class="meta">${t.date} · 来源：固定账单${t.cycleDueDate?" · "+t.cycleDueDate+" 周期已支付":""}${t.bucket==="safe"?" · 零花钱承担":" · 账单预留核销"}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
-  const ref=t.bucket==="bill"?S.bills.find(x=>x.id===t.refId):S.projects.find(x=>x.id===t.refId);
   let extraMeta="";
   if(t.bucket==="project"&&N(t.projectOverrunAmount)>0){
     const source=t.projectOverrunSource==="safe"?"零花钱":"储蓄";
     extraMeta=` · 超出 ${M(t.projectOverrunAmount)} 由${source}支付`;
   }
-  return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${ref?" · "+esc(ref.name):""}${extraMeta}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+  const sourceLabel=expenseSourceLabel(t);
+  return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${sourceLabel?" · 来源："+esc(sourceLabel):""}${extraMeta}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
 }
 function transactionEditable(t){
   if(!t)return false;
@@ -4927,6 +4951,62 @@ function sortHistoryNewestFirst(a,b){
   if(ta!==tb)return tb-ta;
 
   return String(b.id).localeCompare(String(a.id));
+}
+
+function pocketOutflowAmountForTx(t,effects=null){
+  if(!t)return 0;
+
+  if(t.type==="pocket_to_saving"||t.type==="pocket_to_project"){
+    return Math.max(0,N(t.amount));
+  }
+
+  if(t.type!=="expense")return 0;
+
+  const fx=effects?.[t.id]||null;
+
+  if(t.settledBillId||t.bucket==="bill"){
+    return Math.max(0,N(fx?.billPocketDraw));
+  }
+
+  if(t.bucket==="project"){
+    return Math.max(
+      0,
+      N(fx?.projectPocketDraw),
+      t.projectOverrunSource==="safe"?N(t.projectOverrunAmount):0
+    );
+  }
+
+  if(t.bucket==="saving")return 0;
+
+  return Math.max(0,N(t.amount));
+}
+
+function txComesAfter(a,b){
+  const da=historyTxDate(a),db=historyTxDate(b);
+  if(da!==db)return da>db;
+
+  const ta=historyTxRecordStamp(a),tb=historyTxRecordStamp(b);
+  if(ta!==tb)return ta>tb;
+
+  return String(a.id)>String(b.id);
+}
+
+function livingReleaseRemaining(settlement){
+  if(!settlement)return 0;
+
+  const release=Math.max(
+    0,
+    N(settlement.allowance)-livingSettlementEffectiveActual(settlement)
+  );
+  if(release<=0)return 0;
+
+  const effects=accounting().effects;
+  const usedAfter=sm(
+    S.tx.filter(t=>t.id!==settlement.id&&txComesAfter(t,settlement)),
+    t=>pocketOutflowAmountForTx(t,effects)
+  );
+
+  return Math.max(0,release-usedAfter);
 }
 
 function historyFilteredTx(){
