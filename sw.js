@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-7-stable-now-first-screen";
+const CACHE = "safespend-v10-8-dated-living-rates";
 const ASSETS = [
   "./",
   "./index.html",
