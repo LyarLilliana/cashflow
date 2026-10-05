@@ -1116,54 +1116,71 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   color:var(--muted);
 }
 .livingBatchHint strong{color:var(--text)}
-.livingRatePlanMeta{
-  margin-top:8px;
-  color:var(--muted);
-  font-size:10.5px;
-  line-height:1.5;
-}
-.livingRateSchedule{
-  margin-top:8px;
-  border-top:1px solid var(--line);
-}
-.livingRateRule{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) auto;
-  align-items:center;
-  gap:10px;
-  padding:9px 0;
-  border-bottom:1px solid var(--line);
-}
-.livingRateRuleMain{
-  min-width:0;
-  cursor:pointer;
-}
-.livingRateRuleDate{
-  font-size:11px;
-  font-weight:760;
-}
-.livingRateRuleMeta{
-  margin-top:3px;
-  color:var(--muted);
-  font-size:9.5px;
-}
-.livingRateRuleActions{
+.planLivingCard{padding-bottom:16px}
+.livingStatusBlock{
+  margin-top:12px;
+  padding:12px 13px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:#F8F9F7;
   display:flex;
   align-items:center;
-  gap:6px;
+  justify-content:space-between;
+  gap:12px;
 }
-.livingRateRuleAmount{
+.livingStatusLabel{
   font-size:11px;
-  font-weight:800;
-  white-space:nowrap;
+  font-weight:780;
+  color:var(--text);
 }
-.livingRateDelete{
-  border:0;
-  background:transparent;
+.livingStatusMeta{
+  margin-top:3px;
+  font-size:9.5px;
+  line-height:1.4;
   color:var(--muted);
-  padding:4px 6px;
-  font-size:10px;
-  font-weight:650;
+}
+.livingStatusValue{
+  flex:none;
+  font-size:16px;
+  font-weight:820;
+  white-space:nowrap;
+  color:var(--accent);
+}
+.livingRuleEditor{
+  margin-top:12px;
+  padding:13px;
+  border-radius:15px;
+  background:#F4F6F3;
+}
+.livingRuleEditorTitle{
+  margin-bottom:9px;
+  font-size:11px;
+  font-weight:780;
+  color:var(--text);
+}
+.livingRuleEditorMeta{
+  min-height:16px;
+  margin-top:7px;
+  color:var(--muted);
+  font-size:9.5px;
+  line-height:1.45;
+}
+.livingRuleSaveBtn{
+  width:100%;
+  margin-top:9px;
+  min-height:42px;
+}
+.livingNextBlock{
+  cursor:default;
+}
+.livingNextBlock.editable{
+  cursor:pointer;
+}
+.livingNextBlock.editable:active{
+  background:#F0F3EF;
+}
+.monthlyGoalCard{
+  margin-top:10px;
 }
 .transferSummary{margin-top:10px;background:#F7F8F5;border-radius:16px;padding:13px}
 
@@ -1265,31 +1282,54 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   <section id="plan" class="panel">
     <div class="section">
       <div class="sectionTitle">计划基础</div>
-      <div class="card">
-        <div class="step"><div class="stepNo">1</div><div style="flex:1">
-          <div class="name">先定义“生存成本”</div>
-          <div class="meta">这决定每次收入到账后，需要优先留出多少基础生活费。</div>
-          <div style="height:10px"></div>
-          <div class="formGrid">
-            <div>
-              <label>每日基础生活标准</label>
-              <input id="planDailyLiving" inputmode="decimal" type="number" min="0" placeholder="例如 30">
-            </div>
-            <div>
-              <label>生效开始日期</label>
-              <input id="planLivingStartDate" type="date">
-            </div>
-          </div>
-          <div class="livingRatePlanMeta" id="livingRatePlanMeta"></div>
-          <div class="livingRateSchedule" id="livingRateScheduleList"></div>
 
-          <div style="height:12px"></div>
-          <label>月度储蓄目标，可留空</label>
-          <input id="planMonthlyGoal" inputmode="decimal" type="number" placeholder="例如 900">
-          <div class="note" style="margin-top:8px">基础生活标准从设定日期起生效，直到下一条标准开始；跨调价日期的收入周期会按每天对应的标准逐日计算。月度储蓄目标仅用于目标展示。</div>
-          <div style="height:10px"></div>
-          <button class="primary" style="width:100%" id="saveBasePlan">保存基础计划</button>
-</div></div>
+      <div class="card planLivingCard">
+        <div class="step"><div class="stepNo">1</div><div style="flex:1;min-width:0">
+          <div class="name">基础生活标准</div>
+          <div class="meta">按生效日期管理每日基础生活额度，跨调整日期会逐日使用对应标准。</div>
+
+          <div class="livingStatusBlock">
+            <div>
+              <div class="livingStatusLabel">当前标准</div>
+              <div class="livingStatusMeta" id="livingCurrentMeta">当前生效</div>
+            </div>
+            <div class="livingStatusValue" id="livingCurrentValue">¥0/天</div>
+          </div>
+
+          <div class="livingRuleEditor">
+            <div class="livingRuleEditorTitle">新增 / 修改规则</div>
+            <div class="formGrid">
+              <div>
+                <label>生效开始日期</label>
+                <input id="planLivingStartDate" type="date">
+              </div>
+              <div>
+                <label>每日基础生活标准</label>
+                <input id="planDailyLiving" inputmode="decimal" type="number" min="0" placeholder="例如 30">
+              </div>
+            </div>
+            <div class="livingRuleEditorMeta" id="livingRuleEditorMeta"></div>
+            <button class="primary livingRuleSaveBtn" id="saveBasePlan">保存规则</button>
+          </div>
+
+          <div class="livingStatusBlock livingNextBlock" id="livingNextBlock">
+            <div>
+              <div class="livingStatusLabel">下一条标准</div>
+              <div class="livingStatusMeta" id="livingNextMeta">暂无后续调整</div>
+            </div>
+            <div class="livingStatusValue" id="livingNextValue">—</div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="card monthlyGoalCard">
+        <div class="name">月度储蓄目标</div>
+        <div class="meta">用于目标展示和储蓄进度参考，可以随时调整。</div>
+        <div style="height:10px"></div>
+        <label>目标金额，可留空</label>
+        <input id="planMonthlyGoal" inputmode="decimal" type="number" min="0" placeholder="例如 900">
+        <div style="height:10px"></div>
+        <button class="secondary" style="width:100%" id="saveMonthlyGoal">保存月度目标</button>
       </div>
     </div>
 
@@ -3920,43 +3960,56 @@ function render(){
   renderHistory();
   refreshSpendRefs();
 }
+function refreshLivingRuleEditorMeta(){
+  const startDate=planLivingStartDate.value||td();
+  const amount=Math.max(0,N(planDailyLiving.value));
+  const exact=livingRateSchedule().find(r=>r.startDate===startDate);
+
+  livingRuleEditorMeta.textContent=exact
+    ?`该日期已有规则 ${M(exact.amount)}/天；保存后会更新为 ${M(amount)}/天。`
+    :`保存后新增：${startDate} 起 ${M(amount)}/天。`;
+}
+
+function loadLivingRateRule(startDate){
+  const rule=livingRateSchedule().find(r=>r.startDate===startDate);
+  if(!rule)return;
+  planLivingStartDate.value=rule.startDate;
+  planDailyLiving.value=N(rule.amount);
+  syncDateDisplays();
+  refreshLivingRuleEditorMeta();
+  planDailyLiving.focus();
+}
+
 function renderPlan(){
   refreshCurrentDailyLivingSetting();
-  planDailyLiving.value=livingRateForDate(td())||"";
+
   if(!planLivingStartDate.value)planLivingStartDate.value=td();
+  if(planDailyLiving.value==="")planDailyLiving.value=livingRateForDate(planLivingStartDate.value)||"";
   planMonthlyGoal.value=S.settings.monthlyGoal||"";
 
+  const schedule=livingRateSchedule();
   const currentRate=livingRateForDate(td());
+  const currentRule=[...schedule].filter(r=>r.startDate<=td()).pop()||null;
   const nextRule=nextLivingRateRuleAfter(td());
-  livingRatePlanMeta.textContent=nextRule
-    ?`当前 ${M(currentRate)}/天 · 下一次 ${nextRule.startDate} 起 ${M(nextRule.amount)}/天`
-    :`当前 ${M(currentRate)}/天 · 新标准会从所选日期起持续生效`;
 
-  const visibleRules=livingRateSchedule().filter(r=>r.startDate!=="1900-01-01");
-  const baseline=livingRateSchedule().find(r=>r.startDate==="1900-01-01");
-  const rows=[];
-  if(baseline){
-    rows.push(`<div class="livingRateRule">
-      <div class="livingRateRuleMain">
-        <div class="livingRateRuleDate">历史基准</div>
-        <div class="livingRateRuleMeta">在第一条有日期的调整之前持续使用</div>
-      </div>
-      <div class="livingRateRuleActions"><span class="livingRateRuleAmount">${M(baseline.amount)}/天</span></div>
-    </div>`);
+  livingCurrentValue.textContent=`${M(currentRate)}/天`;
+  livingCurrentMeta.textContent=currentRule&&currentRule.startDate!=="1900-01-01"
+    ?`${currentRule.startDate} 起生效`
+    :"当前生效";
+
+  if(nextRule){
+    livingNextValue.textContent=`${M(nextRule.amount)}/天`;
+    livingNextMeta.textContent=`${nextRule.startDate} 起 · 点此载入修改`;
+    livingNextBlock.classList.add("editable");
+    livingNextBlock.onclick=()=>loadLivingRateRule(nextRule.startDate);
+  }else{
+    livingNextValue.textContent="—";
+    livingNextMeta.textContent="暂无后续调整";
+    livingNextBlock.classList.remove("editable");
+    livingNextBlock.onclick=null;
   }
-  visibleRules.forEach(r=>{
-    rows.push(`<div class="livingRateRule">
-      <div class="livingRateRuleMain" onclick="editLivingRateRule('${r.startDate}')">
-        <div class="livingRateRuleDate">${r.startDate} 起</div>
-        <div class="livingRateRuleMeta">点击载入修改</div>
-      </div>
-      <div class="livingRateRuleActions">
-        <span class="livingRateRuleAmount">${M(r.amount)}/天</span>
-        <button class="livingRateDelete" onclick="event.stopPropagation();deleteLivingRateRule('${r.startDate}')">删除</button>
-      </div>
-    </div>`);
-  });
-  livingRateScheduleList.innerHTML=rows.join("");
+
+  refreshLivingRuleEditorMeta();
   incomePlanList.innerHTML=S.incomePlans.length?S.incomePlans.map(p=>`
     <div class="item" onclick="editIncomePlan('${p.id}')">
       <div class="row"><div><div class="name">${esc(p.name)}</div>
@@ -4325,7 +4378,21 @@ function txHtml(t,del=false,edit=false){
     const avg=N(t.amount)/Math.max(1,N(coverage.days));
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">多日基础生活${t.note?" · "+esc(t.note):""}</div><div class="meta">${coverage.start} 开始/付款 · ${coverage.end} 结束 · ${coverage.days} 天 · 日均约 ${M(avg)}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
-  const map={safe:"零花钱 / 日常支出",living:"零花钱 / 日常支出",bill:"固定账单",project:"专项支出",saving:"储蓄取用"};
+  if(t.type==="living_rate_change"){
+    const title=t.action==="delete"
+      ?"基础生活标准取消"
+      :t.action==="update"
+        ?"基础生活标准调整"
+        :"基础生活标准新增";
+    const changeMeta=t.action==="update"&&t.previousAmount!==null
+      ?` · ${M(t.previousAmount)}/天 → ${M(t.amount)}/天`
+      :"";
+    const amountText=t.action==="delete"
+      ?`取消 ${M(t.amount)}/天`
+      :`${M(t.amount)}/天`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title}</div><div class="meta">${t.date} 设置 · ${t.effectiveDate} 起${changeMeta} · 仅作设置记录</div></div><div class="txRight"><div class="txAmount txMuted">${amountText}</div>${txButtons(t,del,edit)}</div></div></div>`;
+  }
+  const map={safe:"日常支出",living:"日常支出",bill:"固定账单",project:"专项支出",saving:"储蓄取用"};
 
   if(t.type==="project_settlement"){
     const p=S.projects.find(x=>x.id===t.projectId);
@@ -4411,6 +4478,13 @@ function transactionActionTitle(t){
 
   if(t.type==="living_settlement")return "基础生活结算";
   if(t.type==="living_batch")return `多日基础生活${t.note?" · "+t.note:""}`;
+  if(t.type==="living_rate_change"){
+    return t.action==="delete"
+      ?"基础生活标准取消"
+      :t.action==="update"
+        ?"基础生活标准调整"
+        :"基础生活标准新增";
+  }
   if(t.type==="extra_saving")return "额外储蓄";
   if(t.type==="pocket_to_saving")return "零花钱转储蓄";
   if(t.type==="pocket_to_project"){
@@ -4428,8 +4502,8 @@ function transactionActionTitle(t){
       return `固定账单${b?" · "+b.name:""}`;
     }
     const labels={
-      safe:"零花钱 / 日常支出",
-      living:"零花钱 / 日常支出",
+      safe:"日常支出",
+      living:"日常支出",
       bill:"固定账单",
       project:"专项支出",
       saving:"储蓄取用"
@@ -4447,6 +4521,9 @@ function transactionActionAmountText(t){
   }
   if(t.type==="living_batch"){
     return `${M(t.amount)} · ${livingBatchCoverage(t).days} 天`;
+  }
+  if(t.type==="living_rate_change"){
+    return `${t.effectiveDate} 起 · ${t.action==="delete"?"取消 ":""}${M(t.amount)}/天`;
   }
   if(t.type==="bill_skip")return "无需支付";
   if(t.amount!==undefined)return M(t.amount);
@@ -4636,7 +4713,10 @@ function transactionSearchText(t){
     t.allowance,
     t.projectOverrunAmount,
     t.startDate,
-    t.days
+    t.days,
+    t.effectiveDate,
+    t.previousAmount,
+    t.action
   ];
 
   const bucketLabels={
@@ -5886,35 +5966,54 @@ function renderHistory(){
 }
 
 /* PLAN actions */
-function editLivingRateRule(startDate){
-  const rule=livingRateSchedule().find(r=>r.startDate===startDate);
-  if(!rule)return;
-  planLivingStartDate.value=rule.startDate;
-  planDailyLiving.value=N(rule.amount);
-  syncDateDisplays();
-  planDailyLiving.focus();
+function recordLivingRateSetting(action,effectiveDate,amount,previousAmount=null){
+  S.tx.push({
+    id:"lrc"+Date.now()+Math.random().toString(36).slice(2,6),
+    date:td(),
+    type:"living_rate_change",
+    action,
+    effectiveDate,
+    amount:N(amount),
+    previousAmount:previousAmount===null?null:N(previousAmount)
+  });
 }
 function deleteLivingRateRule(startDate){
   const rule=livingRateSchedule().find(r=>r.startDate===startDate);
   if(!rule||rule.startDate==="1900-01-01")return;
-  if(!confirm(`删除 ${startDate} 起的基础生活标准？之后会自动沿用上一条标准，直到下一条规则生效。`))return;
+  if(!confirm(`取消 ${startDate} 起的基础生活标准？之后会沿用上一条标准，直到下一条规则生效。`))return;
 
   S.settings.livingRates=livingRateSchedule().filter(r=>r.startDate!==startDate);
+  recordLivingRateSetting("delete",startDate,rule.amount,rule.amount);
+
   refreshCurrentDailyLivingSetting();
   syncLivingSettlementTotals();
   autoSettlePastLivingDays();
   save();
   render();
-  msg("基础生活标准已删除并重新计算");
+
+  planLivingStartDate.value=td();
+  planDailyLiving.value=livingRateForDate(td());
+  syncDateDisplays();
+  refreshLivingRuleEditorMeta();
+  msg("基础生活标准已取消并重新计算");
 }
 planLivingStartDate.addEventListener("change",()=>{
   const date=planLivingStartDate.value||td();
-  planDailyLiving.value=livingRateForDate(date);
+  const exact=livingRateSchedule().find(r=>r.startDate===date);
+  planDailyLiving.value=exact?N(exact.amount):livingRateForDate(date);
+  refreshLivingRuleEditorMeta();
 });
+planDailyLiving.addEventListener("input",refreshLivingRuleEditorMeta);
 
 saveBasePlan.onclick=()=>{
   const amount=Math.max(0,N(planDailyLiving.value));
   const startDate=planLivingStartDate.value||td();
+  const existing=livingRateSchedule().find(r=>r.startDate===startDate)||null;
+
+  if(existing&&N(existing.amount)===amount){
+    refreshLivingRuleEditorMeta();
+    return msg("这条基础生活标准未发生变化");
+  }
 
   const schedule=livingRateSchedule()
     .filter(r=>r.startDate!==startDate)
@@ -5922,10 +6021,9 @@ saveBasePlan.onclick=()=>{
     .sort((a,b)=>a.startDate.localeCompare(b.startDate));
 
   S.settings.livingRates=schedule;
-  S.settings.monthlyGoal=N(planMonthlyGoal.value);
+  recordLivingRateSetting(existing?"update":"add",startDate,amount,existing?existing.amount:null);
   refreshCurrentDailyLivingSetting();
 
-  // 日期规则变化后，现有收入周期预留、既往结算、今日额度与结果统计全部重算。
   syncLivingSettlementTotals();
   autoSettlePastLivingDays();
 
@@ -5933,6 +6031,16 @@ saveBasePlan.onclick=()=>{
   render();
   msg(`${startDate} 起基础生活标准已设为 ${M(amount)}/天`);
 };
+
+saveMonthlyGoal.onclick=()=>{
+  S.settings.monthlyGoal=Math.max(0,N(planMonthlyGoal.value));
+  save();
+  render();
+  msg(S.settings.monthlyGoal>0
+    ?`月度储蓄目标已设为 ${M(S.settings.monthlyGoal)}`
+    :"月度储蓄目标已清空");
+};
+
 incomePlanSaveType.onchange=()=>incomePlanSaveLabel.textContent=incomePlanSaveType.value==="percent"?"每次储蓄比例（%）":"每次储蓄金额";
 
 function refreshIncomePlanFreqUI(){
