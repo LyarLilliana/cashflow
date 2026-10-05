@@ -2271,9 +2271,38 @@ function cyclePocketSnapshot(incomeTx){
   const fixedReserved=N(baseAlloc.bills)+sm(extraAllocs,x=>N(x.bills));
   const projectReserved=N(baseAlloc.projectTotal)+sm(extraAllocs,x=>N(x.projectTotal));
 
+  const billReserveByCycle={};
+  const addBillReserveItems=items=>{
+    (items||[]).forEach(x=>{
+      const key=`${x.billId||""}|${x.dueDate||""}`;
+      billReserveByCycle[key]=(billReserveByCycle[key]||0)+N(x.amount);
+    });
+  };
+  addBillReserveItems(baseAlloc.billItems);
+  extraAllocs.forEach(x=>addBillReserveItems(x.billItems));
+
+  const billExpenses=expenses.filter(t=>t.bucket==="bill"||!!t.settledBillId);
+  let billPocketSpent=0;
+  billExpenses
+    .slice()
+    .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date))
+    .forEach(t=>{
+      const bid=billPaymentRefId(t);
+      const due=t.cycleDueDate||"";
+      const key=`${bid}|${due}`;
+      const reserved=Math.max(0,N(billReserveByCycle[key]));
+      const fromReserve=Math.min(N(t.amount),reserved);
+      billReserveByCycle[key]=reserved-fromReserve;
+      billPocketSpent+=Math.max(0,N(t.amount)-fromReserve);
+    });
+
   const pocketSpent=
-    sm(expenses.filter(t=>t.bucket==="safe"||t.bucket==="living"),t=>N(t.amount))
-    +sm(expenses.filter(t=>t.bucket==="project"&&t.projectOverrunSource==="safe"),t=>N(t.projectOverrunAmount));
+    sm(expenses.filter(t=>
+      (t.bucket==="safe"||t.bucket==="living")
+      &&!t.settledBillId
+    ),t=>N(t.amount))
+    +sm(expenses.filter(t=>t.bucket==="project"&&t.projectOverrunSource==="safe"),t=>N(t.projectOverrunAmount))
+    +billPocketSpent;
 
   const manualSavingUse=
     sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount))
@@ -2305,6 +2334,7 @@ function cyclePocketSnapshot(incomeTx){
     fixedReserved,
     projectReserved,
     pocketSpent,
+    billPocketSpent,
     manualSavingUse,
     livingRelease,
     pocketToSaving,
@@ -2341,6 +2371,11 @@ function virtualCycleCloseEvents(){
 
 function accounting(){
   const raw={safe:0,bills:0};
+  const billPools={};
+  const billPoolKey=(billId,dueDate)=>`${billId||""}|${dueDate||""}`;
+  const refreshBillRaw=()=>{
+    raw.bills=sm(Object.values(billPools),x=>Math.max(0,N(x)));
+  };
   const projects={};
   S.projects.forEach(p=>projects[p.id]=N(p.initialFund));
 
@@ -2387,7 +2422,16 @@ function accounting(){
     if(t.type==="income"){
       const ea=effectiveIncomeAllocation(t);
       raw.safe+=N(ea.safe);
-      raw.bills+=N(ea.bills);
+      if((ea.billItems||[]).length){
+        ea.billItems.forEach(x=>{
+          const key=billPoolKey(x.billId,x.dueDate);
+          billPools[key]=(billPools[key]||0)+N(x.amount);
+        });
+      }else if(N(ea.bills)>0){
+        // 旧版收入没有 billItems 时保留一个兼容账单池。
+        billPools["__legacy__"]=(billPools["__legacy__"]||0)+N(ea.bills);
+      }
+      refreshBillRaw();
       saving+=N(ea.saving);
       ea.projects.forEach(x=>{
         projects[x.projectId]=(projects[x.projectId]||0)+N(x.amount);
@@ -2506,14 +2550,26 @@ function accounting(){
       return;
     }
 
-    if(bucket==="bill"){
-      // 固定账单先使用已经预留的账单资金。
-      // 实际金额高于预留时，超出部分由零花钱承担；零花不足再影响储蓄。
-      const beforeBill=Math.max(0,N(raw.bills));
+    if(bucket==="bill"||!!t.settledBillId){
+      // 固定账单只能使用“同一账单 + 同一缴纳周期”的预留。
+      // 提前支付未来周期、补缴旧周期或超过本周期预留的部分都由零花钱承担。
+      const bid=billPaymentRefId(t);
+      const due=t.cycleDueDate||"";
+      const key=billPoolKey(bid,due);
+      let beforeBill=Math.max(0,N(billPools[key]));
+
+      // 极旧流水缺少缴纳周期时，才允许使用兼容账单池。
+      let poolKey=key;
+      if(beforeBill<=0&&!due&&N(billPools["__legacy__"])>0){
+        poolKey="__legacy__";
+        beforeBill=Math.max(0,N(billPools[poolKey]));
+      }
+
       const fromBill=Math.min(amount,beforeBill);
       const extra=Math.max(0,amount-fromBill);
 
-      raw.bills=beforeBill-fromBill;
+      billPools[poolKey]=beforeBill-fromBill;
+      refreshBillRaw();
 
       const beforeSafe=N(raw.safe);
       const overPocket=Math.max(0,extra-Math.max(0,beforeSafe));
@@ -2531,7 +2587,8 @@ function accounting(){
         uncovered:gap,
         overPlan:extra,
         billFromReserve:fromBill,
-        billPocketDraw:extra
+        billPocketDraw:extra,
+        billCycleDueDate:due
       };
       return;
     }
@@ -2855,12 +2912,14 @@ function effectiveIncomeAllocation(t){
   const living=N(livingMap[t.id]?.amount);
 
   const existingBills=new Map(S.bills.map(b=>[b.id,b]));
+  let billItems=[];
   let bills=0;
   if(Array.isArray(t.alloc?.billItems)){
-    bills=sm(t.alloc.billItems.filter(x=>{
+    billItems=t.alloc.billItems.filter(x=>{
       const b=existingBills.get(x.billId);
       return !!b && billCycleIsActive(b,x.dueDate) && !billSkipped(x.billId,x.dueDate);
-    }),x=>N(x.amount));
+    });
+    bills=sm(billItems,x=>N(x.amount));
   }else{
     bills=N(t.alloc?.bills);
   }
@@ -2877,7 +2936,7 @@ function effectiveIncomeAllocation(t){
     ? N(t.amount)-saving-living-bills-projectTotal
     : N(t.alloc?.safe)+N(t.alloc?.living)-living;
 
-  return {saving,living,bills,projects,projectTotal,safe};
+  return {saving,living,bills,billItems,projects,projectTotal,safe};
 }
 
 function activeIncomePlans(){return S.incomePlans.filter(p=>p.nextDate)}
@@ -2918,25 +2977,28 @@ function billSkipped(bid,dueDate){
     t.cycleDueDate===dueDate
   );
 }
+function billPaymentRefId(t){
+  return t?.settledBillId||((t?.bucket==="bill")?t.refId:"")||"";
+}
+function billPaymentMatchesCycle(t,bid,dueDate){
+  if(t?.type!=="expense"||billPaymentRefId(t)!==bid)return false;
+  if(t.cycleDueDate)return t.cycleDueDate===dueDate;
+  // 兼容更旧流水：缺少 cycleDueDate 时，按付款月份匹配。
+  return md(t.date)===md(dueDate);
+}
+function billCyclePaidAmount(bid,dueDate){
+  return sm(S.tx.filter(t=>billPaymentMatchesCycle(t,bid,dueDate)),t=>N(t.amount));
+}
+function billCycleRemainingAmount(b,dueDate){
+  if(!b)return 0;
+  if(billSkipped(b.id,dueDate))return 0;
+  return Math.max(0,N(b.amount)-billCyclePaidAmount(b.id,dueDate));
+}
 function billSettled(bid,dueDate){
   if(billSkipped(bid,dueDate))return true;
-
-  return S.tx.some(t=>{
-    if(t.type!=="expense")return false;
-
-    // 新版“已处理”按钮：无论这笔账单是从账单预留还是零花钱支付，
-    // 都用 settledBillId + cycleDueDate 精确标记对应缴纳周期。
-    if(t.settledBillId===bid){
-      return t.cycleDueDate===dueDate;
-    }
-
-    // 兼容原有手动“固定账单”支出。
-    if(t.bucket!=="bill"||t.refId!==bid)return false;
-    if(t.cycleDueDate)return t.cycleDueDate===dueDate;
-
-    // 兼容更旧流水：没有 cycleDueDate 时，用月份近似识别。
-    return md(t.date)===md(dueDate);
-  });
+  const b=S.bills.find(x=>x.id===bid);
+  if(!b)return false;
+  return billCycleRemainingAmount(b,dueDate)<=0.005;
 }
 function billReserved(bid,dueDate){
   return S.tx.some(t=>{
@@ -2956,7 +3018,16 @@ function allBillsBetween(start,end){
   S.bills.forEach(b=>months.forEach(([yy,mm])=>{
     const due=billDueDate(b,yy,mm);
     if(due>=start&&due<=end&&billCycleIsActive(b,due)){
-      rows.push({...b,dueDate:due,reserved:billReserved(b.id,due),settled:billSettled(b.id,due)});
+      const paidAmount=billCyclePaidAmount(b.id,due);
+      const remainingAmount=billCycleRemainingAmount(b,due);
+      rows.push({
+        ...b,
+        dueDate:due,
+        reserved:billReserved(b.id,due),
+        paidAmount,
+        remainingAmount,
+        settled:remainingAmount<=0.005
+      });
     }
   }));
   return rows;
@@ -3019,7 +3090,7 @@ function currentCycleBillStatus(){
     all,
     outstanding,
     total:sm(all,x=>N(x.amount)),
-    outstandingAmount:sm(outstanding,x=>N(x.amount)),
+    outstandingAmount:sm(outstanding,x=>N(x.remainingAmount)),
     complete:all.length>0&&outstanding.length===0,
     none:all.length===0
   };
@@ -3601,7 +3672,7 @@ function renderNow(){
     billBal.style.color="var(--muted)";
   }else{
     billBal.textContent=M(billStatus.outstandingAmount);
-    billBalSub.textContent=`尚有 ${billStatus.outstanding.length} / ${billStatus.all.length} 笔待处理`;
+    billBalSub.textContent=`尚有 ${billStatus.outstanding.length} / ${billStatus.all.length} 笔待处理；按剩余应付金额计算`;
     billBal.style.color="inherit";
   }
 
