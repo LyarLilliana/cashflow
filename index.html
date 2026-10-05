@@ -1396,6 +1396,91 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 .explain{margin-top:12px;background:#F7F8F5;border-radius:16px;padding:13px}
 .explainRow{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12px}
 .explainRow.total{font-weight:760;border-top:1px solid var(--line);margin-top:5px;padding-top:9px}
+
+.summaryLedgerCard{
+  padding:13px 14px;
+}
+.summaryHeadline{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  min-height:34px;
+}
+.summaryHeadline span{
+  font-size:11px;
+  color:var(--muted);
+  font-weight:680;
+}
+.summaryHeadline strong{
+  font-size:14px;
+  font-weight:820;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
+.summaryGroup{
+  margin-top:11px;
+  padding-top:10px;
+  border-top:1px solid var(--line);
+}
+.summaryGroupTitle{
+  margin-bottom:3px;
+  font-size:9.5px;
+  line-height:1.2;
+  color:var(--muted);
+  font-weight:720;
+}
+.summaryRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  min-height:31px;
+  padding:6px 0;
+  border-bottom:1px solid rgba(226,229,224,.72);
+}
+.summaryRow:last-child{
+  border-bottom:0;
+}
+.summaryRow span{
+  min-width:0;
+  font-size:11.5px;
+  line-height:1.35;
+  color:var(--text);
+}
+.summaryRow strong{
+  flex:none;
+  min-width:76px;
+  text-align:right;
+  font-size:12px;
+  line-height:1.2;
+  font-weight:720;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
+.summaryTotal{
+  margin-top:5px;
+  min-height:36px;
+  padding:8px 10px;
+  border:0;
+  border-radius:11px;
+  background:#F5F7F4;
+}
+.summaryTotal span{
+  font-weight:760;
+}
+.summaryTotal strong{
+  font-size:13px;
+  font-weight:840;
+}
+.summaryNote{
+  margin-top:8px;
+  padding-top:7px;
+  border-top:1px solid var(--line);
+  font-size:9.5px;
+  line-height:1.5;
+  color:var(--muted);
+}
 .bottom{
   position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.93);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
@@ -1460,6 +1545,11 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 .billDue.overdue{color:var(--danger);font-weight:700}
 
 @media(max-width:560px){
+  .summaryLedgerCard{padding:12px}
+  .summaryRow{min-height:30px;padding:6px 0}
+  .summaryRow span{font-size:11px}
+  .summaryRow strong{font-size:11.5px;min-width:70px}
+  .summaryTotal{padding:8px 9px}
   .formGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .formGrid.one{grid-template-columns:minmax(0,1fr)}
   .formGrid>div{width:100%;min-width:0}
@@ -1767,24 +1857,31 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         </div>
       </div>
 
-      <div class="card" style="margin-top:10px">
-        <div class="name">这段时间的钱是怎么存下来的</div>
-        <div class="meta">周期收入、单次额外收入、手动额外储蓄等都会联动到这里；日常储蓄转银行只改变资金位置，不重复增加总储蓄。</div>
-        <div class="divider"></div>
+      <div class="card summaryLedgerCard" style="margin-top:10px">
+        <div class="name">储蓄增长构成</div>
+        <div class="meta">只展示这个统计范围内形成或减少储蓄的项目；日常储蓄转银行只改变资金位置，不重复计入增长。</div>
 
-        <div class="explainRow"><span>周期收入储蓄</span><strong id="savingRecurringIncomePart">¥0</strong></div>
-        <div class="explainRow"><span>单次额外收入储蓄</span><strong id="savingOneOffIncomePart">¥0</strong></div>
-        <div class="explainRow"><span>周期结束结余转储蓄</span><strong id="savingCycleClosePart">¥0</strong></div>
-        <div class="explainRow"><span>当前周期预计结余</span><strong id="savingPendingPart">¥0</strong></div>
-        <div class="explainRow"><span>零花钱转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
-        <div class="explainRow"><span>专项结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
-        <div class="explainRow"><span>手动额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
-        <div class="explainRow"><span>外部直接存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
-        <div class="explainRow"><span>储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
-        <div class="explainRow"><span>日常储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
-        <div class="explainRow"><span>银行预估利息增长</span><strong id="savingInterestGrowthPart">¥0</strong></div>
-        <div class="explainRow total"><span>预计储蓄增长总和</span><strong id="savingGrowthTotal">¥0</strong></div>
-        <div class="note" style="margin-top:9px">“当前周期预计结余”仍属于零花钱预测值，会随继续消费变化；周期真正结束后才转为“周期结束结余转储蓄”。</div>
+        <div class="summaryGroup">
+          <div class="summaryGroupTitle">增加</div>
+          <div class="summaryRow"><span>周期收入储蓄</span><strong id="savingRecurringIncomePart">¥0</strong></div>
+          <div class="summaryRow"><span>单次额外收入储蓄</span><strong id="savingOneOffIncomePart">¥0</strong></div>
+          <div class="summaryRow"><span>周期结束结余</span><strong id="savingCycleClosePart">¥0</strong></div>
+          <div class="summaryRow"><span>当前周期预计结余</span><strong id="savingPendingPart">¥0</strong></div>
+          <div class="summaryRow"><span>零花钱转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
+          <div class="summaryRow"><span>专项结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
+          <div class="summaryRow"><span>额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
+          <div class="summaryRow"><span>外部存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
+          <div class="summaryRow"><span>银行预估利息</span><strong id="savingInterestGrowthPart">¥0</strong></div>
+        </div>
+
+        <div class="summaryGroup">
+          <div class="summaryGroupTitle">调整</div>
+          <div class="summaryRow"><span>储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
+          <div class="summaryRow"><span>日常储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
+          <div class="summaryRow summaryTotal"><span>预计储蓄增长总和</span><strong id="savingGrowthTotal">¥0</strong></div>
+        </div>
+
+        <div class="summaryNote">“当前周期预计结余”会随继续消费变化；周期结束后才正式沉淀为储蓄。</div>
       </div>
 
       <div class="card savingChangeList" id="savingChangeList"></div>
@@ -1902,21 +1999,27 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         </div>
       </div>
 
-      <div class="card" style="margin-top:10px">
-        <div class="explainRow"><span>统计范围收入</span><strong id="mResultIncome">¥0</strong></div>
+      <div class="card summaryLedgerCard" style="margin-top:10px">
+        <div class="summaryHeadline">
+          <span>统计范围收入</span>
+          <strong id="mResultIncome">¥0</strong>
+        </div>
 
-        <div class="divider"></div>
-        <div class="small" style="margin-bottom:5px">实际支出</div>
-        <div class="explainRow"><span>基础生活实际支出</span><strong id="mLivingActualSpend">¥0</strong></div>
-        <div class="explainRow"><span>零花钱 / 日常支出</span><strong id="mDailyActualSpend">¥0</strong></div>
-        <div class="explainRow"><span>固定账单实际支付</span><strong id="mBillActualSpend">¥0</strong></div>
-        <div class="explainRow"><span>专项实际支出</span><strong id="mProjectActualSpend">¥0</strong></div>
-        <div class="explainRow"><span>从储蓄直接支出</span><strong id="mSavingActualSpend">¥0</strong></div>
-        <div class="explainRow total"><span>消费合计</span><strong id="mActualSpendTotal">¥0</strong></div>
+        <div class="summaryGroup">
+          <div class="summaryGroupTitle">消费</div>
+          <div class="summaryRow"><span>基础生活</span><strong id="mLivingActualSpend">¥0</strong></div>
+          <div class="summaryRow"><span>日常支出</span><strong id="mDailyActualSpend">¥0</strong></div>
+          <div class="summaryRow"><span>固定账单</span><strong id="mBillActualSpend">¥0</strong></div>
+          <div class="summaryRow"><span>专项支出</span><strong id="mProjectActualSpend">¥0</strong></div>
+          <div class="summaryRow"><span>储蓄取用</span><strong id="mSavingActualSpend">¥0</strong></div>
+          <div class="summaryRow summaryTotal"><span>消费合计</span><strong id="mActualSpendTotal">¥0</strong></div>
+        </div>
 
-        <div class="divider"></div>
-        <div class="explainRow"><span>储蓄率</span><strong id="mRateDetail">0%</strong></div>
-        <div class="explainRow total"><span>预计储蓄增长</span><strong id="mExpectedSavingDetail">¥0</strong></div>
+        <div class="summaryGroup">
+          <div class="summaryGroupTitle">储蓄</div>
+          <div class="summaryRow"><span>储蓄率</span><strong id="mRateDetail">0%</strong></div>
+          <div class="summaryRow summaryTotal"><span>预计储蓄增长</span><strong id="mExpectedSavingDetail">¥0</strong></div>
+        </div>
       </div>
     </div>
 
