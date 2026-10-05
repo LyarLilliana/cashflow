@@ -1775,8 +1775,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     <div class="formGrid one">
       <div><label>支出来源</label>
         <select id="spendBucket">
-          <option value="safe">零花钱 / 日常支出</option>
-          <option value="bill">固定账单</option>
+          <option value="safe">日常支出</option>
           <option value="project">专项项目</option>
           <option value="saving">从储蓄取用</option>
         </select>
@@ -7248,13 +7247,16 @@ function refreshExpenseEditFields(t,selectedRef=""){
 
   if(bucket==="bill"){
     refRow.style.display="";
-    refLabel.textContent="选择账单";
+    refLabel.textContent="历史对应账单";
     ref.innerHTML=txBillOptions(selectedRef||ref.value||t.refId||"");
+    ref.disabled=true;
   }else if(bucket==="project"){
+    ref.disabled=false;
     refRow.style.display="";
     refLabel.textContent="选择专项";
     ref.innerHTML=txProjectOptions(selectedRef||ref.value||t.refId||"",true);
   }else{
+    ref.disabled=false;
     refRow.style.display="none";
     ref.innerHTML="";
   }
@@ -7334,11 +7336,13 @@ function openTxEdit(id){
       <div class="formGrid one">
         <div>
           <label>支出来源</label>
-          <select id="editExpenseBucket">
-            <option value="safe" ${bucket==="safe"?"selected":""}>零花钱 / 日常支出</option>
-            <option value="bill" ${bucket==="bill"?"selected":""}>固定账单</option>
-            <option value="project" ${bucket==="project"?"selected":""}>专项项目</option>
-            <option value="saving" ${bucket==="saving"?"selected":""}>从储蓄取用</option>
+          <select id="editExpenseBucket" ${bucket==="bill"?"disabled":""}>
+            ${bucket==="bill"
+              ?'<option value="bill" selected>固定账单（历史记录）</option>'
+              :`<option value="safe" ${bucket==="safe"?"selected":""}>日常支出</option>
+                 <option value="project" ${bucket==="project"?"selected":""}>专项项目</option>
+                 <option value="saving" ${bucket==="saving"?"selected":""}>从储蓄取用</option>`
+            }
           </select>
         </div>
 
@@ -7373,7 +7377,9 @@ function openTxEdit(id){
       </div>
     `;
 
-    editTxHint.textContent="这里还原“记一笔支出”的完整输入：支出来源、对应账单或专项、金额、花钱日期、专项超支来源和备注都可以修改。";
+    editTxHint.textContent=bucket==="bill"
+      ?"这是历史固定账单流水。固定账单今后统一从账单模块处理；这里保留原账单来源，只修改金额、日期和备注等历史内容。"
+      :"这里还原“记一笔支出”的输入：日常支出、专项项目或从储蓄取用，以及金额、花钱日期、专项超支来源和备注。";
 
     const refresh=()=>refreshExpenseEditFields(t);
     document.getElementById("editExpenseBucket").addEventListener("change",()=>{
@@ -7841,24 +7847,20 @@ function refreshSpendRefs(){
   const t=spendBucket.value,b=bal();
   projectOverrunRow.style.display="none";
 
-  if(t==="bill"){
-    refRow.style.display="block";refLabel.textContent="选择账单";
-    spendRef.innerHTML='<option value="">请选择</option>'+S.bills.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
-  }else if(t==="project"){
-    refRow.style.display="block";refLabel.textContent="选择专项";
+  if(t==="project"){
+    refRow.style.display="block";
+    refLabel.textContent="选择专项";
     spendRef.innerHTML='<option value="">请选择</option>'+activeProjects().map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
   }else{
     refRow.style.display="none";
+    spendRef.innerHTML="";
   }
 
-  const bs=currentCycleBillStatus();
   spendHint.textContent=t==="safe"
-    ?`当前零花钱 ${M(b.safe)}；花超后会直接压低“本周期预计可存”。`
-    :t==="bill"
-      ?(bs.complete?"本周期固定账单已全部完成":bs.none?"本周期没有固定账单":`本周期固定账单尚待支付 ${M(bs.outstandingAmount)}，共 ${bs.outstanding.length} 笔。`)
-      :t==="saving"
-        ?`当前储蓄余额 ${M(b.saving)}`
-        :"请选择专项";
+    ?`当前零花钱 ${M(b.safe)}；日常支出会直接从零花钱扣除，花超后会压低“本周期预计可存”。`
+    :t==="saving"
+      ?`当前储蓄余额 ${M(b.saving)}`
+      :"请选择专项";
 
   if(t==="project")refreshProjectOverrunUI();
 }
@@ -7877,7 +7879,7 @@ saveSpend.onclick=()=>{
   if(amount<=0)return msg("请输入金额");
   if(!spendDateValue)return msg("请选择花钱日期");
   if(spendDateValue>td())return msg("花钱日期不能晚于今天");
-  if((bucket==="bill"||bucket==="project")&&!refId)return msg("请选择对应项目");
+  if(bucket==="project"&&!refId)return msg("请选择对应专项");
 
   if(bucket==="saving"){
     if(b.saving<=0)return msg("当前储蓄余额为 0");
@@ -7901,7 +7903,7 @@ saveSpend.onclick=()=>{
   }
 
   const id="e"+Date.now();
-  const cycleDueDate=bucket==="bill"?openBillCycle(refId,spendDateValue):"";
+  const cycleDueDate="";
   const cycleIncomeId=cycleIncomeIdForDate(spendDateValue);
 
   let projectPlannedExpenseSnapshot=null;
@@ -7940,9 +7942,7 @@ saveSpend.onclick=()=>{
   closeSheet("spendSheet");
   render();
 
-  if(bucket==="bill"){
-    msg(cycleDueDate?`账单已核销 ${cycleDueDate} 周期`:"账单已核销");
-  }else if(bucket==="project"&&N(ef.overPlan)>0){
+  if(bucket==="project"&&N(ef.overPlan)>0){
     const from=ef.projectOverrunSource==="safe"?"零花钱":"储蓄";
     msg(`专项已记录，超出 ${M(ef.overPlan)} 已从${from}支付`);
   }else if(N(ef.uncovered)>0){
@@ -7952,7 +7952,7 @@ saveSpend.onclick=()=>{
   }else if(bucket==="saving"){
     msg("已从储蓄扣除，结果同步更新");
   }else{
-    msg("已记录，零花钱与相关余额已同步更新");
+    msg("支出已记录，相关余额已同步更新");
   }
 };
 function removeTx(id){
