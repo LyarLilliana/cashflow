@@ -393,25 +393,105 @@ button{touch-action:manipulation}
   line-height:1.4;
   color:var(--muted);
 }
-.pastLivingList{
-  max-height:min(58vh,520px);
-  overflow:auto;
-  border:1px solid var(--line);
-  border-radius:14px;
-  background:#fff;
+.livingTabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px;
+  margin:2px 0 12px;
+  padding:3px;
+  border-radius:12px;
+  background:#F0F2EF;
 }
-.pastLivingList .item{
+.livingTabs button{
+  min-height:36px;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:720;
+}
+.livingTabs button.active{
+  background:#fff;
+  color:var(--text);
+  box-shadow:0 1px 4px rgba(28,38,33,.08);
+}
+.livingHistoryHead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin:2px 2px 8px;
+}
+.livingHistoryCount{
+  flex:none;
+  padding-top:2px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:650;
+}
+.pastLivingList{
+  max-height:min(52vh,460px);
+  overflow:auto;
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+}
+.pastLivingRow{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:11px 2px;
+  border-top:1px solid var(--line);
   cursor:pointer;
+}
+.pastLivingRow:first-child{border-top:0}
+.pastLivingMain{min-width:0}
+.pastLivingTop{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:0;
+}
+.pastLivingDate{
+  font-size:12.5px;
+  font-weight:780;
+  color:var(--text);
+  white-space:nowrap;
+}
+.pastLivingMeta{
+  margin-top:4px;
+  font-size:10px;
+  line-height:1.45;
+  color:var(--muted);
+}
+.pastLivingSide{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:var(--muted);
+}
+.pastLivingActual{
+  text-align:right;
+  font-size:11.5px;
+  font-weight:780;
+  color:var(--text);
+  white-space:nowrap;
+}
+.pastLivingChevron{
+  font-size:19px;
+  line-height:1;
+  color:#A7ADA9;
 }
 .pastLivingStatus{
   display:inline-block;
-  margin-left:5px;
   padding:2px 6px;
   border-radius:999px;
   background:#F0F1EE;
   color:var(--muted);
-  font-size:9px;
+  font-size:8.5px;
   font-weight:700;
+  white-space:nowrap;
 }
 .pastLivingStatus.manual{
   background:var(--accentSoft);
@@ -1238,7 +1318,6 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <button class="ghost" id="livingSettleBtn" onclick="openLivingSettlement()">结算今日基础生活</button>
         <button class="ghost" id="pocketToSavingBtn" onclick="openPocketTransfer()">零花钱转储蓄</button>
         <button class="ghost wideAction" id="livingBatchBtn" onclick="openLivingBatch()">记录多日基础生活支出</button>
-        <button class="ghost wideAction" id="pastLivingBtn" onclick="openPastLivingSettlements()">修改既往基础生活</button>
       </div>
       <div class="explain">
         <div class="explainRow"><span>零花钱余额</span><strong id="whySafe">¥0</strong></div>
@@ -1802,49 +1881,65 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 
 <div class="sheet" id="livingSheet">
   <div class="sheetCard">
-    <div class="sheetTitle">结算今日基础生活</div>
-    <div class="subCard">
-      <div class="row">
-        <div>
-          <div class="name">今日基础生活剩余预留</div>
-          <div class="meta" id="livingSettleMeta">读取中…</div>
-        </div>
-        <div class="amount" id="livingAllowance">¥0</div>
-      </div>
-    </div>
-    <div style="height:10px"></div>
-    <div class="formGrid one">
-      <div>
-        <label>今天另外用于基础生活的金额</label>
-        <input id="livingActualSpent" inputmode="decimal" type="number" min="0" value="0">
-      </div>
-    </div>
-    <div class="explain">
-      <div class="explainRow"><span>今日原始预留</span><strong id="livingSumAllowance">¥0</strong></div>
-      <div class="explainRow"><span>多日支出已直接扣除</span><strong id="livingSumBatch">¥0</strong></div>
-      <div class="explainRow"><span>扣除后剩余预留</span><strong id="livingSumRemaining">¥0</strong></div>
-      <div class="explainRow"><span>今天另外支出</span><strong id="livingSumManual">¥0</strong></div>
-      <div class="explainRow total"><span id="livingReleaseLabel">结算后转入零花钱</span><strong id="livingReleaseAmount">¥0</strong></div>
-    </div>
-    <div class="note" style="margin-top:9px">
-      多日基础生活会先直接占用当天的基础生活预留。这里仅填写当天另外发生的基础生活支出。
-    </div>
-    <div class="actions">
-      <button class="ghost" onclick="closeSheet('livingSheet')">取消</button>
-      <button class="primary" id="saveLivingSettlement">确认结算</button>
-    </div>
-  </div>
-</div>
+    <div class="sheetTitle">基础生活</div>
 
-<div class="sheet" id="pastLivingSheet">
-  <div class="sheetCard">
-    <div class="sheetTitle">修改既往基础生活</div>
-    <div class="note" style="margin-bottom:10px">
-      已过去且当天未手动结算的基础生活，会先按计划额度自动结算。点击某一天可以补改真实支出，所有余额会重新联动。
+    <div class="livingTabs">
+      <button type="button" id="livingTodayTab" class="active" onclick="showLivingPanel('today')">今日结算</button>
+      <button type="button" id="livingHistoryTab" onclick="showLivingPanel('history')">既往记录</button>
     </div>
-    <div class="pastLivingList" id="pastLivingSettlementList"></div>
-    <div class="actions">
-      <button class="ghost" onclick="closeSheet('pastLivingSheet')">关闭</button>
+
+    <div id="livingTodayPanel">
+      <div class="subCard">
+        <div class="row">
+          <div>
+            <div class="name">今日基础生活剩余预留</div>
+            <div class="meta" id="livingSettleMeta">读取中…</div>
+          </div>
+          <div class="amount" id="livingAllowance">¥0</div>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="formGrid one">
+        <div>
+          <label>今天另外用于基础生活的金额</label>
+          <input id="livingActualSpent" inputmode="decimal" type="number" min="0" value="0">
+        </div>
+      </div>
+
+      <div class="explain">
+        <div class="explainRow"><span>今日原始预留</span><strong id="livingSumAllowance">¥0</strong></div>
+        <div class="explainRow"><span>多日支出已直接扣除</span><strong id="livingSumBatch">¥0</strong></div>
+        <div class="explainRow"><span>扣除后剩余预留</span><strong id="livingSumRemaining">¥0</strong></div>
+        <div class="explainRow"><span>今天另外支出</span><strong id="livingSumManual">¥0</strong></div>
+        <div class="explainRow total"><span id="livingReleaseLabel">结算后转入零花钱</span><strong id="livingReleaseAmount">¥0</strong></div>
+      </div>
+
+      <div class="note" style="margin-top:9px">
+        多日基础生活会先直接占用当天预留。这里只填写当天另外发生的基础生活支出。
+      </div>
+
+      <div class="actions">
+        <button class="ghost" onclick="closeSheet('livingSheet')">关闭</button>
+        <button class="primary" id="saveLivingSettlement">确认结算</button>
+      </div>
+    </div>
+
+    <div id="livingHistoryPanel" hidden>
+      <div class="livingHistoryHead">
+        <div>
+          <div class="name">既往基础生活</div>
+          <div class="meta">漏结算的日期按计划自动补记，点整行即可补改真实支出。</div>
+        </div>
+        <div class="livingHistoryCount" id="pastLivingCount">0 条</div>
+      </div>
+
+      <div class="pastLivingList" id="pastLivingSettlementList"></div>
+
+      <div class="actions">
+        <button class="ghost" onclick="closeSheet('livingSheet')">关闭</button>
+      </div>
     </div>
   </div>
 </div>
@@ -3997,15 +4092,13 @@ function renderNow(){
   const settled=livingSettlementForDate(td());
   if(settled){
     const release=N(settled.allowance)-livingSettlementEffectiveActual(settled);
-    livingSettleBtn.textContent=`今日基础生活已结算 · ${release>=0?"+":""}${M(release)} 零花钱`;
-    livingSettleBtn.disabled=false;
+    livingSettleBtn.textContent=`基础生活 · 今日已结算 ${release>=0?"+":""}${M(release)}`;
   }else if(dayInfo.covered){
-    livingSettleBtn.textContent=`结算今日基础生活 · 剩余 ${M(livingRemainingForDate(td()))}`;
-    livingSettleBtn.disabled=false;
+    livingSettleBtn.textContent=`基础生活 · 今日剩余 ${M(livingRemainingForDate(td()))}`;
   }else{
-    livingSettleBtn.textContent="今日没有基础生活预留";
-    livingSettleBtn.disabled=true;
+    livingSettleBtn.textContent="基础生活 · 查看记录";
   }
+  livingSettleBtn.disabled=false;
 
   const transferLabel=activeProjects().length?"零花钱转储蓄 / 专项":"零花钱转储蓄";
   pocketToSavingBtn.textContent=b.safe>0?`${transferLabel} · 可转 ${M(b.safe)}`:transferLabel;
@@ -6091,11 +6184,29 @@ saveIncome.onclick=()=>{
 
 
 /* Daily living settlement */
+function showLivingPanel(mode="today"){
+  const history=mode==="history";
+  livingTodayPanel.hidden=history;
+  livingHistoryPanel.hidden=!history;
+  livingTodayTab.classList.toggle("active",!history);
+  livingHistoryTab.classList.toggle("active",history);
+
+  if(history){
+    const created=autoSettlePastLivingDays();
+    if(created>0)save();
+    renderPastLivingSettlements();
+  }
+}
+
 function openLivingSettlement(){
   const info=livingDayInfo(td());
   const existing=livingSettlementForDate(td());
 
-  if((!info.covered||info.allowance<=0)&&!existing)return msg("今天没有需要结算的基础生活预留");
+  if((!info.covered||info.allowance<=0)&&!existing){
+    showLivingPanel("history");
+    livingSheet.classList.add("show");
+    return;
+  }
 
   const allowance=N(existing?.allowance||info.allowance);
   const batch=livingBatchShareForDate(td());
@@ -6117,6 +6228,7 @@ function openLivingSettlement(){
     ?`${td()} · 已结算，可重新修改 · 原始预留 ${M(allowance)}${sourceText?" · 已扣 "+sourceText:""}`
     :`${td()} · 原始预留 ${M(allowance)}${sourceText?" · 已扣 "+sourceText:""}`;
   recalcLivingSettlement();
+  showLivingPanel("today");
   livingSheet.classList.add("show");
 }
 function recalcLivingSettlement(){
@@ -6179,13 +6291,14 @@ saveLivingSettlement.onclick=()=>{
   }
 
   save();
-  closeSheet("livingSheet");
   render();
 
   if(existing)msg("今日基础生活结算已更新");
   else if(release>0)msg(`已把 ${M(release)} 转入零花钱`);
   else if(release===0)msg("今日基础生活已刚好用完");
   else msg(`超出今日预留 ${M(Math.abs(release))}，已减少零花钱`);
+
+  openLivingSettlement();
 };
 
 function pastLivingSettlementRows(){
@@ -6200,6 +6313,7 @@ function pastLivingSettlementRows(){
 }
 function renderPastLivingSettlements(){
   const rows=pastLivingSettlementRows();
+  pastLivingCount.textContent=`${rows.length} 条`;
 
   pastLivingSettlementList.innerHTML=rows.length
     ?rows.map(t=>{
@@ -6208,33 +6322,39 @@ function renderPastLivingSettlements(){
       const batch=livingBatchShareForDate(date);
       const release=N(t.allowance)-actual;
       const status=t.autoSettled
-        ?'<span class="pastLivingStatus">按计划自动结算</span>'
-        :'<span class="pastLivingStatus manual">已手动确认</span>';
+        ?'<span class="pastLivingStatus">自动</span>'
+        :'<span class="pastLivingStatus manual">已确认</span>';
       const result=release>0
         ?`结余 ${M(release)}`
         :release<0
           ?`超出 ${M(Math.abs(release))}`
           :"刚好按计划";
-      return `<div class="item" onclick="openPastLivingEdit('${t.id}')">
-        <div class="txRow">
-          <div class="txLeft">
-            <div class="name">${date} ${status}</div>
-            <div class="meta">预留 ${M(t.allowance)} · 实际合计 ${M(actual)}${batch>0?" · 多日分摊 "+M(batch):""} · ${result}</div>
+      const batchMeta=batch>0?` · 分摊 ${M(batch)}`:"";
+      return `<div class="pastLivingRow" onclick="openPastLivingEdit('${t.id}')">
+        <div class="pastLivingMain">
+          <div class="pastLivingTop">
+            <span class="pastLivingDate">${date}</span>
+            ${status}
           </div>
-          <div class="txRight"><div class="amount">修改</div></div>
+          <div class="pastLivingMeta">预留 ${M(t.allowance)} · ${result}${batchMeta}</div>
+        </div>
+        <div class="pastLivingSide">
+          <div class="pastLivingActual">实际 ${M(actual)}</div>
+          <div class="pastLivingChevron">›</div>
         </div>
       </div>`;
     }).join("")
-    :'<div class="note">当前还没有既往基础生活结算记录。</div>';
+    :'<div class="note" style="padding:14px 2px">当前还没有既往基础生活记录。</div>';
 }
 function openPastLivingSettlements(){
-  const created=autoSettlePastLivingDays();
-  if(created>0)save();
-  renderPastLivingSettlements();
-  pastLivingSheet.classList.add("show");
+  showLivingPanel("history");
+  livingSheet.classList.add("show");
 }
+
+let returnToLivingHistory=false;
 function openPastLivingEdit(id){
-  closeSheet("pastLivingSheet");
+  returnToLivingHistory=true;
+  closeSheet("livingSheet");
   openTxEdit(id);
 }
 
@@ -7459,10 +7579,17 @@ saveTxEdit.onclick=()=>{
 
   t.editedAt=Date.now();
 
+  const reopenLivingHistory=returnToLivingHistory&&t.type==="living_settlement";
+  returnToLivingHistory=false;
+
   save();
   closeSheet("editTxSheet");
   render();
   msg("这条流水的输入内容已更新");
+
+  if(reopenLivingHistory){
+    openPastLivingSettlements();
+  }
 };
 
 /* Spend */
