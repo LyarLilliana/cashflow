@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-1-savings-two-blocks";
+const CACHE = "safespend-v10-1-savings-add-section";
 const ASSETS = [
   "./",
   "./index.html",
