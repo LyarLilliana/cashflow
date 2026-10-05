@@ -4351,7 +4351,7 @@ function renderNow(){
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
     const todayLivingSettled=!!livingSettlementForDate(td());
     dailyTotalMeta.textContent=todayLivingSettled
-      ?`今日基础生活已结清 · 建议零花 ${M(dailyPocket)}`
+      ?`今日基础生活 ¥0 · 建议零花 ${M(dailyPocket)}`
       :batchToday>0
         ?`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
         :`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}`;
@@ -4372,7 +4372,7 @@ function renderNow(){
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
     const todayLivingSettled=!!livingSettlementForDate(td());
     dailyTotalMeta.textContent=todayLivingSettled
-      ?`今日基础生活已结清 · 当前零花 ${M(dailyPocket)}`
+      ?`今日基础生活 ¥0 · 当前零花 ${M(dailyPocket)}`
       :batchToday>0
         ?`今日基础生活剩余 ${M(livingRemaining)} + 当前零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
         :`今日基础生活剩余 ${M(livingRemaining)} + 当前零花 ${M(dailyPocket)}`;
@@ -4540,12 +4540,10 @@ function renderNow(){
   const dayInfo=livingDayInfo(td());
   const settled=livingSettlementForDate(td());
   if(settled){
-    const release=N(settled.allowance)-livingSettlementEffectiveActual(settled);
-    livingSettleBtn.textContent=release>0
-      ?`基础生活 · 已结清 · +${M(release)} 已转零花`
-      :release<0
-        ?`基础生活 · 已结清 · 超支 ${M(Math.abs(release))}`
-        :"基础生活 · 今日已结清";
+    // “现在”页显示的是基础生活账户的当前余额。
+    // 当天一旦结算，剩余资金已完成释放/超支处理，因此基础生活余额统一归零；
+    // 结算产生的 +/− 变化只在零花钱余额和流水记录里体现。
+    livingSettleBtn.textContent="基础生活 · 今日已结算 · ¥0";
   }else if(dayInfo.covered){
     livingSettleBtn.textContent=`基础生活 · 今日剩余 ${M(livingRemainingForDate(td()))}`;
   }else{
