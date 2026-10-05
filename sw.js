@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-23-clean-result-savings-ui";
+const CACHE = "safespend-v10-24-savings-reconcile-range-ui";
 const ASSETS = [
   "./",
   "./index.html",
