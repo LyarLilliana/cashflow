@@ -1480,6 +1480,78 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 .periodResultGroup .summaryRow:last-child{
   border-bottom:0;
 }
+
+/* Result spending breakdown */
+.spendBreakdownCard{
+  margin-top:10px;
+  padding:14px;
+}
+.spendBreakdownHead{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.spendBreakdownTitle{
+  font-size:12px;
+  line-height:1.2;
+  font-weight:780;
+  color:var(--text);
+}
+.spendBreakdownMeta{
+  font-size:9.5px;
+  line-height:1.3;
+  color:var(--muted);
+  white-space:nowrap;
+}
+.spendBreakdownGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.spendBreakdownItem{
+  min-width:0;
+  min-height:70px;
+  padding:11px 12px;
+  border:1px solid #E5E8E3;
+  border-radius:14px;
+  background:#F8F9F7;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  gap:8px;
+}
+.spendBreakdownLabel{
+  font-size:10px;
+  line-height:1.3;
+  color:var(--muted);
+  font-weight:650;
+}
+.spendBreakdownValue{
+  font-size:16px;
+  line-height:1.15;
+  font-weight:820;
+  color:var(--text);
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.2px;
+}
+.spendBreakdownSaving{
+  grid-column:1/-1;
+  min-height:48px;
+  flex-direction:row;
+  align-items:center;
+  padding:10px 12px;
+  background:#FAFAF8;
+}
+.spendBreakdownSaving .spendBreakdownValue{
+  font-size:13px;
+}
+@media(max-width:380px){
+  .spendBreakdownItem{min-height:66px;padding:10px}
+  .spendBreakdownValue{font-size:15px}
+}
+
 .bottom{
   position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.93);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
@@ -1998,15 +2070,34 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         </div>
       </div>
 
-      <div class="card summaryLedgerCard" style="margin-top:10px">
-        <div class="summaryGroup" style="margin-top:0;padding-top:0;border-top:0">
-          <div class="summaryGroupTitle">消费明细</div>
-          <div class="summaryRow"><span>基础生活</span><strong id="mLivingActualSpend">¥0</strong></div>
-          <div class="summaryRow"><span>日常支出</span><strong id="mDailyActualSpend">¥0</strong></div>
-          <div class="summaryRow"><span>固定账单</span><strong id="mBillActualSpend">¥0</strong></div>
-          <div class="summaryRow"><span>专项支出</span><strong id="mProjectActualSpend">¥0</strong></div>
-          <div class="summaryRow"><span>储蓄取用</span><strong id="mSavingActualSpend">¥0</strong></div>
+      <div class="card spendBreakdownCard">
+        <div class="spendBreakdownHead">
+          <div class="spendBreakdownTitle">消费明细</div>
+          <div class="spendBreakdownMeta">所选范围实际支出</div>
+        </div>
+
+        <div class="spendBreakdownGrid">
+          <div class="spendBreakdownItem">
+            <div class="spendBreakdownLabel">基础生活</div>
+            <strong class="spendBreakdownValue" id="mLivingActualSpend">¥0</strong>
           </div>
+          <div class="spendBreakdownItem">
+            <div class="spendBreakdownLabel">日常支出</div>
+            <strong class="spendBreakdownValue" id="mDailyActualSpend">¥0</strong>
+          </div>
+          <div class="spendBreakdownItem">
+            <div class="spendBreakdownLabel">固定账单</div>
+            <strong class="spendBreakdownValue" id="mBillActualSpend">¥0</strong>
+          </div>
+          <div class="spendBreakdownItem">
+            <div class="spendBreakdownLabel">专项支出</div>
+            <strong class="spendBreakdownValue" id="mProjectActualSpend">¥0</strong>
+          </div>
+          <div class="spendBreakdownItem spendBreakdownSaving">
+            <div class="spendBreakdownLabel">储蓄取用</div>
+            <strong class="spendBreakdownValue" id="mSavingActualSpend">¥0</strong>
+          </div>
+        </div>
       </div>
     </div>
 
