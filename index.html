@@ -1116,6 +1116,55 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   color:var(--muted);
 }
 .livingBatchHint strong{color:var(--text)}
+.livingRatePlanMeta{
+  margin-top:8px;
+  color:var(--muted);
+  font-size:10.5px;
+  line-height:1.5;
+}
+.livingRateSchedule{
+  margin-top:8px;
+  border-top:1px solid var(--line);
+}
+.livingRateRule{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:9px 0;
+  border-bottom:1px solid var(--line);
+}
+.livingRateRuleMain{
+  min-width:0;
+  cursor:pointer;
+}
+.livingRateRuleDate{
+  font-size:11px;
+  font-weight:760;
+}
+.livingRateRuleMeta{
+  margin-top:3px;
+  color:var(--muted);
+  font-size:9.5px;
+}
+.livingRateRuleActions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.livingRateRuleAmount{
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.livingRateDelete{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  padding:4px 6px;
+  font-size:10px;
+  font-weight:650;
+}
 .transferSummary{margin-top:10px;background:#F7F8F5;border-radius:16px;padding:13px}
 
 
@@ -1221,12 +1270,23 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <div class="name">先定义“生存成本”</div>
           <div class="meta">这决定每次收入到账后，需要优先留出多少基础生活费。</div>
           <div style="height:10px"></div>
-          <label>每日基础生活标准</label>
-          <input id="planDailyLiving" inputmode="decimal" type="number" placeholder="例如 30">
-          <div style="height:10px"></div>
+          <div class="formGrid">
+            <div>
+              <label>每日基础生活标准</label>
+              <input id="planDailyLiving" inputmode="decimal" type="number" min="0" placeholder="例如 30">
+            </div>
+            <div>
+              <label>生效开始日期</label>
+              <input id="planLivingStartDate" type="date">
+            </div>
+          </div>
+          <div class="livingRatePlanMeta" id="livingRatePlanMeta"></div>
+          <div class="livingRateSchedule" id="livingRateScheduleList"></div>
+
+          <div style="height:12px"></div>
           <label>月度储蓄目标，可留空</label>
           <input id="planMonthlyGoal" inputmode="decimal" type="number" placeholder="例如 900">
-          <div class="note" style="margin-top:8px">这里仅设目标。每一笔收入具体存多少，由对应的收入计划自己定义。</div>
+          <div class="note" style="margin-top:8px">基础生活标准从设定日期起生效，直到下一条标准开始；跨调价日期的收入周期会按每天对应的标准逐日计算。月度储蓄目标仅用于目标展示。</div>
           <div style="height:10px"></div>
           <button class="primary" style="width:100%" id="saveBasePlan">保存基础计划</button>
 </div></div>
@@ -2157,11 +2217,11 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY="safespend_cashflow_v72";
-const OLD_KEYS=["safespend_cashflow_v71","safespend_cashflow_v70","safespend_cashflow_v69","safespend_cashflow_v68","safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
+const KEY="safespend_cashflow_v73";
+const OLD_KEYS=["safespend_cashflow_v72","safespend_cashflow_v71","safespend_cashflow_v70","safespend_cashflow_v69","safespend_cashflow_v68","safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:72,
-  settings:{dailyLiving:0,monthlyGoal:0,bankDepositThreshold:0},
+  version:73,
+  settings:{dailyLiving:0,livingRates:[],monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
   projects:[],
@@ -2192,6 +2252,26 @@ function normalize(d){
   s.settings={...defaults.settings,...(d.settings||{})};
   if(!s.settings.dailyLiving && d.settings?.dailyFood) s.settings.dailyLiving=Number(d.settings.dailyFood)||0;
   if(!s.settings.monthlyGoal && d.settings?.saveGoal) s.settings.monthlyGoal=Number(d.settings.saveGoal)||0;
+
+  const originalDailyLiving=Math.max(0,Number(s.settings.dailyLiving)||0);
+  const rawLivingRates=Array.isArray(s.settings.livingRates)?s.settings.livingRates:[];
+  const livingRateMap=new Map();
+  rawLivingRates.forEach(r=>{
+    const startDate=String(r?.startDate||"");
+    const amount=Math.max(0,Number(r?.amount)||0);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(startDate)){
+      livingRateMap.set(startDate,{startDate,amount,legacy:!!r.legacy});
+    }
+  });
+  if(livingRateMap.size===0&&originalDailyLiving>0){
+    livingRateMap.set("1900-01-01",{
+      startDate:"1900-01-01",
+      amount:originalDailyLiving,
+      legacy:true
+    });
+  }
+  s.settings.livingRates=[...livingRateMap.values()]
+    .sort((a,b)=>a.startDate.localeCompare(b.startDate));
   s.incomePlans=Array.isArray(d.incomePlans)?d.incomePlans:[];
   s.bills=Array.isArray(d.bills)?d.bills:[];
   s.projects=Array.isArray(d.projects)?d.projects:[];
@@ -2894,6 +2974,43 @@ function dateRange(start,endExclusive){
   }
   return out;
 }
+function livingRateSchedule(){
+  return [...(S.settings.livingRates||[])]
+    .filter(r=>r&&r.startDate)
+    .sort((a,b)=>a.startDate.localeCompare(b.startDate));
+}
+function livingRateForDate(date=td()){
+  const schedule=livingRateSchedule();
+  if(schedule.length===0)return Math.max(0,N(S.settings.dailyLiving));
+
+  let amount=0;
+  for(const rule of schedule){
+    if(rule.startDate<=date)amount=Math.max(0,N(rule.amount));
+    else break;
+  }
+  return amount;
+}
+function nextLivingRateRuleAfter(date=td()){
+  return livingRateSchedule().find(r=>r.startDate>date)||null;
+}
+function livingRateBreakdownForDays(days=[]){
+  const groups=[];
+  days.forEach(date=>{
+    const amount=livingRateForDate(date);
+    const last=groups[groups.length-1];
+    if(last&&last.amount===amount&&addDays(last.end,1)===date){
+      last.end=date;
+      last.days++;
+    }else{
+      groups.push({start:date,end:date,days:1,amount});
+    }
+  });
+  return groups;
+}
+function refreshCurrentDailyLivingSetting(){
+  S.settings.dailyLiving=livingRateForDate(td());
+}
+
 function livingReservationMap(){
   const result={};
   const covered=new Set();
@@ -2901,7 +3018,7 @@ function livingReservationMap(){
     .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
 
   incomes.forEach(t=>{
-    if(t.livingCoverageStart&&t.livingCoverageEnd&&t.livingRateAtRecord!==undefined){
+    if(t.livingCoverageStart&&t.livingCoverageEnd){
       const all=dateRange(t.livingCoverageStart,t.livingCoverageEnd);
       const days=all.filter(d=>!covered.has(d));
       days.forEach(d=>covered.add(d));
@@ -2909,17 +3026,19 @@ function livingReservationMap(){
         days,
         totalDays:all.length,
         skippedDays:all.length-days.length,
-        amount:days.length*N(t.livingRateAtRecord),
+        amount:sm(days,d=>livingRateForDate(d)),
+        breakdown:livingRateBreakdownForDays(days),
         start:t.livingCoverageStart,
         end:t.livingCoverageEnd
       };
     }else{
-      // Legacy transaction: preserve its historical living allocation as-is.
+      // Legacy transaction without a coverage window keeps its historical allocation.
       result[t.id]={
         days:[],
         totalDays:0,
         skippedDays:0,
         amount:N(t.alloc?.living),
+        breakdown:[],
         start:"",
         end:""
       };
@@ -2936,7 +3055,7 @@ function livingDayInfo(date=td()){
       return {
         covered:true,
         incomeId,
-        allowance:N(income?.livingRateAtRecord ?? S.settings.dailyLiving),
+        allowance:livingRateForDate(date),
         income
       };
     }
@@ -3000,8 +3119,13 @@ function syncLivingSettlementTotals(){
   S.tx.forEach(t=>{
     if(t.type!=="living_settlement")return;
 
+    const date=t.coveredDate||t.date||"";
+    const info=livingDayInfo(date);
+    if(info.covered){
+      t.allowance=N(info.allowance);
+    }
+
     if(t.autoSettled){
-      const date=t.coveredDate||t.date||"";
       const batch=livingBatchShareForDate(date);
       // 自动兜底结算始终保持“总基础生活 = 当日计划额度”。
       // 后续补录或修改多日支出时，自动调整其余基础生活金额。
@@ -3025,10 +3149,8 @@ function autoSettlePastLivingDays(){
   let stamp=Date.now();
 
   Object.entries(map).forEach(([incomeId,info])=>{
-    const income=S.tx.find(t=>t.id===incomeId);
-    const allowance=N(income?.livingRateAtRecord ?? S.settings.dailyLiving);
-
     (info.days||[]).forEach(date=>{
+      const allowance=livingRateForDate(date);
       if(!date||date>=today||existing.has(date)||allowance<=0)return;
 
       const batch=livingBatchShareForDate(date);
@@ -3087,8 +3209,9 @@ function livingPreviewForPlan(p,nextDateOverride=""){
   const days=all.filter(d=>!covered.has(d));
 
   return {
-    amount:days.length*N(S.settings.dailyLiving),
+    amount:sm(days,d=>livingRateForDate(d)),
     days,
+    breakdown:livingRateBreakdownForDays(days),
     totalDays:all.length,
     skippedDays:all.length-days.length,
     start,
@@ -3799,8 +3922,42 @@ function render(){
   refreshSpendRefs();
 }
 function renderPlan(){
-  planDailyLiving.value=S.settings.dailyLiving||"";
+  refreshCurrentDailyLivingSetting();
+  planDailyLiving.value=livingRateForDate(td())||"";
+  if(!planLivingStartDate.value)planLivingStartDate.value=td();
   planMonthlyGoal.value=S.settings.monthlyGoal||"";
+
+  const currentRate=livingRateForDate(td());
+  const nextRule=nextLivingRateRuleAfter(td());
+  livingRatePlanMeta.textContent=nextRule
+    ?`当前 ${M(currentRate)}/天 · 下一次 ${nextRule.startDate} 起 ${M(nextRule.amount)}/天`
+    :`当前 ${M(currentRate)}/天 · 新标准会从所选日期起持续生效`;
+
+  const visibleRules=livingRateSchedule().filter(r=>r.startDate!=="1900-01-01");
+  const baseline=livingRateSchedule().find(r=>r.startDate==="1900-01-01");
+  const rows=[];
+  if(baseline){
+    rows.push(`<div class="livingRateRule">
+      <div class="livingRateRuleMain">
+        <div class="livingRateRuleDate">历史基准</div>
+        <div class="livingRateRuleMeta">在第一条有日期的调整之前持续使用</div>
+      </div>
+      <div class="livingRateRuleActions"><span class="livingRateRuleAmount">${M(baseline.amount)}/天</span></div>
+    </div>`);
+  }
+  visibleRules.forEach(r=>{
+    rows.push(`<div class="livingRateRule">
+      <div class="livingRateRuleMain" onclick="editLivingRateRule('${r.startDate}')">
+        <div class="livingRateRuleDate">${r.startDate} 起</div>
+        <div class="livingRateRuleMeta">点击载入修改</div>
+      </div>
+      <div class="livingRateRuleActions">
+        <span class="livingRateRuleAmount">${M(r.amount)}/天</span>
+        <button class="livingRateDelete" onclick="event.stopPropagation();deleteLivingRateRule('${r.startDate}')">删除</button>
+      </div>
+    </div>`);
+  });
+  livingRateScheduleList.innerHTML=rows.join("");
   incomePlanList.innerHTML=S.incomePlans.length?S.incomePlans.map(p=>`
     <div class="item" onclick="editIncomePlan('${p.id}')">
       <div class="row"><div><div class="name">${esc(p.name)}</div>
@@ -5730,10 +5887,52 @@ function renderHistory(){
 }
 
 /* PLAN actions */
+function editLivingRateRule(startDate){
+  const rule=livingRateSchedule().find(r=>r.startDate===startDate);
+  if(!rule)return;
+  planLivingStartDate.value=rule.startDate;
+  planDailyLiving.value=N(rule.amount);
+  syncDateDisplays();
+  planDailyLiving.focus();
+}
+function deleteLivingRateRule(startDate){
+  const rule=livingRateSchedule().find(r=>r.startDate===startDate);
+  if(!rule||rule.startDate==="1900-01-01")return;
+  if(!confirm(`删除 ${startDate} 起的基础生活标准？之后会自动沿用上一条标准，直到下一条规则生效。`))return;
+
+  S.settings.livingRates=livingRateSchedule().filter(r=>r.startDate!==startDate);
+  refreshCurrentDailyLivingSetting();
+  syncLivingSettlementTotals();
+  autoSettlePastLivingDays();
+  save();
+  render();
+  msg("基础生活标准已删除并重新计算");
+}
+planLivingStartDate.addEventListener("change",()=>{
+  const date=planLivingStartDate.value||td();
+  planDailyLiving.value=livingRateForDate(date);
+});
+
 saveBasePlan.onclick=()=>{
-  S.settings.dailyLiving=N(planDailyLiving.value);
-S.settings.monthlyGoal=N(planMonthlyGoal.value);
-  save();render();msg("基础计划已保存");
+  const amount=Math.max(0,N(planDailyLiving.value));
+  const startDate=planLivingStartDate.value||td();
+
+  const schedule=livingRateSchedule()
+    .filter(r=>r.startDate!==startDate)
+    .concat([{startDate,amount,legacy:false}])
+    .sort((a,b)=>a.startDate.localeCompare(b.startDate));
+
+  S.settings.livingRates=schedule;
+  S.settings.monthlyGoal=N(planMonthlyGoal.value);
+  refreshCurrentDailyLivingSetting();
+
+  // 日期规则变化后，现有收入周期预留、既往结算、今日额度与结果统计全部重算。
+  syncLivingSettlementTotals();
+  autoSettlePastLivingDays();
+
+  save();
+  render();
+  msg(`${startDate} 起基础生活标准已设为 ${M(amount)}/天`);
 };
 incomePlanSaveType.onchange=()=>incomePlanSaveLabel.textContent=incomePlanSaveType.value==="percent"?"每次储蓄比例（%）":"每次储蓄金额";
 
@@ -6084,7 +6283,10 @@ function recalcIncome(){
   }else if(!incNextDate.value){
     incLivingMeta.textContent="请先确认下一次周期收入日期。";
   }else if(lp.skippedDays>0){
-    incLivingMeta.textContent=`从今天到 ${lp.end} 共 ${lp.totalDays} 天，其中 ${lp.skippedDays} 天已被其他收入周期覆盖，本次只扣 ${lp.days.length} 天。`;
+    incLivingMeta.textContent=`从今天到 ${lp.end} 共 ${lp.totalDays} 天，其中 ${lp.skippedDays} 天已被其他收入周期覆盖，本次只扣 ${lp.days.length} 天；如跨基础生活标准调整日，已逐日按对应标准计算。`;
+  }else if((lp.breakdown||[]).length>1){
+    const parts=lp.breakdown.map(x=>`${x.start}${x.end!==x.start?"–"+x.end:""}：${M(x.amount)}/天`).join("；");
+    incLivingMeta.textContent=`本次覆盖 ${lp.days.length} 天，跨基础生活标准调整日，已逐日计算：${parts}`;
   }else{
     incLivingMeta.textContent=`从今天到下一次周期收入 ${lp.end}，共 ${lp.totalDays} 天，本次扣除 ${lp.days.length} 天基础生活。`;
   }
@@ -6163,7 +6365,7 @@ saveIncome.onclick=()=>{
     cycleIncomeId:currentCycleIncomeId,
     livingCoverageStart:recurring?lp.start:"",
     livingCoverageEnd:recurring?lp.end:"",
-    livingRateAtRecord:recurring?N(S.settings.dailyLiving):0,
+    livingRateAtRecord:recurring?livingRateForDate(td()):0,
     alloc:{saving,living,bills,billItems,projects,safe}
   };
   S.tx.push(tx);
@@ -7878,7 +8080,15 @@ exportCsv.onclick=()=>{
 };
 importFile.onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
-  try{S=normalize(JSON.parse(await f.text()));save();render();msg("备份已导入")}catch(err){msg("备份格式有误")}
+  try{
+    S=normalize(JSON.parse(await f.text()));
+    refreshCurrentDailyLivingSetting();
+    syncLivingSettlementTotals();
+    autoSettlePastLivingDays();
+    save();
+    render();
+    msg("备份已导入");
+  }catch(err){msg("备份格式有误")}
 };
 resetAll.onclick=()=>{if(confirm("确认清空全部数据？")){S=JSON.parse(JSON.stringify(defaults));save();render();msg("已清空")}};
 
@@ -7980,7 +8190,8 @@ S.bills.forEach(b=>{
 });
 if(currentBillRepairChanged)save();
 
-// V10.4：多日基础生活与既往默认结算统一联动。
+// V10.8：基础生活标准按日期生效；多日分摊与既往结算统一联动。
+refreshCurrentDailyLivingSetting();
 syncLivingSettlementTotals();
 autoSettlePastLivingDays();
 save();
