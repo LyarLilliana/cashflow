@@ -4912,7 +4912,7 @@ function renderNow(){
       livingSettleBtn.textContent="基础生活 · 今日已结算 · ¥0";
     }
   }else if(dayInfo.covered){
-    livingSettleBtn.textContent=`今日基础生活结算 · 剩余 ${M(livingRemainingForDate(td()))}`;
+    livingSettleBtn.innerHTML=`今日基础生活结算 <span style="white-space:nowrap">· 剩余 ${M(livingRemainingForDate(td()))}</span>`;
   }else{
     livingSettleBtn.textContent="基础生活 · 查看记录";
   }
