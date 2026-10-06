@@ -1779,8 +1779,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="explainRow"><span>零花钱余额</span><strong id="whySafe">¥0</strong></div>
         <div class="explainRow"><span>距离下一次周期收入</span><strong id="whyDays">—</strong></div>
         <div class="explainRow"><span>建议每日零花钱</span><strong id="dailyFree">¥0</strong></div>
+        <div class="explainRow"><span>今日基础生活剩余</span><strong id="dailyLivingRemaining">¥0</strong></div>
         <div class="explainRow total"><span>建议每日总可花</span><strong id="dailyTotalSpend">¥0</strong></div>
-        <div class="dailyBudgetMeta" id="dailyTotalMeta">今日基础生活剩余 + 建议每日零花钱</div>
+        <div class="dailyBudgetMeta" id="dailyTotalMeta">今日总可花 = 基础生活剩余 + 建议每日零花钱</div>
       </div>
     </div>
 
@@ -4699,6 +4700,8 @@ function renderNow(){
     whyDays.textContent=`${days} 天`;
     dailyFree.textContent=M(dailyPocket);
     dailyFree.style.color=(dailyPocket<0)?"var(--danger)":"inherit";
+    dailyLivingRemaining.textContent=M(livingRemaining);
+    dailyLivingRemaining.style.color=livingRemaining>0?"inherit":"var(--muted)";
     dailyTotalSpend.textContent=M(dailyTotal);
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
     const todayLivingSettled=!!livingSettlementForDate(td());
@@ -4720,6 +4723,8 @@ function renderNow(){
     whyDays.textContent="—";
     dailyFree.textContent=M(dailyPocket);
     dailyFree.style.color=(dailyPocket<0)?"var(--danger)":"inherit";
+    dailyLivingRemaining.textContent=M(livingRemaining);
+    dailyLivingRemaining.style.color=livingRemaining>0?"inherit":"var(--muted)";
     dailyTotalSpend.textContent=M(dailyTotal);
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
     const todayLivingSettled=!!livingSettlementForDate(td());
