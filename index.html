@@ -4701,7 +4701,7 @@ function renderNow(){
     dailyFree.textContent=M(dailyPocket);
     dailyFree.style.color=(dailyPocket<0)?"var(--danger)":"inherit";
     dailyLivingRemaining.textContent=M(livingRemaining);
-    dailyLivingRemaining.style.color=livingRemaining>0?"inherit":"var(--muted)";
+    dailyLivingRemaining.style.color="inherit";
     dailyTotalSpend.textContent=M(dailyTotal);
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
     const todayLivingSettled=!!livingSettlementForDate(td());
@@ -4724,7 +4724,7 @@ function renderNow(){
     dailyFree.textContent=M(dailyPocket);
     dailyFree.style.color=(dailyPocket<0)?"var(--danger)":"inherit";
     dailyLivingRemaining.textContent=M(livingRemaining);
-    dailyLivingRemaining.style.color=livingRemaining>0?"inherit":"var(--muted)";
+    dailyLivingRemaining.style.color="inherit";
     dailyTotalSpend.textContent=M(dailyTotal);
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
     const todayLivingSettled=!!livingSettlementForDate(td());
@@ -4912,7 +4912,7 @@ function renderNow(){
       livingSettleBtn.textContent="基础生活 · 今日已结算 · ¥0";
     }
   }else if(dayInfo.covered){
-    livingSettleBtn.textContent=`基础生活 · 今日剩余 ${M(livingRemainingForDate(td()))}`;
+    livingSettleBtn.textContent=`今日基础生活结算 · 剩余 ${M(livingRemainingForDate(td()))}`;
   }else{
     livingSettleBtn.textContent="基础生活 · 查看记录";
   }
