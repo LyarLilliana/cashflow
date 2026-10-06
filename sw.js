@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-38-living-label-color";
+const CACHE = "safespend-v10-39-living-remainder-nowrap";
 const ASSETS = [
   "./",
   "./index.html",
