@@ -96,87 +96,56 @@ button{touch-action:manipulation}
   background:#F0F1EE;
 }
 
-.resultRangeBar{
-  margin-top:8px;
-  min-height:32px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  padding:2px 3px;
+.resultRangeSection{
+  margin-top:14px;
+}
+.resultRangeHeading{
+  margin:0 3px 8px;
+  font-size:11px;
+  line-height:1.2;
+  font-weight:720;
   color:var(--muted);
-  font-size:10.5px;
-}
-.resultRangeLabel{
-  flex:none;
-}
-.resultRangeToggle{
-  min-width:0;
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  gap:6px;
-  border:0;
-  background:transparent;
-  color:var(--muted);
-  padding:5px 2px;
-  font-size:10.5px;
-  font-weight:650;
-}
-.resultRangeToggle .rangeValue{
-  min-width:0;
-  max-width:210px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  color:var(--text);
-}
-.resultRangeToggle .rangeAction{
-  color:var(--muted);
-  font-weight:600;
 }
 .resultRangePanel{
-  margin-top:4px;
-  padding:9px;
-  border:1px solid var(--line);
-  border-radius:14px;
-  background:#FAFBF9;
+  margin-top:0;
+  padding:13px;
 }
-.resultRangePanel[hidden]{
-  display:none!important;
+.resultRangePanel .historyFilterGrid{
+  margin-top:0;
 }
 .resultRangePanel .historyQuick{
-  margin-top:0;
-  gap:5px;
+  margin-top:10px;
+  gap:7px;
 }
 .resultRangePanel .historyQuick button{
-  min-height:30px;
-  padding:5px 3px;
-  border:0;
-  background:transparent;
-  border-radius:9px;
-  font-size:10px;
+  min-height:38px;
+  padding:7px 4px;
+  border:1px solid var(--line);
+  background:#F7F8F5;
+  border-radius:12px;
+  font-size:10.5px;
 }
 .resultRangePanel .historyQuick button.active{
   background:var(--accentSoft);
+  border-color:#C9DDD5;
   color:var(--accent);
 }
 .resultCustomDates{
-  margin-top:6px;
-  padding-top:7px;
-  border-top:1px solid var(--line);
-}
-.resultCustomDates[hidden]{
-  display:none!important;
+  margin:0;
+  padding:0;
+  border:0;
 }
 .resultCustomDates label{
-  font-size:9px;
+  font-size:10.5px;
 }
 .resultCustomDates input{
-  min-height:36px;
-  height:36px;
-  border-radius:9px;
-  font-size:10.5px;
+  min-height:42px;
+  height:42px;
+  border-radius:12px;
+  font-size:14px;
+}
+.resultRangePanel .historyFilterMeta{
+  margin-top:10px;
 }
 #resultRangeQuick{
   grid-template-columns:repeat(5,minmax(0,1fr));
@@ -2046,33 +2015,34 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
         <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">—</div><div class="s" id="mRateSub">本月预计可存 ÷ 本月总收入</div></div>
       </div>
 
-      <div class="resultRangeBar">
-        <span class="resultRangeLabel">统计范围</span>
-        <button class="resultRangeToggle" id="resultRangeToggle">
-          <span class="rangeValue" id="historyRangeText">本月</span>
-          <span class="rangeAction">修改</span>
-        </button>
-      </div>
+      <div class="resultRangeSection">
+        <div class="resultRangeHeading">统计范围</div>
 
-      <div class="resultRangePanel" id="resultRangePanel" hidden>
-        <div class="historyQuick" id="resultRangeQuick">
-          <button id="historyCycleBtn">当前周期</button>
-          <button id="historyMonthBtn" class="active">本月</button>
-          <button id="historyYearBtn">本年</button>
-          <button id="historyAllBtn">全部</button>
-          <button id="historyCustomBtn">自定义</button>
-        </div>
+        <div class="card historyFilter resultRangePanel" id="resultRangePanel">
+          <div class="resultCustomDates" id="historyCustomDates">
+            <div class="historyFilterGrid">
+              <div>
+                <label>开始日期</label>
+                <input id="historyStartDate" type="date">
+              </div>
+              <div>
+                <label>结束日期</label>
+                <input id="historyEndDate" type="date">
+              </div>
+            </div>
+          </div>
 
-        <div class="resultCustomDates" id="historyCustomDates" hidden>
-          <div class="historyFilterGrid">
-            <div>
-              <label>开始日期</label>
-              <input id="historyStartDate" type="date">
-            </div>
-            <div>
-              <label>结束日期</label>
-              <input id="historyEndDate" type="date">
-            </div>
+          <div class="historyQuick" id="resultRangeQuick">
+            <button id="historyCycleBtn">当前周期</button>
+            <button id="historyMonthBtn" class="active">本月</button>
+            <button id="historyYearBtn">本年</button>
+            <button id="historyAllBtn">全部</button>
+            <button id="historyCustomBtn">自定义</button>
+          </div>
+
+          <div class="historyFilterMeta">
+            <span>当前范围</span>
+            <span id="historyRangeText">本月</span>
           </div>
         </div>
       </div>
@@ -5259,8 +5229,8 @@ function setHistoryMode(mode){
     historyEndDate.value="";
   }
 
-  historyCustomDates.hidden=true;
-  resultRangePanel.hidden=true;
+  historyCustomDates.hidden=false;
+  resultRangePanel.hidden=false;
 
   syncDateDisplays();
   writeResultRangePref();
@@ -5844,32 +5814,18 @@ historyMonthBtn.onclick=()=>setHistoryMode("month");
 historyYearBtn.onclick=()=>setHistoryMode("year");
 historyAllBtn.onclick=()=>setHistoryMode("all");
 
-resultRangeToggle.onclick=()=>{
-  const opening=resultRangePanel.hidden;
-  resultRangePanel.hidden=!opening;
-
-  if(!opening){
-    historyCustomDates.hidden=true;
-  }
-};
-
 historyCustomBtn.onclick=()=>{
-  const opening=historyCustomDates.hidden;
-  historyCustomDates.hidden=!opening;
-
-  if(opening){
-    historyCycleBtn.classList.remove("active");
-    historyMonthBtn.classList.remove("active");
-    historyYearBtn.classList.remove("active");
-    historyAllBtn.classList.remove("active");
-    historyCustomBtn.classList.add("active");
-  }else if(historyMode!=="custom"){
-    historyCustomBtn.classList.remove("active");
-    historyCycleBtn.classList.toggle("active",historyMode==="cycle");
-    historyMonthBtn.classList.toggle("active",historyMode==="month");
-    historyYearBtn.classList.toggle("active",historyMode==="year");
-    historyAllBtn.classList.toggle("active",historyMode==="all");
-  }
+  historyMode="custom";
+  historyVisibleCount=HISTORY_PAGE_SIZE;
+  historyCycleBtn.classList.remove("active");
+  historyMonthBtn.classList.remove("active");
+  historyYearBtn.classList.remove("active");
+  historyAllBtn.classList.remove("active");
+  historyCustomBtn.classList.add("active");
+  historyCustomDates.hidden=false;
+  resultRangePanel.hidden=false;
+  writeResultRangePref();
+  renderHistory();
 };
 
 historyMoreBtn.onclick=()=>{
