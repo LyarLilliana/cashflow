@@ -2651,7 +2651,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 const KEY="safespend_cashflow_v73";
 const OLD_KEYS=["safespend_cashflow_v72","safespend_cashflow_v71","safespend_cashflow_v70","safespend_cashflow_v69","safespend_cashflow_v68","safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:73,
+  version:74,
   settings:{dailyLiving:0,livingRates:[],monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
@@ -2944,11 +2944,20 @@ function cyclePocketSnapshot(incomeTx){
       billPocketSpent+=Math.max(0,N(t.amount)-fromReserve);
     });
 
-  const pocketSpent=
-    sm(expenses.filter(t=>
+  // 普通日常支出统一按“当日基础生活 → 零花钱 → 储蓄”消耗。
+  // 周期统计必须只把真正落到零花钱上的部分计入 pocketSpent，
+  // 否则尚未结算当天的基础生活会被误算成零花钱支出。
+  const dailyLivingCover=dailyExpenseLivingCoverMap();
+  const dailyPocketSpent=sm(
+    expenses.filter(t=>
       (t.bucket==="safe"||t.bucket==="living")
       &&!t.settledBillId
-    ),t=>N(t.amount))
+    ),
+    t=>Math.max(0,N(t.amount)-Math.max(0,N(dailyLivingCover.byTx[t.id])))
+  );
+
+  const pocketSpent=
+    dailyPocketSpent
     +sm(expenses.filter(t=>t.bucket==="project"&&t.projectOverrunSource==="safe"),t=>N(t.projectOverrunAmount))
     +billPocketSpent;
 
@@ -2956,7 +2965,17 @@ function cyclePocketSnapshot(incomeTx){
     sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount))
     +sm(expenses.filter(t=>t.bucket==="project"&&t.projectOverrunSource==="saving"),t=>N(t.projectOverrunAmount));
 
-  const livingRelease=sm(settlements,t=>N(t.allowance)-livingSettlementEffectiveActual(t));
+  // 已结算日期只把真正未使用的基础生活回流到零花钱。
+  // 当天已经替日常支出承担的金额留在基础生活池中，避免再次回流造成重复计算。
+  const livingRelease=sm(settlements,t=>{
+    const date=t.coveredDate||t.date||"";
+    const grossRelease=N(t.allowance)-livingSettlementEffectiveActual(t);
+    const dailyDraw=Math.min(
+      Math.max(0,grossRelease),
+      Math.max(0,N(dailyLivingCover.byDate[date]))
+    );
+    return grossRelease-dailyDraw;
+  });
   const pocketToSaving=sm(savingTransfers,t=>N(t.amount));
   const pocketToProject=sm(projectTransfers,t=>N(t.amount));
   const projectSettlementSaving=sm(
