@@ -5603,14 +5603,26 @@ function periodSavableForRange(start="",end=""){
   const directSaving=sm(allocs,a=>N(a.saving));
   const pocketInitial=sm(allocs,a=>N(a.safe));
 
-  // 基础生活结算后，未使用部分会重新释放到零花钱；
-  // 超支则以负数压低零花钱。
+  const effects=accounting().effects;
+
+  // 基础生活结算后的回流必须采用“净回流”。
+  // 当天日常支出已经优先使用的基础生活额度继续留在基础生活池中，
+  // 只有真正剩余的部分才回到零花钱，避免结果页把同一笔钱重复计入。
   const livingRelease=sm(
     S.tx.filter(t=>t.type==="living_settlement"&&inRange(t.coveredDate||t.date)),
-    t=>N(t.allowance)-livingSettlementEffectiveActual(t)
-  );
+    t=>{
+      const fx=effects?.[t.id]||{};
+      if(fx.livingRelease!==undefined)return N(fx.livingRelease);
 
-  const effects=accounting().effects;
+      const date=t.coveredDate||t.date||"";
+      const grossRelease=N(t.allowance)-livingSettlementEffectiveActual(t);
+      const dailyDraw=Math.min(
+        Math.max(0,grossRelease),
+        Math.max(0,N(dailyExpenseLivingCoverMap().byDate[date]))
+      );
+      return grossRelease-dailyDraw;
+    }
+  );
 
   let pocketSpend=0;
   let pocketToProject=0;
@@ -5652,8 +5664,18 @@ function periodSavableForRange(start="",end=""){
       return;
     }
 
-    // 日常支出 / 旧版 living bucket 直接由零花钱承担。
-    pocketSpend+=Math.max(0,N(t.amount));
+    // 日常支出统一遵循：当日基础生活 → 零花钱 → 储蓄。
+    // 结果统计只扣除真正落到“零花钱 / 储蓄 / 缺口”的部分，
+    // 已由当日基础生活承担的金额不能再次减少预计可存。
+    const nonLivingSpend=
+      N(fx.pocketDraw)
+      +N(fx.autoDraw)
+      +N(fx.uncovered);
+    const fallbackNonLiving=Math.max(
+      0,
+      N(t.amount)-Math.max(0,N(fx.livingDraw))
+    );
+    pocketSpend+=Math.max(0,nonLivingSpend||fallbackNonLiving);
   });
 
   const expected=
