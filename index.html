@@ -3681,10 +3681,15 @@ function autoSettlePastLivingDays(){
 }
 function livingRemainingForDate(date=td()){
   const info=livingDayInfo(date);
+  if(!info.covered)return 0;
+
   const settled=livingSettlementForDate(date);
   if(settled)return 0;
-  if(!info.covered)return 0;
-  return Math.max(0,N(info.allowance)-livingBatchShareForDate(date));
+
+  // “今日剩余”必须反映当天基础生活额度真正还可继续使用的金额。
+  // 先扣除多日基础生活分摊，再扣除当天所有日常支出中已由基础生活承担的部分。
+  // 日常支出超过这笔余额后，超出的部分才进入零花钱计算。
+  return dailyLivingAvailableForNewExpense(date);
 }
 
 // “日常支出”是消费分类，不等于它只能由零花钱支付。
