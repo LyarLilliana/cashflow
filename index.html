@@ -872,6 +872,9 @@ button{touch-action:manipulation}
   .projectMoneyLegend span{font-size:8.5px}
   #projectFundingBox{padding:8px}
   .projectPlanItem{padding:11px;margin-bottom:8px;border-radius:15px}
+  .projectPlanDisclosure{padding:0}
+  .projectPlanDisclosureSummary{padding:10px}
+  .projectPlanDisclosureBody{padding:0 10px 10px}
   .projectPlanName{font-size:13px}
   .projectPlanMeta{font-size:9.5px}
   .projectCycleBox{padding:8px 9px}
@@ -1782,7 +1785,9 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
 @media(max-width:420px){
   #upcomingBox{padding:8px}
-  .upcomingGroup{padding:10px 10px 7px}
+  .upcomingGroup{padding:0}
+  .upcomingGroupTitle{padding:9px 10px}
+  .upcomingGroupItems{padding:0 10px 6px}
   .upcomingSide{min-width:116px}
   #upcomingBox .doneBtn,
   #upcomingBox .skipBtn{
