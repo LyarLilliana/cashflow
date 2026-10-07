@@ -4913,6 +4913,49 @@ function renderPlan(){
     <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteBill('${b.id}')">删除</button></div></div></div>`).join("")
     :'<div class="note">还没有固定账单。</div>';
 
+  const lightActive=activeLightPlans();
+  lightPlanList.innerHTML=lightActive.length?lightActive.map(x=>{
+    const when=x.targetDate
+      ?(x.targetDate<td()?"计划日已过":x.targetDate===td()?"今天处理":x.targetDate)
+      :"时间待定";
+    const amountText=N(x.amount)>0?M(x.amount):"金额待定";
+    return `<div class="item" onclick="loadLightPlan('${x.id}')">
+      <div class="row">
+        <div style="min-width:0">
+          <div class="name">${esc(x.name)}</div>
+          <div class="meta">${lightPlanStatusLabel(x)} · ${when} · 点击修改</div>
+        </div>
+        <div style="text-align:right;min-width:118px">
+          <div class="amount">${amountText}</div>
+          <div class="billActions">
+            ${x.status==="considering"
+              ?`<button class="doneBtn" onclick="event.stopPropagation();setLightPlanStatus('${x.id}','planned')">准备买</button>`
+              :`<button class="doneBtn" onclick="event.stopPropagation();payLightPlan('${x.id}')">记支出</button>`}
+            <button class="skipBtn" onclick="event.stopPropagation();setLightPlanStatus('${x.id}','skipped')">不买</button>
+            <button class="skipBtn" onclick="event.stopPropagation();deleteLightPlan('${x.id}')">删除</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join(""):'<div class="note">还没有近期计划支出。适合记录牙膏、日用品这类需要记着处理的小额事项。</div>';
+
+  const lightDone=completedLightPlans();
+  lightPlanDoneWrap.style.display=lightDone.length?"":"none";
+  lightPlanDoneCount.textContent=lightDone.length?`(${lightDone.length})`:"";
+  lightPlanDoneList.innerHTML=lightDone.map(x=>`
+    <div class="archiveProject">
+      <div class="row">
+        <div style="min-width:0">
+          <div class="name">${esc(x.name)}</div>
+          <div class="meta">${lightPlanStatusLabel(x)}${x.targetDate?" · 原计划 "+x.targetDate:""}${x.handledAt?" · "+x.handledAt:""}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="amount">${N(x.amount)>0?M(x.amount):"—"}</div>
+          <button class="restoreBtn" onclick="setLightPlanStatus('${x.id}','considering')">恢复</button>
+        </div>
+      </div>
+    </div>`).join("");
+
   const activePs=activeProjects();
   projectList.innerHTML=activePs.length?activePs.map(p=>{
     const funded=projectFunded(p),spent=projectSpent(p),gap=projectGap(p);
