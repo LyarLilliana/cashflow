@@ -7488,6 +7488,58 @@ deleteBill.onclick=()=>{
   S.bills=S.bills.filter(x=>x.id!==id);save();closeSheet("editBillSheet");render();msg("固定账单计划已删除");
 };
 
+saveLightPlan.onclick=()=>{
+  const id=lightPlanEditId.value;
+  const name=lightPlanName.value.trim();
+  const amount=Math.max(0,N(lightPlanAmount.value));
+  const targetDate=lightPlanDate.value||"";
+  const status=lightPlanStatus.value==="planned"?"planned":"considering";
+
+  if(!name)return msg("先写下这件想买或想处理的事");
+
+  if(id){
+    const x=S.plannedExpenses.find(p=>p.id===id);
+    if(!x)return msg("这条计划已经不存在");
+    x.name=name;
+    x.amount=amount;
+    x.targetDate=targetDate;
+    x.status=status;
+    x.updatedAt=Date.now();
+  }else{
+    S.plannedExpenses.push({
+      id:"lpe"+Date.now(),
+      name,
+      amount,
+      targetDate,
+      status,
+      createdAt:Date.now(),
+      handledAt:""
+    });
+  }
+
+  resetLightPlanForm();
+  save();
+  render();
+  msg(id?"计划已修改":"已加入近期计划支出");
+};
+cancelLightPlanEdit.onclick=resetLightPlanForm;
+
+function payLightPlan(id){
+  const x=(S.plannedExpenses||[]).find(p=>p.id===id);
+  if(!x)return msg("这条计划已经不存在");
+
+  openSpend();
+  plannedExpensePayment={kind:"personal",plannedId:id};
+
+  spendBucket.value="safe";
+  spendAmount.value=N(x.amount)>0?x.amount:"";
+  spendNote.value=x.name;
+  spendDate.value=td();
+
+  refreshSpendRefs();
+  syncDateDisplays();
+}
+
 function openProjectPlannedExpense(projectId,plannedId=""){
   const p=S.projects.find(x=>x.id===projectId);
   if(!p)return;
