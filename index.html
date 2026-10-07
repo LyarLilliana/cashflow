@@ -7746,7 +7746,7 @@ function showLivingPanel(mode="today"){
 }
 
 function openLivingSettlement(){
-  const info=livingDayInfo(td());
+  const info=dailyLivingBudgetInfo(td());
   const existing=livingSettlementForDate(td());
 
   if((!info.covered||info.allowance<=0)&&!existing){
@@ -7758,6 +7758,41 @@ function openLivingSettlement(){
   const allowance=N(existing?.allowance||info.allowance);
   const batch=livingBatchShareForDate(td());
   const sources=livingBatchSourcesForDate(td());
+
+  if(info.fallback&&!existing){
+    const a=accounting();
+    const funding=a.fallbackLivingFunding?.[td()]||{
+      pocketReserved:0,savingReserved:0,uncoveredReserved:0
+    };
+    const dailyDraw=Math.max(0,N(dailyExpenseLivingCoverMap().byDate[td()]));
+    const remaining=livingRemainingForDate(td());
+
+    livingActualSpent.value=0;
+    livingActualSpent.disabled=true;
+    saveLivingSettlement.disabled=true;
+    saveLivingSettlement.textContent="等待收入到账";
+
+    livingAllowance.textContent=M(remaining);
+    livingAllowance.style.color="inherit";
+    livingSumAllowance.textContent=M(allowance);
+    livingSumBatch.textContent=batch>0?"-"+M(batch):M(0);
+    livingSumRemaining.textContent=M(remaining);
+    livingSumRemaining.style.color="inherit";
+    livingSumManual.textContent=dailyDraw>0?"-"+M(dailyDraw):M(0);
+    livingReleaseLabel.textContent="临时资金来源";
+    livingReleaseAmount.textContent=`零花 ${M(funding.pocketReserved)} · 储蓄 ${M(funding.savingReserved)}`;
+    livingReleaseAmount.style.color=funding.uncoveredReserved>0?"var(--danger)":"inherit";
+    livingSettleMeta.textContent=`${td()} · 计划收入暂未到账，今日基础生活先由零花钱承担，零花钱不足部分由储蓄补位${funding.uncoveredReserved>0?" · 仍缺 "+M(funding.uncoveredReserved):""}`;
+
+    showLivingPanel("today");
+    livingSheet.classList.add("show");
+    return;
+  }
+
+  livingActualSpent.disabled=false;
+  saveLivingSettlement.disabled=false;
+  saveLivingSettlement.textContent="确认结算";
+
   const remaining=allowance-batch;
   const manual=existing?livingSettlementManualActual(existing):0;
 
@@ -7849,14 +7884,26 @@ saveLivingSettlement.onclick=()=>{
 };
 
 function pastLivingSettlementRows(){
-  return S.tx
-    .filter(t=>t.type==="living_settlement"&&(t.coveredDate||t.date||"")<td())
-    .sort((a,b)=>{
-      const ad=a.coveredDate||a.date||"";
-      const bd=b.coveredDate||b.date||"";
-      if(ad!==bd)return bd.localeCompare(ad);
-      return String(b.id).localeCompare(String(a.id));
-    });
+  const real=S.tx
+    .filter(t=>t.type==="living_settlement"&&(t.coveredDate||t.date||"")<td());
+  const realDates=new Set(real.map(t=>t.coveredDate||t.date||""));
+  const fallback=fallbackLivingDayRows()
+    .filter(x=>x.date<td()&&!realDates.has(x.date))
+    .map(x=>({
+      id:`fallback_${x.date}`,
+      coveredDate:x.date,
+      date:x.date,
+      allowance:N(x.allowance),
+      _fallback:true,
+      source:x.source
+    }));
+
+  return [...real,...fallback].sort((a,b)=>{
+    const ad=a.coveredDate||a.date||"";
+    const bd=b.coveredDate||b.date||"";
+    if(ad!==bd)return bd.localeCompare(ad);
+    return String(b.id).localeCompare(String(a.id));
+  });
 }
 function renderPastLivingSettlements(){
   const rows=pastLivingSettlementRows();
@@ -7865,31 +7912,51 @@ function renderPastLivingSettlements(){
   pastLivingSettlementList.innerHTML=rows.length
     ?rows.map(t=>{
       const date=t.coveredDate||t.date||"";
+
+      if(t._fallback){
+        const used=fallbackLivingUsedForDate(date);
+        const returned=Math.max(0,N(t.allowance)-used);
+        const batch=livingBatchShareForDate(date);
+        const daily=Math.max(0,N(dailyExpenseLivingCoverMap().byDate[date]));
+        const batchMeta=batch>0?` · 分摊 ${M(batch)}`:"";
+        const dailyMeta=daily>0?` · 日常支出占用 ${M(daily)}`:"";
+        const returnMeta=returned>0?` · 未用 ${M(returned)} 已回流原资金来源`:"";
+        return `<div class="pastLivingRow">
+          <div class="pastLivingMain">
+            <div class="pastLivingTop">
+              <span class="pastLivingDate">${date}</span>
+              <span class="pastLivingStatus">未到账补位</span>
+            </div>
+            <div class="pastLivingMeta">预留 ${M(t.allowance)} · 实际占用 ${M(used)}${batchMeta}${dailyMeta}${returnMeta}</div>
+          </div>
+          <div class="pastLivingSide">
+            <div class="pastLivingActual">剩余 ${M(0)}</div>
+          </div>
+        </div>`;
+      }
+
       const explicitActual=livingSettlementEffectiveActual(t);
       const dailyDraw=livingSettlementDailyDraw(t);
       const actual=explicitActual+dailyDraw;
       const batch=livingBatchShareForDate(date);
-      const remaining=N(t.allowance)-actual;
+      const release=N(t.allowance)-actual;
       const status=t.autoSettled
         ?'<span class="pastLivingStatus">自动</span>'
         :'<span class="pastLivingStatus manual">已确认</span>';
-      const result=remaining>0
-        ?`结余 ${M(remaining)}`
-        :remaining<0
-          ?`超出 ${M(Math.abs(remaining))}`
-          :"已用完";
       const batchMeta=batch>0?` · 分摊 ${M(batch)}`:"";
       const dailyMeta=dailyDraw>0?` · 日常支出占用 ${M(dailyDraw)}`:"";
+      const releaseMeta=release>0?` · 结余 ${M(release)} 已回流零花钱`
+        :release<0?` · 超出 ${M(Math.abs(release))}`:"";
       return `<div class="pastLivingRow" onclick="openPastLivingEdit('${t.id}')">
         <div class="pastLivingMain">
           <div class="pastLivingTop">
             <span class="pastLivingDate">${date}</span>
             ${status}
           </div>
-          <div class="pastLivingMeta">预留 ${M(t.allowance)} · 已用 ${M(actual)}${batchMeta}${dailyMeta}</div>
+          <div class="pastLivingMeta">预留 ${M(t.allowance)} · 已用 ${M(actual)}${batchMeta}${dailyMeta}${releaseMeta}</div>
         </div>
         <div class="pastLivingSide">
-          <div class="pastLivingActual">剩余 ${M(Math.max(0,remaining))}</div>
+          <div class="pastLivingActual">剩余 ${M(0)}</div>
           <div class="pastLivingChevron">›</div>
         </div>
       </div>`;
