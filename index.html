@@ -3423,8 +3423,8 @@ function monthlyCycleStats(ym=md()){
     cycles,
     income:sm(allIncomes,t=>N(t.amount)),
     livingReserved:sm(cycles,c=>N(c.livingReserved)),
-    livingActualSpent:sm(settlements,t=>livingSettlementManualActual(t))+sm(S.tx.filter(t=>t.type==="living_batch"&&md(t.date)===ym),t=>N(t.amount)),
-    livingReleased:sm(settlements,t=>N(t.allowance)-livingSettlementEffectiveActual(t)),
+    livingActualSpent:sm(settlements,t=>livingSettlementTotalUsed(t)),
+    livingReleased:sm(settlements,t=>livingSettlementRemaining(t)),
     fixedReserved:sm(cycles,c=>N(c.fixedReserved)),
     projectReserved:sm(cycles,c=>N(c.projectReserved)),
     pocketSpent:sm(cycles,c=>N(c.pocketSpent)),
@@ -3618,6 +3618,30 @@ function livingSettlementEffectiveActual(t){
   const date=t.coveredDate||t.date||"";
   return livingSettlementManualActual(t)+livingBatchShareForDate(date);
 }
+function dailyExpenseAmountForDate(date){
+  return sm(
+    S.tx.filter(t=>
+      t.type==="expense"
+      &&String(t.date||"")===String(date||"")
+      &&(t.bucket==="safe"||t.bucket==="living")
+      &&!t.settledBillId
+    ),
+    t=>Math.max(0,N(t.amount))
+  );
+}
+function livingSettlementDailyDraw(t){
+  if(!t)return 0;
+  const date=t.coveredDate||t.date||"";
+  return Math.max(0,N(dailyExpenseLivingCoverMap().byDate[date]));
+}
+function livingSettlementTotalUsed(t){
+  if(!t)return 0;
+  return livingSettlementEffectiveActual(t)+livingSettlementDailyDraw(t);
+}
+function livingSettlementRemaining(t){
+  if(!t)return 0;
+  return N(t.allowance)-livingSettlementTotalUsed(t);
+}
 function syncLivingSettlementTotals(){
   S.tx.forEach(t=>{
     if(t.type!=="living_settlement")return;
@@ -3630,9 +3654,11 @@ function syncLivingSettlementTotals(){
 
     if(t.autoSettled){
       const batch=livingBatchShareForDate(date);
-      // 自动兜底结算始终保持“总基础生活 = 当日计划额度”。
-      // 后续补录或修改多日支出时，自动调整其余基础生活金额。
-      t.manualActualSpent=Math.max(0,N(t.allowance)-batch);
+      const afterBatch=Math.max(0,N(t.allowance)-batch);
+      const dailyDraw=Math.min(afterBatch,dailyExpenseAmountForDate(date));
+      // 自动补记继续保持“当天额度最终结清”的保守规则，同时优先给当天日常支出留出额度。
+      // 这样跨到第二天后，日常支出仍按“基础生活 → 零花钱 → 储蓄”承担，零花钱不会被反向重复扣减。
+      t.manualActualSpent=Math.max(0,afterBatch-dailyDraw);
     }else if(t.manualActualSpent===undefined){
       t.manualActualSpent=N(t.actualSpent);
     }
@@ -3657,7 +3683,9 @@ function autoSettlePastLivingDays(){
       if(!date||date>=today||existing.has(date)||allowance<=0)return;
 
       const batch=livingBatchShareForDate(date);
-      const manual=Math.max(0,allowance-batch);
+      const afterBatch=Math.max(0,allowance-batch);
+      const dailyDraw=Math.min(afterBatch,dailyExpenseAmountForDate(date));
+      const manual=Math.max(0,afterBatch-dailyDraw);
       const actual=manual+batch;
 
       S.tx.push({
@@ -4974,7 +5002,7 @@ function txHtml(t,del=false,edit=false){
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title}</div><div class="meta">${metaParts.join(" · ")}</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   if(t.type==="living_settlement"){
-    const actual=livingSettlementEffectiveActual(t);
+    const actual=livingSettlementTotalUsed(t);
     const batch=livingBatchShareForDate(t.coveredDate||t.date);
     const release=N(t.allowance)-actual;
     const title=t.autoSettled
@@ -5132,7 +5160,7 @@ function transactionActionTitle(t){
 function transactionActionAmountText(t){
   if(!t)return "";
   if(t.type==="living_settlement"){
-    return `合计 ${M(livingSettlementEffectiveActual(t))} · 预留 ${M(t.allowance)}`;
+    return `合计 ${M(livingSettlementTotalUsed(t))} · 预留 ${M(t.allowance)}`;
   }
   if(t.type==="living_batch"){
     return `${M(t.amount)} · ${livingBatchCoverage(t).days} 天`;
@@ -7577,28 +7605,31 @@ function renderPastLivingSettlements(){
   pastLivingSettlementList.innerHTML=rows.length
     ?rows.map(t=>{
       const date=t.coveredDate||t.date||"";
-      const actual=livingSettlementEffectiveActual(t);
+      const explicitActual=livingSettlementEffectiveActual(t);
+      const dailyDraw=livingSettlementDailyDraw(t);
+      const actual=explicitActual+dailyDraw;
       const batch=livingBatchShareForDate(date);
-      const release=N(t.allowance)-actual;
+      const remaining=N(t.allowance)-actual;
       const status=t.autoSettled
         ?'<span class="pastLivingStatus">自动</span>'
         :'<span class="pastLivingStatus manual">已确认</span>';
-      const result=release>0
-        ?`结余 ${M(release)}`
-        :release<0
-          ?`超出 ${M(Math.abs(release))}`
-          :"刚好按计划";
+      const result=remaining>0
+        ?`结余 ${M(remaining)}`
+        :remaining<0
+          ?`超出 ${M(Math.abs(remaining))}`
+          :"已用完";
       const batchMeta=batch>0?` · 分摊 ${M(batch)}`:"";
+      const dailyMeta=dailyDraw>0?` · 日常支出占用 ${M(dailyDraw)}`:"";
       return `<div class="pastLivingRow" onclick="openPastLivingEdit('${t.id}')">
         <div class="pastLivingMain">
           <div class="pastLivingTop">
             <span class="pastLivingDate">${date}</span>
             ${status}
           </div>
-          <div class="pastLivingMeta">预留 ${M(t.allowance)} · ${result}${batchMeta}</div>
+          <div class="pastLivingMeta">预留 ${M(t.allowance)} · 已用 ${M(actual)}${batchMeta}${dailyMeta}</div>
         </div>
         <div class="pastLivingSide">
-          <div class="pastLivingActual">实际 ${M(actual)}</div>
+          <div class="pastLivingActual">剩余 ${M(Math.max(0,remaining))}</div>
           <div class="pastLivingChevron">›</div>
         </div>
       </div>`;
