@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-48-upcoming-groups";
+const CACHE = "safespend-v10-49-upcoming-density-hierarchy";
 const ASSETS = [
   "./",
   "./index.html",
