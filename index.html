@@ -5193,10 +5193,12 @@ function renderNow(){
       ?(x.targetDate<td()?"计划日已过":x.targetDate===td()?"今天处理":x.targetDate<=horizon?"近期计划":"计划 "+x.targetDate)
       :"时间待定";
     const amountText=N(x.amount)>0?M(x.amount):"金额待定";
+    const reserved=lightPlanReservedRemaining(x.id);
+    const reserveMeta=reserved>0?` · 已预留 ${M(reserved)}`:"";
     rows.push(`<div class="item"><div class="row">
       <div style="min-width:0">
         <div class="name">计划支出 · ${esc(x.name)}</div>
-        <div class="meta">${lightPlanStatusLabel(x)} · ${when}</div>
+        <div class="meta">${lightPlanStatusLabel(x)} · ${when}${reserveMeta}</div>
       </div>
       <div style="text-align:right;min-width:118px">
         <div class="amount">${amountText}</div>
@@ -5368,6 +5370,15 @@ function expenseSourceLabel(t){
     return p?`专项 · ${p.name}`:"专项";
   }
 
+  if(t.personalPlannedExpenseId){
+    const item=(S.plannedExpenses||[]).find(x=>x.id===t.personalPlannedExpenseId)
+      ||t.personalPlannedExpenseSnapshot;
+    const draw=Math.max(0,N(lightPlanReserveUsageMap().byExpense[t.id]));
+    return draw>0
+      ?`近期计划预留 · ${item?.name||"计划支出"}`
+      :`近期计划 · ${item?.name||"计划支出"}`;
+  }
+
   if(t.bucket==="saving")return "储蓄";
   return "日常支出";
 }
@@ -5391,6 +5402,10 @@ function txHtml(t,del=false,edit=false){
       const pr=S.projects.find(pp=>pp.id===x.projectId);
       return `${esc(pr?.name||"专项")} ${M(x.amount)}`;
     }).join(" / ");
+    const lightPlanText=(ea.lightPlans||[]).map(x=>{
+      const item=(S.plannedExpenses||[]).find(pp=>pp.id===x.lightPlanId);
+      return `${esc(item?.name||"近期计划")} ${M(x.amount)}`;
+    }).join(" / ");
 
     const metaParts=[
       t.date,
@@ -5399,6 +5414,7 @@ function txHtml(t,del=false,edit=false){
       `基础生活 ${M(ea.living)}`
     ];
     if(projectText)metaParts.push(`专项 ${projectText}`);
+    if(lightPlanText)metaParts.push(`近期计划 ${lightPlanText}`);
 
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title}</div><div class="meta">${metaParts.join(" · ")}</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
@@ -9645,11 +9661,18 @@ function refreshSpendRefs(){
   const spendDay=spendDate.value||td();
   const dayLiving=dailyLivingAvailableForNewExpense(spendDay);
 
-  spendHint.textContent=t==="safe"
-    ?`当天基础生活可先承担 ${M(dayLiving)}；之后使用零花钱 ${M(b.safe)}，仍不足才会动用储蓄。`
-    :t==="saving"
-      ?`当前储蓄余额 ${M(b.saving)}`
-      :"请选择专项";
+  const linkedLightPlan=plannedExpensePayment?.kind==="personal"
+    ?(S.plannedExpenses||[]).find(x=>x.id===plannedExpensePayment.plannedId)
+    :null;
+  const linkedReserve=linkedLightPlan?lightPlanReservedRemaining(linkedLightPlan.id):0;
+
+  spendHint.textContent=linkedLightPlan
+    ?`这笔近期计划当前已预留 ${M(linkedReserve)}；付款时先核销预留，超出部分再按当天基础生活 → 零花钱 → 储蓄承担。`
+    :t==="safe"
+      ?`当天基础生活可先承担 ${M(dayLiving)}；之后使用零花钱 ${M(b.safe)}，仍不足才会动用储蓄。`
+      :t==="saving"
+        ?`当前储蓄余额 ${M(b.saving)}`
+        :"请选择专项";
 
   if(t==="project")refreshProjectOverrunUI();
 }
