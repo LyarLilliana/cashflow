@@ -2866,6 +2866,71 @@ function projectUnplannedBudget(p){
 function projectPlannedOverBudget(p){
   return Math.max(0,projectSpent(p)+projectPlannedTotal(p)-N(p.budget));
 }
+
+function activeLightPlans(){
+  return [...(S.plannedExpenses||[])]
+    .filter(x=>x.status==="considering"||x.status==="planned")
+    .sort((a,b)=>{
+      const ad=a.targetDate||"9999-12-31";
+      const bd=b.targetDate||"9999-12-31";
+      if(ad!==bd)return ad.localeCompare(bd);
+      return String(a.id).localeCompare(String(b.id));
+    });
+}
+function completedLightPlans(){
+  return [...(S.plannedExpenses||[])]
+    .filter(x=>x.status==="bought"||x.status==="skipped")
+    .sort((a,b)=>String(b.handledAt||"").localeCompare(String(a.handledAt||"")));
+}
+function lightPlanStatusLabel(x){
+  return x.status==="planned"?"准备购买"
+    :x.status==="bought"?"已购买"
+    :x.status==="skipped"?"决定不买"
+    :"还在考虑";
+}
+function resetLightPlanForm(){
+  lightPlanEditId.value="";
+  lightPlanName.value="";
+  lightPlanAmount.value="";
+  lightPlanDate.value="";
+  lightPlanStatus.value="considering";
+  saveLightPlan.textContent="加入计划";
+  saveLightPlan.style.gridColumn="1/-1";
+  cancelLightPlanEdit.style.display="none";
+  syncDateDisplays();
+}
+function loadLightPlan(id){
+  const x=(S.plannedExpenses||[]).find(p=>p.id===id);
+  if(!x)return;
+  lightPlanEditId.value=x.id;
+  lightPlanName.value=x.name||"";
+  lightPlanAmount.value=x.amount||"";
+  lightPlanDate.value=x.targetDate||"";
+  lightPlanStatus.value=x.status==="planned"?"planned":"considering";
+  saveLightPlan.textContent="保存修改";
+  saveLightPlan.style.gridColumn="";
+  cancelLightPlanEdit.style.display="";
+  syncDateDisplays();
+  lightPlanName.focus();
+}
+function setLightPlanStatus(id,status){
+  const x=(S.plannedExpenses||[]).find(p=>p.id===id);
+  if(!x)return;
+  x.status=status;
+  x.handledAt=(status==="bought"||status==="skipped")?td():"";
+  save();
+  render();
+  msg(status==="planned"?"已标记为准备购买":status==="skipped"?"已记录决定不买":"计划已更新");
+}
+function deleteLightPlan(id){
+  const x=(S.plannedExpenses||[]).find(p=>p.id===id);
+  if(!x)return;
+  if(!confirm(`删除计划“${x.name}”？`))return;
+  S.plannedExpenses=S.plannedExpenses.filter(p=>p.id!==id);
+  save();
+  render();
+  msg("计划已删除");
+}
 function projectGap(p){return Math.max(0,N(p.budget)-projectFunded(p))}
 function projectSettledToSaving(p){
   return sm(S.tx.filter(t=>t.type==="project_settlement"&&t.projectId===p.id),t=>N(t.amount));
