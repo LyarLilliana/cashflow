@@ -5201,7 +5201,10 @@ function txHtml(t,del=false,edit=false){
           :"基础生活按计划结算";
     const batchMeta=batch>0?` · 多日分摊 ${M(batch)}`:"";
     const autoMeta=t.autoSettled?" · 忘记结算时系统自动补记":"";
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title}</div><div class="meta">${t.coveredDate||t.date} · 今日预留 ${M(t.allowance)} · 合计 ${M(actual)}${batchMeta}${autoMeta}</div></div><div class="txRight"><div class="txAmount ${release<0?"neg":release>0?"pos":"txMuted"}">${release>0?"+":""}${M(release)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+    const settlementMeta=t.autoSettled
+      ?`${t.coveredDate||t.date} · 今日预留 ${M(t.allowance)}${batchMeta}${autoMeta}`
+      :`${t.coveredDate||t.date} · 今日预留 ${M(t.allowance)} · 合计 ${M(actual)}${batchMeta}`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title}</div><div class="meta">${settlementMeta}</div></div><div class="txRight"><div class="txAmount ${release<0?"neg":release>0?"pos":"txMuted"}">${release>0?"+":""}${M(release)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   if(t.type==="living_batch"){
     const coverage=livingBatchCoverage(t);
