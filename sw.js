@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-41-history-auto-sync";
+const CACHE = "safespend-v10-42-pending-income-fallback-living";
 const ASSETS = [
   "./",
   "./index.html",
