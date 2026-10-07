@@ -2212,7 +2212,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     </div>
     <div class="subCard">
       <div class="name">专项 / 近期计划预留</div>
-      <div class="meta" id="projectSuggestMeta">周期收入会给出建议；单次额外收入也可以直接分配到进行中的专项。</div>
+      <div class="meta" id="projectSuggestMeta">专项和已经确定准备购买的近期计划，可以一起从这笔收入中预留。</div>
       <div id="projectSuggest" style="margin-top:8px"></div>
     </div>
     <div class="explain">
@@ -9775,6 +9775,11 @@ saveSpend.onclick=()=>{
   if(bucket==="project"&&N(ef.overPlan)>0){
     const from=ef.projectOverrunSource==="safe"?"零花钱":"储蓄";
     msg(`专项已记录，超出 ${M(ef.overPlan)} 已从${from}支付`);
+  }else if(N(ef.plannedReserveDraw)>0){
+    const extra=Math.max(0,N(amount)-N(ef.plannedReserveDraw));
+    msg(extra>0
+      ?`已核销近期计划预留 ${M(ef.plannedReserveDraw)}，其余 ${M(extra)} 按日常资金顺序结算`
+      :`已从近期计划预留核销 ${M(ef.plannedReserveDraw)}`);
   }else if(N(ef.uncovered)>0){
     msg(`已超计划；储蓄补了 ${M(ef.autoDraw)}，仍有缺口 ${M(ef.uncovered)}`);
   }else if(N(ef.autoDraw)>0){
