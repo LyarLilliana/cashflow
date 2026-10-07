@@ -7455,7 +7455,7 @@ function syncIncomeFromPlan(){
     incSaving.value=planSavings(p,p.amount);
 
     if(isRecurringPlan(p)){
-      const ownNext=nextAfter(td(),p.freq);
+      const ownNext=nextAfter(p.nextDate||td(),p.freq);
       const other=nextRecurringIncome(p.id);
       const candidates=[ownNext,other?.nextDate]
         .filter(d=>d&&d>td())
@@ -7477,6 +7477,23 @@ function syncIncomeFromPlan(){
     incNextDate.value="";
     incNextDate.disabled=true;
   }
+
+  const recurring=!!(p&&isRecurringPlan(p));
+  const scheduledDate=recurring?(p.nextDate||""):"";
+  const pending=recurring?pendingIncomeForPlan(p.id,scheduledDate):null;
+  markIncomePending.style.display=recurring?"":"none";
+
+  if(recurring&&pending){
+    markIncomePending.textContent="已记录暂未到账";
+    markIncomePending.disabled=true;
+  }else if(recurring&&scheduledDate&&scheduledDate<=td()){
+    markIncomePending.textContent="这笔收入暂未到账";
+    markIncomePending.disabled=false;
+  }else if(recurring){
+    markIncomePending.textContent="尚未到计划到账日";
+    markIncomePending.disabled=true;
+  }
+
   recalcIncome();
 }
 function projectSuggestionInputs(){
@@ -7572,14 +7589,49 @@ function recalcIncomeSummary(){
   sumSafe.textContent=M(safe);
   sumSafe.style.color=safe<=0?"var(--danger)":"var(--accent)";
 
+  const scheduledDate=p?.nextDate||"";
+  const pending=p&&isRecurringPlan(p)?pendingIncomeForPlan(p.id,scheduledDate):null;
+
   if(safe<0){
     incomeWarning.textContent=`这笔收入完成计划分配后，零花钱为 ${M(safe)}。负数会保留并标红。`;
+  }else if(pending){
+    incomeWarning.textContent=`原定 ${pending.scheduledDate} 到账，已于 ${pending.pendingRecordedDate||pending.date} 记录为暂未到账。实际到账后直接点“确认到账并分配”即可更新这条记录。`;
   }else{
     incomeWarning.textContent="";
   }
   saveIncome.disabled=false;
 }
 [incAmount,incSaving,incNextDate].forEach(x=>x.addEventListener("input",()=>x===incNextDate?recalcIncome():recalcIncomeSummary()));
+
+markIncomePending.onclick=()=>{
+  const plan=S.incomePlans.find(x=>x.id===incPlan.value);
+  if(!plan||!isRecurringPlan(plan))return msg("请选择周期收入计划");
+
+  const scheduledDate=plan.nextDate||"";
+  if(!scheduledDate)return msg("这笔收入还没有计划到账日期");
+  if(scheduledDate>td())return msg("计划到账日还没到");
+
+  const existing=pendingIncomeForPlan(plan.id,scheduledDate);
+  if(existing)return msg("这笔收入已经记录为暂未到账");
+
+  S.tx.push({
+    id:"pend"+Date.now(),
+    date:td(),
+    type:"income_pending",
+    planId:plan.id,
+    planNameAtRecord:plan.name||"",
+    expectedAmount:N(plan.amount),
+    scheduledDate,
+    planFreqAtRecord:plan.freq,
+    pendingRecordedDate:td()
+  });
+
+  save();
+  closeSheet("incomeSheet");
+  render();
+  msg("已记录这笔收入暂未到账");
+};
+
 saveIncome.onclick=()=>{
   const amount=N(incAmount.value),saving=N(incSaving.value),selectedPlan=incPlan.value;
   const isExtra=selectedPlan==="__extra__";
@@ -7605,8 +7657,9 @@ saveIncome.onclick=()=>{
   const planFreqAtRecord=plan?.freq||"none";
   const currentCycleIncomeId=!recurring?(currentCycleStats().income?.id||""):"";
 
+  const pending=recurring?pendingIncomeForPlan(planId,planNextDateBefore):null;
   const tx={
-    id:"i"+Date.now(),
+    id:pending?.id||("i"+Date.now()),
     date:td(),
     type:"income",
     planId,
@@ -7621,9 +7674,18 @@ saveIncome.onclick=()=>{
     livingCoverageStart:recurring?lp.start:"",
     livingCoverageEnd:recurring?lp.end:"",
     livingRateAtRecord:recurring?livingRateForDate(td()):0,
+    scheduledDate:pending?.scheduledDate||planNextDateBefore,
+    wasPending:!!pending,
+    pendingRecordedDate:pending?.pendingRecordedDate||pending?.date||"",
     alloc:{saving,living,bills,billItems,projects,safe}
   };
-  S.tx.push(tx);
+
+  if(pending){
+    const idx=S.tx.findIndex(x=>x.id===pending.id);
+    if(idx>=0)S.tx[idx]=tx;
+  }else{
+    S.tx.push(tx);
+  }
 
   if(plan){
     if(plan.freq==="none"){
@@ -7640,7 +7702,9 @@ saveIncome.onclick=()=>{
   save();
   closeSheet("incomeSheet");
   render();
-  msg(safe<=0?"已记录；零花钱为 0 或负数，已标红":"收入已分配");
+  msg(pending
+    ?"已把暂未到账记录更新为实际到账"
+    :(safe<=0?"已记录；零花钱为 0 或负数，已标红":"收入已分配"));
 };
 
 
