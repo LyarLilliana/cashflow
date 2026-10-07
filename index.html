@@ -1740,10 +1740,10 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="card" style="margin-top:10px" id="billList"></div>
     </div>
 
-    <div class="section">
+    <div class="section" id="lightPlanSection">
       <div class="sectionTitle">近期计划支出</div>
       <div class="card">
-        <div class="meta">适合牙膏、生活用品等一次性小额事项。这里只做购买决策与提醒，真正付款前不会提前扣减零花钱或储蓄。</div>
+        <div class="meta">适合牙膏、生活用品等一次性小额事项。这里负责新增或修改计划，已记录事项统一进入“现在 → 近期必须处理”查看和操作，真正付款前不会提前扣减零花钱或储蓄。</div>
         <input type="hidden" id="lightPlanEditId">
         <div class="formGrid" style="margin-top:10px">
           <div><label>想买 / 想处理什么</label><input id="lightPlanName" placeholder="例如 牙膏"></div>
@@ -1761,7 +1761,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
           <button class="primary" id="saveLightPlan" style="grid-column:1/-1">加入计划</button>
         </div>
       </div>
-      <div class="card" style="margin-top:10px" id="lightPlanList"></div>
+      <div class="card" style="margin-top:10px" id="lightPlanList">
+        <div class="note">已加入的待处理事项统一显示在“现在 → 近期必须处理”。</div>
+      </div>
       <details class="card archiveBox" id="lightPlanDoneWrap" style="display:none">
         <summary>已处理计划 <span id="lightPlanDoneCount"></span></summary>
         <div id="lightPlanDoneList"></div>
@@ -4913,31 +4915,7 @@ function renderPlan(){
     <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteBill('${b.id}')">删除</button></div></div></div>`).join("")
     :'<div class="note">还没有固定账单。</div>';
 
-  const lightActive=activeLightPlans();
-  lightPlanList.innerHTML=lightActive.length?lightActive.map(x=>{
-    const when=x.targetDate
-      ?(x.targetDate<td()?"计划日已过":x.targetDate===td()?"今天处理":x.targetDate)
-      :"时间待定";
-    const amountText=N(x.amount)>0?M(x.amount):"金额待定";
-    return `<div class="item" onclick="loadLightPlan('${x.id}')">
-      <div class="row">
-        <div style="min-width:0">
-          <div class="name">${esc(x.name)}</div>
-          <div class="meta">${lightPlanStatusLabel(x)} · ${when} · 点击修改</div>
-        </div>
-        <div style="text-align:right;min-width:118px">
-          <div class="amount">${amountText}</div>
-          <div class="billActions">
-            ${x.status==="considering"
-              ?`<button class="doneBtn" onclick="event.stopPropagation();setLightPlanStatus('${x.id}','planned')">准备买</button>`
-              :`<button class="doneBtn" onclick="event.stopPropagation();payLightPlan('${x.id}')">记支出</button>`}
-            <button class="skipBtn" onclick="event.stopPropagation();setLightPlanStatus('${x.id}','skipped')">不买</button>
-            <button class="skipBtn" onclick="event.stopPropagation();deleteLightPlan('${x.id}')">删除</button>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  }).join(""):'<div class="note">还没有近期计划支出。适合记录牙膏、日用品这类需要记着处理的小额事项。</div>';
+  lightPlanList.innerHTML='<div class="note">已加入的待处理事项统一显示在“现在 → 近期必须处理”。</div>';
 
   const lightDone=completedLightPlans();
   lightPlanDoneWrap.style.display=lightDone.length?"":"none";
