@@ -1741,6 +1741,34 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     </div>
 
     <div class="section">
+      <div class="sectionTitle">近期计划支出</div>
+      <div class="card">
+        <div class="meta">适合牙膏、生活用品等一次性小额事项。这里只做购买决策与提醒，真正付款前不会提前扣减零花钱或储蓄。</div>
+        <input type="hidden" id="lightPlanEditId">
+        <div class="formGrid" style="margin-top:10px">
+          <div><label>想买 / 想处理什么</label><input id="lightPlanName" placeholder="例如 牙膏"></div>
+          <div><label>预计金额，可留空</label><input id="lightPlanAmount" inputmode="decimal" type="number" min="0" placeholder="例如 25"></div>
+          <div><label>计划处理日期，可留空</label><input id="lightPlanDate" type="date"></div>
+          <div><label>当前想法</label>
+            <select id="lightPlanStatus">
+              <option value="considering">还在考虑</option>
+              <option value="planned">准备购买</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="cancelLightPlanEdit" style="display:none">取消修改</button>
+          <button class="primary" id="saveLightPlan" style="grid-column:1/-1">加入计划</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:10px" id="lightPlanList"></div>
+      <details class="card archiveBox" id="lightPlanDoneWrap" style="display:none">
+        <summary>已处理计划 <span id="lightPlanDoneCount"></span></summary>
+        <div id="lightPlanDoneList"></div>
+      </details>
+    </div>
+
+    <div class="section">
       <div class="sectionTitle">专项计划</div>
       <div class="card">
         <div class="formGrid">
@@ -2657,6 +2685,7 @@ const defaults={
   settings:{dailyLiving:0,livingRates:[],monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
+  plannedExpenses:[],
   projects:[],
   deposits:[],
   tx:[]
@@ -2707,6 +2736,14 @@ function normalize(d){
     .sort((a,b)=>a.startDate.localeCompare(b.startDate));
   s.incomePlans=Array.isArray(d.incomePlans)?d.incomePlans:[];
   s.bills=Array.isArray(d.bills)?d.bills:[];
+  s.plannedExpenses=Array.isArray(d.plannedExpenses)?d.plannedExpenses:[];
+  s.plannedExpenses=s.plannedExpenses.map(x=>({
+    ...x,
+    status:["considering","planned","bought","skipped"].includes(x?.status)?x.status:"considering",
+    name:String(x?.name||""),
+    amount:Math.max(0,Number(x?.amount)||0),
+    targetDate:String(x?.targetDate||"")
+  }));
   s.projects=Array.isArray(d.projects)?d.projects:[];
   s.projects=s.projects.map(p=>({
     ...p,
