@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-40-history-living-sync";
+const CACHE = "safespend-v10-41-history-auto-sync";
 const ASSETS = [
   "./",
   "./index.html",
