@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-50-upcoming-project-style";
+const CACHE = "safespend-v10-51-collapsible-now-sections";
 const ASSETS = [
   "./",
   "./index.html",
