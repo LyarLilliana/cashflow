@@ -3107,12 +3107,18 @@ function cyclePocketSnapshot(incomeTx){
   // 周期统计必须只把真正落到零花钱上的部分计入 pocketSpent，
   // 否则尚未结算当天的基础生活会被误算成零花钱支出。
   const dailyLivingCover=dailyExpenseLivingCoverMap();
+  const lightReserveUsage=lightPlanReserveUsageMap();
   const dailyPocketSpent=sm(
     expenses.filter(t=>
       (t.bucket==="safe"||t.bucket==="living")
       &&!t.settledBillId
     ),
-    t=>Math.max(0,N(t.amount)-Math.max(0,N(dailyLivingCover.byTx[t.id])))
+    t=>{
+      const reserveDraw=Math.max(0,N(lightReserveUsage.byExpense[t.id]));
+      const ordinaryAmount=Math.max(0,N(t.amount)-reserveDraw);
+      const livingDraw=Math.min(ordinaryAmount,Math.max(0,N(dailyLivingCover.byTx[t.id])));
+      return Math.max(0,ordinaryAmount-livingDraw);
+    }
   );
 
   const fallbackLivingCommitted=sm(
@@ -3208,6 +3214,7 @@ function virtualCycleCloseEvents(){
 function accounting(){
   const raw={safe:0,bills:0};
   const dailyLivingCover=dailyExpenseLivingCoverMap();
+  const lightReserveUsage=lightPlanReserveUsageMap();
   const billPools={};
   const billPoolKey=(billId,dueDate)=>`${billId||""}|${dueDate||""}`;
   const refreshBillRaw=()=>{
@@ -3550,11 +3557,16 @@ function accounting(){
       return;
     }
 
-    const livingDraw=Math.min(
+    const plannedReserveDraw=Math.min(
       amount,
+      Math.max(0,N(lightReserveUsage.byExpense[t.id]))
+    );
+    const ordinaryAmount=Math.max(0,amount-plannedReserveDraw);
+    const livingDraw=Math.min(
+      ordinaryAmount,
       Math.max(0,N(dailyLivingCover.byTx[t.id]))
     );
-    const pocketNeed=Math.max(0,amount-livingDraw);
+    const pocketNeed=Math.max(0,ordinaryAmount-livingDraw);
 
     const before=N(raw.safe);
     const pocketAvailable=Math.max(0,before);
@@ -3567,14 +3579,14 @@ function accounting(){
     autoSavingUsed+=autoDraw;
     uncovered+=gap;
 
-    // 已由基础生活或储蓄兜底的部分不能再把零花钱重复扣成负数。
-    // 只有真正由零花钱支付的部分，以及仍未覆盖的缺口，进入零花钱余额。
+    // 已预留的近期计划资金先核销；剩余部分再按“基础生活 → 零花钱 → 储蓄”继续承担。
     raw.safe=
       Math.min(0,before)
       +(pocketAvailable-fromPocket)
       -gap;
 
     effects[t.id]={
+      plannedReserveDraw,
       livingDraw,
       pocketDraw:fromPocket,
       autoDraw,
@@ -3584,7 +3596,7 @@ function accounting(){
     };
   });
 
-  return {raw,projects,saving,autoSavingUsed,manualSavingUsed,uncovered,effects,fallbackLivingFunding};
+  return {raw,projects,saving,autoSavingUsed,manualSavingUsed,uncovered,effects,fallbackLivingFunding,lightPlanReserves:lightReserveUsage.remaining};
 }
 function projectAvail(p){
   return N(accounting().projects[p.id]||0);
