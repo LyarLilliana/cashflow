@@ -1128,6 +1128,35 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   background:#fff;
 }
 .projectPlanItem:last-of-type{margin-bottom:0}
+.projectPlanDisclosure{
+  padding:0;
+  overflow:hidden;
+}
+.projectPlanDisclosureSummary{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  padding:11px 12px;
+}
+.projectPlanDisclosure[open]>.projectPlanDisclosureSummary{
+  border-bottom:1px solid #ECEEEA;
+}
+.projectPlanDisclosureMain{
+  min-width:0;
+}
+.projectPlanDisclosureRight{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:none;
+}
+.projectPlanDisclosureBody{
+  padding:0 12px 12px;
+}
+.projectPlanDisclosureBody .projectCycleBox{
+  margin-top:9px;
+}
 .projectPlanTop{
   display:flex;
   justify-content:space-between;
@@ -1605,33 +1634,68 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   margin-top:6px;
 }
 
+.disclosureAllToggle{
+  min-width:62px;
+  padding:5px 9px;
+  font-size:9.5px;
+}
+.disclosureSummary{
+  cursor:pointer;
+  list-style:none;
+  -webkit-user-select:none;
+  user-select:none;
+}
+.disclosureSummary::-webkit-details-marker{display:none}
+.disclosureState{
+  flex:none;
+  min-width:34px;
+  padding:4px 7px;
+  border:1px solid #E0E4DF;
+  border-radius:999px;
+  background:#FAFBF9;
+  color:var(--muted);
+  font-size:8.8px;
+  line-height:1;
+  font-weight:700;
+  text-align:center;
+}
+details[open]>.disclosureSummary .disclosureState::after{content:"收起"}
+details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
+
 #upcomingBox{
   padding:10px;
   background:#F7F8F5;
 }
 .upcomingGroup{
   margin:0 0 9px;
-  padding:11px 12px 8px;
+  padding:0;
   border:1px solid #E1E5DF;
   border-radius:16px;
   background:#fff;
+  overflow:hidden;
 }
 .upcomingGroup:last-child{margin-bottom:0}
-.upcomingGroup+.upcomingGroup{
-  margin-top:0;
-}
+.upcomingGroup+.upcomingGroup{margin-top:0}
 .upcomingGroupTitle{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:8px;
   margin:0;
-  padding:0 0 7px;
-  border-bottom:1px solid #ECEEEA;
+  padding:10px 11px;
   font-size:13px;
   line-height:1.2;
   font-weight:800;
   color:var(--text);
+}
+.upcomingGroup[open]>.upcomingGroupTitle{
+  border-bottom:1px solid #ECEEEA;
+}
+.upcomingGroupTitleMain{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:0;
 }
 .upcomingGroupCount{
   flex:none;
@@ -1643,9 +1707,15 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   font-weight:700;
   color:var(--muted);
 }
+.upcomingGroupTitleRight{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  flex:none;
+}
 .upcomingGroupItems{
   margin:0;
-  padding:0;
+  padding:0 11px 7px;
 }
 .upcomingGroup .item{
   padding:8px 1px;
@@ -1954,12 +2024,18 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     </div>
 
     <div class="section">
-      <div class="sectionTitle">近期必须处理</div>
+      <div class="sectionHeader">
+        <div class="sectionTitle">近期必须处理</div>
+        <button class="sectionToggle disclosureAllToggle" id="upcomingAllToggle" onclick="toggleDisclosureGroup('upcoming:',this)">全部收起</button>
+      </div>
       <div class="card" id="upcomingBox"></div>
     </div>
 
     <div class="section" id="projectFundingSection" style="display:none">
-      <div class="sectionTitle">专项资金规划</div>
+      <div class="sectionHeader">
+        <div class="sectionTitle">专项资金规划</div>
+        <button class="sectionToggle disclosureAllToggle" id="projectFundingAllToggle" onclick="toggleDisclosureGroup('funding:',this)">全部收起</button>
+      </div>
       <div class="card" id="projectFundingBox"></div>
     </div>
 
@@ -5150,6 +5226,54 @@ function renderPlan(){
       </div>
     </div>`).join("");
 }
+const disclosureStorageKey="safespend-disclosure-state-v1";
+let disclosureState={};
+try{
+  disclosureState=JSON.parse(localStorage.getItem(disclosureStorageKey)||"{}")||{};
+}catch(e){
+  disclosureState={};
+}
+function disclosureIsOpen(key){
+  return disclosureState[key]!==false;
+}
+function disclosureOpenAttr(key){
+  return disclosureIsOpen(key)?" open":"";
+}
+function rememberDisclosure(el,key){
+  disclosureState[key]=!!el.open;
+  try{localStorage.setItem(disclosureStorageKey,JSON.stringify(disclosureState))}catch(e){}
+  updateDisclosureAllToggles();
+}
+function toggleDisclosureGroup(prefix,button){
+  const nodes=[...document.querySelectorAll(`details[data-disclosure-key^="${prefix}"]`)];
+  if(!nodes.length)return;
+  const shouldOpen=nodes.every(x=>!x.open);
+  nodes.forEach(x=>{
+    x.open=shouldOpen;
+    const key=x.dataset.disclosureKey||"";
+    if(key)disclosureState[key]=shouldOpen;
+  });
+  try{localStorage.setItem(disclosureStorageKey,JSON.stringify(disclosureState))}catch(e){}
+  if(button)button.textContent=shouldOpen?"全部收起":"全部展开";
+  updateDisclosureAllToggles();
+}
+function updateDisclosureAllToggles(){
+  [
+    ["upcoming:","upcomingAllToggle"],
+    ["funding:","projectFundingAllToggle"]
+  ].forEach(([prefix,id])=>{
+    const btn=document.getElementById(id);
+    if(!btn)return;
+    const nodes=[...document.querySelectorAll(`details[data-disclosure-key^="${prefix}"]`)];
+    if(!nodes.length){
+      btn.style.display="none";
+      return;
+    }
+    btn.style.display="";
+    btn.textContent=nodes.every(x=>!x.open)?"全部展开":"全部收起";
+  });
+}
+
 function renderNow(){
   const a=accounting(),b={safe:a.raw.safe,living:a.raw.safe,bills:a.raw.bills,saving:a.saving},cycle=currentCycleStats();
   const projectTotal=sm(activeProjects(),p=>N(a.projects[p.id]||0));
@@ -5335,22 +5459,34 @@ function renderNow(){
 
   const groups=[];
   if(fixedRows.length){
-    groups.push(`<div class="upcomingGroup">
-      <div class="upcomingGroupTitle"><span>固定项目</span><span class="upcomingGroupCount">${fixedRows.length} 项</span></div>
+    const key="upcoming:fixed";
+    groups.push(`<details class="upcomingGroup" data-disclosure-key="${key}"${disclosureOpenAttr(key)} ontoggle="rememberDisclosure(this,'${key}')">
+      <summary class="upcomingGroupTitle disclosureSummary">
+        <span class="upcomingGroupTitleMain">固定项目</span>
+        <span class="upcomingGroupTitleRight"><span class="upcomingGroupCount">${fixedRows.length} 项</span><span class="disclosureState"></span></span>
+      </summary>
       <div class="upcomingGroupItems">${fixedRows.join("")}</div>
-    </div>`);
+    </details>`);
   }
   if(projectRows.length){
-    groups.push(`<div class="upcomingGroup">
-      <div class="upcomingGroupTitle"><span>专项</span><span class="upcomingGroupCount">${projectRows.length} 项</span></div>
+    const key="upcoming:project";
+    groups.push(`<details class="upcomingGroup" data-disclosure-key="${key}"${disclosureOpenAttr(key)} ontoggle="rememberDisclosure(this,'${key}')">
+      <summary class="upcomingGroupTitle disclosureSummary">
+        <span class="upcomingGroupTitleMain">专项</span>
+        <span class="upcomingGroupTitleRight"><span class="upcomingGroupCount">${projectRows.length} 项</span><span class="disclosureState"></span></span>
+      </summary>
       <div class="upcomingGroupItems">${projectRows.join("")}</div>
-    </div>`);
+    </details>`);
   }
   if(lightRows.length){
-    groups.push(`<div class="upcomingGroup">
-      <div class="upcomingGroupTitle"><span>短期计划支出</span><span class="upcomingGroupCount">${lightRows.length} 项</span></div>
+    const key="upcoming:light";
+    groups.push(`<details class="upcomingGroup" data-disclosure-key="${key}"${disclosureOpenAttr(key)} ontoggle="rememberDisclosure(this,'${key}')">
+      <summary class="upcomingGroupTitle disclosureSummary">
+        <span class="upcomingGroupTitleMain">短期计划支出</span>
+        <span class="upcomingGroupTitleRight"><span class="upcomingGroupCount">${lightRows.length} 项</span><span class="disclosureState"></span></span>
+      </summary>
       <div class="upcomingGroupItems">${lightRows.join("")}</div>
-    </div>`);
+    </details>`);
   }
 
   const cycleGap=Math.max(0,-N(cycleExpectedSaving));
@@ -5371,68 +5507,43 @@ function renderNow(){
   if(projectPlans.length){
     projectFundingSection.style.display="";
     projectFundingBox.innerHTML=projectPlans.map(({p,plan,avail})=>{
-      let planningHtml="";
+      let summaryMeta="";
+      let summaryValue="";
+      let summaryClass="projectPlanGap";
+      let detailHtml="";
 
       if(avail<0){
-        planningHtml=`<div class="projectPlanTop">
-          <div>
-            <div class="projectPlanName">${esc(p.name)}</div>
-            <div class="projectPlanMeta">专项已经超出原有资金，超出部分已按支出记录的来源扣除。</div>
-          </div>
-          <div class="projectPlanGap projectCycleWarn">${M(avail)}</div>
-        </div>`;
+        summaryMeta="专项已经超出原有资金，超出部分已按支出记录的来源扣除。";
+        summaryValue=M(avail);
+        summaryClass+=" projectCycleWarn";
       }else if(plan.gap===0&&N(p.budget)>0){
-        planningHtml=`<div class="projectPlanTop">
-          <div>
-            <div class="projectPlanName">${esc(p.name)}</div>
-            <div class="projectPlanMeta">预算 ${M(p.budget)} · 实际已备 ${M(projectFunded(p))} · 当前剩余 ${M(Math.max(0,avail))}</div>
-          </div>
-          <div class="projectPlanGap pos">已备 ${M(projectFunded(p))}</div>
-        </div>`;
+        summaryMeta=`预算 ${M(p.budget)} · 实际已备 ${M(projectFunded(p))} · 当前剩余 ${M(Math.max(0,avail))}`;
+        summaryValue=`已备 ${M(projectFunded(p))}`;
+        summaryClass+=" pos";
       }else if(plan.status==="no-date"){
-        planningHtml=`<div class="projectPlanTop">
-          <div>
-            <div class="projectPlanName">${esc(p.name)}</div>
-            <div class="projectPlanMeta">资金缺口 ${M(plan.gap)} · 尚未设置截止日期</div>
-          </div>
-          <div class="projectPlanGap">缺 ${M(plan.gap)}</div>
-        </div>
-        <div class="projectCycleBox">
+        summaryMeta=`资金缺口 ${M(plan.gap)} · 尚未设置截止日期`;
+        summaryValue=`缺 ${M(plan.gap)}`;
+        detailHtml=`<div class="projectCycleBox">
           <div class="projectCycleMain"><span>周期建议</span><strong class="projectCycleWarn">请先设置截止日期</strong></div>
         </div>`;
       }else if(plan.status==="overdue"){
-        planningHtml=`<div class="projectPlanTop">
-          <div>
-            <div class="projectPlanName">${esc(p.name)}</div>
-            <div class="projectPlanMeta">截止日期 ${p.dueDate} · 当前仍缺 ${M(plan.gap)}</div>
-          </div>
-          <div class="projectPlanGap">缺 ${M(plan.gap)}</div>
-        </div>
-        <div class="projectCycleBox">
+        summaryMeta=`截止日期 ${p.dueDate} · 当前仍缺 ${M(plan.gap)}`;
+        summaryValue=`缺 ${M(plan.gap)}`;
+        detailHtml=`<div class="projectCycleBox">
           <div class="projectCycleMain"><span>周期建议</span><strong class="projectCycleWarn">截止日已过，请尽快补足</strong></div>
         </div>`;
       }else if(plan.status==="no-cycle"){
-        planningHtml=`<div class="projectPlanTop">
-          <div>
-            <div class="projectPlanName">${esc(p.name)}</div>
-            <div class="projectPlanMeta">截止日期 ${p.dueDate} · 当前仍缺 ${M(plan.gap)}</div>
-          </div>
-          <div class="projectPlanGap">缺 ${M(plan.gap)}</div>
-        </div>
-        <div class="projectCycleBox">
+        summaryMeta=`截止日期 ${p.dueDate} · 当前仍缺 ${M(plan.gap)}`;
+        summaryValue=`缺 ${M(plan.gap)}`;
+        detailHtml=`<div class="projectCycleBox">
           <div class="projectCycleMain"><span>周期建议</span><strong class="projectCycleWarn">截止前没有周期收入</strong></div>
           <div class="projectCycleDates">可从单次收入或零花钱直接补入专项。</div>
         </div>`;
       }else{
         const next=plan.schedule[0];
-        planningHtml=`<div class="projectPlanTop">
-          <div>
-            <div class="projectPlanName">${esc(p.name)}</div>
-            <div class="projectPlanMeta">截止 ${p.dueDate} · 资金缺口 ${M(plan.gap)} · 还剩 ${plan.count} 个周期收入</div>
-          </div>
-          <div class="projectPlanGap">缺 ${M(plan.gap)}</div>
-        </div>
-        <div class="projectCycleBox">
+        summaryMeta=`截止 ${p.dueDate} · 资金缺口 ${M(plan.gap)} · 还剩 ${plan.count} 个周期收入`;
+        summaryValue=`缺 ${M(plan.gap)}`;
+        detailHtml=`<div class="projectCycleBox">
           <div class="projectCycleMain">
             <span>每个周期建议预留</span>
             <strong>${M(plan.perCycle)}</strong>
@@ -5451,11 +5562,24 @@ function renderNow(){
             <button class="archiveBtn" onclick="editProject('${p.id}')">修改专项</button>
           </div>`;
 
-      return `<div class="projectPlanItem">
-        ${planningHtml}
-        ${projectFinanceDetailHtml(p,a)}
-        ${actions}
-      </div>`;
+      const key=`funding:${p.id}`;
+      return `<details class="projectPlanItem projectPlanDisclosure" data-disclosure-key="${key}"${disclosureOpenAttr(key)} ontoggle="rememberDisclosure(this,'${key}')">
+        <summary class="projectPlanDisclosureSummary disclosureSummary">
+          <div class="projectPlanDisclosureMain">
+            <div class="projectPlanName">${esc(p.name)}</div>
+            <div class="projectPlanMeta">${summaryMeta}</div>
+          </div>
+          <div class="projectPlanDisclosureRight">
+            <div class="${summaryClass}">${summaryValue}</div>
+            <span class="disclosureState"></span>
+          </div>
+        </summary>
+        <div class="projectPlanDisclosureBody">
+          ${detailHtml}
+          ${projectFinanceDetailHtml(p,a)}
+          ${actions}
+        </div>
+      </details>`;
     }).join("")+`
       <div class="projectFundingFootnote">
         * 专项结算并归档时，剩余资金会转入储蓄。
@@ -5464,6 +5588,8 @@ function renderNow(){
     projectFundingSection.style.display="none";
     projectFundingBox.innerHTML="";
   }
+
+  updateDisclosureAllToggles();
 
   const dayInfo=dailyLivingBudgetInfo(td());
   const settled=livingSettlementForDate(td());
