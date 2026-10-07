@@ -9610,6 +9610,8 @@ saveSpend.onclick=()=>{
   const cycleIncomeId=cycleIncomeIdForDate(spendDateValue);
 
   let projectPlannedExpenseSnapshot=null;
+  let personalPlannedExpenseSnapshot=null;
+
   if(
     plannedExpensePayment
     &&bucket==="project"
@@ -9620,6 +9622,16 @@ saveSpend.onclick=()=>{
     if(item){
       projectPlannedExpenseSnapshot={...item};
       p.plannedExpenses=p.plannedExpenses.filter(x=>x.id!==item.id);
+    }
+  }
+
+  if(plannedExpensePayment?.kind==="personal"){
+    const item=(S.plannedExpenses||[]).find(x=>x.id===plannedExpensePayment.plannedId);
+    if(item){
+      personalPlannedExpenseSnapshot={...item};
+      item.status="bought";
+      item.handledAt=spendDateValue;
+      item.expenseId=id;
     }
   }
 
@@ -9636,7 +9648,9 @@ saveSpend.onclick=()=>{
     projectOverrunSource:projectOverrunSourceValue,
     projectOverrunAmount,
     projectPlannedExpenseId:projectPlannedExpenseSnapshot?.id||"",
-    projectPlannedExpenseSnapshot
+    projectPlannedExpenseSnapshot,
+    personalPlannedExpenseId:personalPlannedExpenseSnapshot?.id||"",
+    personalPlannedExpenseSnapshot
   });
 
   plannedExpensePayment=null;
@@ -9690,6 +9704,24 @@ function removeTx(id){
         restoredPlannedExpense=true;
       }
     }
+  }
+
+  if(target.type==="expense"&&target.personalPlannedExpenseSnapshot){
+    const snapshot=target.personalPlannedExpenseSnapshot;
+    let item=(S.plannedExpenses||[]).find(x=>x.id===snapshot.id);
+    if(item){
+      item.status=snapshot.status==="planned"?"planned":"considering";
+      item.handledAt="";
+      item.expenseId="";
+    }else{
+      S.plannedExpenses.push({
+        ...snapshot,
+        status:snapshot.status==="planned"?"planned":"considering",
+        handledAt:"",
+        expenseId:""
+      });
+    }
+    restoredPlannedExpense=true;
   }
 
   S.tx=S.tx.filter(x=>x.id!==id);
