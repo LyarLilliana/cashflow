@@ -2958,8 +2958,17 @@ function cyclePocketSnapshot(incomeTx){
     t=>Math.max(0,N(t.amount)-Math.max(0,N(dailyLivingCover.byTx[t.id])))
   );
 
+  const fallbackLivingCommitted=sm(
+    fallbackLivingDayRows().filter(x=>
+      x.date>=incomeTx.date
+      &&(!next||x.date<next.date)
+    ),
+    x=>fallbackLivingCommitmentForDate(x.date)
+  );
+
   const pocketSpent=
     dailyPocketSpent
+    +fallbackLivingCommitted
     +sm(expenses.filter(t=>t.bucket==="project"&&t.projectOverrunSource==="safe"),t=>N(t.projectOverrunAmount))
     +billPocketSpent;
 
@@ -3004,6 +3013,7 @@ function cyclePocketSnapshot(incomeTx){
     projectReserved,
     pocketSpent,
     billPocketSpent,
+    fallbackLivingCommitted,
     manualSavingUse,
     livingRelease,
     pocketToSaving,
@@ -3481,6 +3491,7 @@ function cycleStatsForIncome(incomeTx){
     livingRelease:snap.livingRelease,
     pocketInitial:snap.pocketInitial,
     pocketSpent:snap.pocketSpent,
+    fallbackLivingCommitted:N(snap.fallbackLivingCommitted),
     pocketBalance:snap.pocketBalance,
     manualSavingUse:snap.manualSavingUse,
     fixedReserved:snap.fixedReserved,
@@ -3536,7 +3547,7 @@ function currentCycleStats(){
     return {
       income:null,nextCycleIncome:null,isClosed:false,incomeTotal:0,
       plannedSaving:0,pocketToSaving:0,pocketToProject:0,projectSettlementSaving:0,lockedSaving:0,endPocketSaved:0,
-      pocketInitial:0,pocketSpent:0,pocketBalance:0,manualSavingUse:0,
+      pocketInitial:0,pocketSpent:0,fallbackLivingCommitted:0,pocketBalance:0,manualSavingUse:0,
       livingReserved:0,livingRelease:0,fixedReserved:0,projectReserved:0,
       projectedSaving:0
     };
