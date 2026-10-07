@@ -1606,27 +1606,69 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 }
 
 .upcomingGroup{padding:0}
-.upcomingGroup+.upcomingGroup{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.upcomingGroup+.upcomingGroup{
+  margin-top:11px;
+  padding-top:10px;
+  border-top:1px solid var(--line);
+}
 .upcomingGroupTitle{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:8px;
-  padding:0 1px 4px;
-  font-size:11px;
-  font-weight:760;
-  color:var(--muted);
+  margin:0 0 4px;
+  padding:5px 7px;
+  border-radius:9px;
+  background:#F7F8F5;
+  font-size:11.5px;
+  font-weight:780;
+  color:var(--text);
 }
 .upcomingGroupCount{
-  font-size:10px;
-  font-weight:650;
-  color:#A0A6A2;
+  flex:none;
+  font-size:9.5px;
+  font-weight:680;
+  color:var(--muted);
 }
-.upcomingGroup .item{padding:11px 0}
+.upcomingGroupItems{
+  margin-left:9px;
+  padding-left:10px;
+  border-left:2px solid #E5E9E4;
+}
+.upcomingGroup .item{
+  padding:8px 0;
+}
+.upcomingGroup .item .row{
+  gap:8px;
+}
+.upcomingGroup .item .name{
+  font-size:12.5px;
+  line-height:1.3;
+}
+.upcomingGroup .item .meta{
+  margin-top:2px;
+  font-size:10px;
+  line-height:1.35;
+}
+.upcomingGroup .item .amount{
+  font-size:12.5px;
+}
+#upcomingBox .billActions{
+  gap:4px;
+  margin-top:4px;
+}
+#upcomingBox .doneBtn,
+#upcomingBox .skipBtn{
+  min-height:28px;
+  padding:4px 7px;
+  border-radius:999px;
+  font-size:9.5px;
+  line-height:1;
+}
 .upcomingAlert{
-  margin-bottom:13px;
-  padding:10px 11px;
-  border-radius:13px;
+  margin-bottom:11px;
+  padding:9px 10px;
+  border-radius:12px;
   background:#FAF5F2;
 }
 .upcomingAlert .item{padding:0;border:0}
@@ -5248,19 +5290,19 @@ function renderNow(){
   if(fixedRows.length){
     groups.push(`<div class="upcomingGroup">
       <div class="upcomingGroupTitle"><span>固定项目</span><span class="upcomingGroupCount">${fixedRows.length} 项</span></div>
-      ${fixedRows.join("")}
+      <div class="upcomingGroupItems">${fixedRows.join("")}</div>
     </div>`);
   }
   if(projectRows.length){
     groups.push(`<div class="upcomingGroup">
       <div class="upcomingGroupTitle"><span>专项</span><span class="upcomingGroupCount">${projectRows.length} 项</span></div>
-      ${projectRows.join("")}
+      <div class="upcomingGroupItems">${projectRows.join("")}</div>
     </div>`);
   }
   if(lightRows.length){
     groups.push(`<div class="upcomingGroup">
       <div class="upcomingGroupTitle"><span>短期计划支出</span><span class="upcomingGroupCount">${lightRows.length} 项</span></div>
-      ${lightRows.join("")}
+      <div class="upcomingGroupItems">${lightRows.join("")}</div>
     </div>`);
   }
 
