@@ -2211,7 +2211,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div style="margin-top:8px;font-weight:750" id="incBills">¥0</div>
     </div>
     <div class="subCard">
-      <div class="name">专项预留</div>
+      <div class="name">专项 / 近期计划预留</div>
       <div class="meta" id="projectSuggestMeta">周期收入会给出建议；单次额外收入也可以直接分配到进行中的专项。</div>
       <div id="projectSuggest" style="margin-top:8px"></div>
     </div>
@@ -2220,7 +2220,7 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
       <div class="explainRow"><span>储蓄</span><strong id="sumSaving">¥0</strong></div>
       <div class="explainRow"><span>基础生活</span><strong id="sumLiving">¥0</strong></div>
       <div class="explainRow"><span>固定账单</span><strong id="sumBills">¥0</strong></div>
-      <div class="explainRow"><span>专项</span><strong id="sumProjects">¥0</strong></div>
+      <div class="explainRow"><span>专项 / 近期计划</span><strong id="sumProjects">¥0</strong></div>
       <div class="explainRow total"><span>零花钱 / 真正可以自由花</span><strong id="sumSafe">¥0</strong></div>
     </div>
     <div class="note" id="incomeWarning" style="margin-top:8px"></div>
@@ -7779,50 +7779,79 @@ function projectSuggestionInputs(){
   const selectedPlan=S.incomePlans.find(x=>x.id===incPlan.value);
   const oneOff=incPlan.value==="__extra__" || (selectedPlan&&!isRecurringPlan(selectedPlan));
   const suggestProjects=activeProjects().filter(p=>projectGap(p)>0);
+  const suggestLightPlans=activeLightPlans().filter(x=>x.status==="planned");
 
-  if(!suggestProjects.length){
-    projectSuggestMeta.textContent="当前没有需要补充资金的进行中专项。";
-    projectSuggest.innerHTML='<div class="note">暂无需要预留的专项。</div>';
+  if(!suggestProjects.length&&!suggestLightPlans.length){
+    projectSuggestMeta.textContent="当前没有需要预留的专项，也没有已确定准备购买的近期计划。";
+    projectSuggest.innerHTML='<div class="note">暂无需要预留的项目。</div>';
     return;
   }
 
-  if(oneOff){
-    projectSuggestMeta.textContent="单次额外收入也可以直接分配到专项；金额由你自己决定，不需要依赖周期或收入日期。";
-    projectSuggest.innerHTML=suggestProjects.map(p=>`
-      <div class="formGrid" style="margin-top:8px">
-        <div>
-          <div class="name">${esc(p.name)}</div>
-          <div class="meta">当前还缺 ${M(projectGap(p))} · 可直接从这笔额外收入预留</div>
-        </div>
-        <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0"></div>
-      </div>`).join("");
-  }else{
-    projectSuggestMeta.textContent="周期收入会根据专项缺口、截止日期和未来收入周期给出建议预留。";
-    projectSuggest.innerHTML=suggestProjects.map(p=>{
-      const cp=projectCyclePlan(p);
+  projectSuggestMeta.textContent=oneOff
+    ?"专项和已确定准备购买的近期计划都可以从这笔收入里自行预留。"
+    :"专项按周期给出建议；已确定准备购买的近期计划也会放在这里一起预留。";
 
-      if(cp.status==="active"&&cp.schedule.length){
-        const next=cp.schedule[0];
+  let projectHtml="";
+  if(suggestProjects.length){
+    projectHtml='<div class="small" style="margin:4px 0 2px;font-weight:700">专项</div>'
+      +suggestProjects.map(p=>{
+        if(oneOff){
+          return `<div class="formGrid" style="margin-top:8px">
+            <div>
+              <div class="name">${esc(p.name)}</div>
+              <div class="meta">当前还缺 ${M(projectGap(p))} · 可直接从这笔收入预留</div>
+            </div>
+            <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0"></div>
+          </div>`;
+        }
+
+        const cp=projectCyclePlan(p);
+        if(cp.status==="active"&&cp.schedule.length){
+          const next=cp.schedule[0];
+          return `<div class="formGrid" style="margin-top:8px">
+            <div>
+              <div class="name">${esc(p.name)}</div>
+              <div class="meta">缺 ${M(cp.gap)} · 截止前还有 ${cp.count} 个周期收入 · 本周期建议 ${M(next.recommended)}</div>
+            </div>
+            <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="${next.recommended}" min="0"></div>
+          </div>`;
+        }
+
         return `<div class="formGrid" style="margin-top:8px">
           <div>
             <div class="name">${esc(p.name)}</div>
-            <div class="meta">缺 ${M(cp.gap)} · 截止前还有 ${cp.count} 个周期收入 · 本周期建议 ${M(next.recommended)}</div>
+            <div class="meta">当前还缺 ${M(projectGap(p))} · 本次也可以自行预留</div>
           </div>
-          <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="${next.recommended}" min="0"></div>
+          <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0"></div>
         </div>`;
-      }
-
-      return `<div class="formGrid" style="margin-top:8px">
-        <div>
-          <div class="name">${esc(p.name)}</div>
-          <div class="meta">当前还缺 ${M(projectGap(p))} · 本次也可以自行预留</div>
-        </div>
-        <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0"></div>
-      </div>`;
-    }).join("");
+      }).join("");
   }
 
-  document.querySelectorAll(".projectContrib").forEach(x=>x.addEventListener("input",recalcIncomeSummary));
+  let lightHtml="";
+  if(suggestLightPlans.length){
+    const nextDate=incNextDate.value||"";
+    lightHtml='<div class="small" style="margin:12px 0 2px;font-weight:700">准备购买</div>'
+      +suggestLightPlans.map(x=>{
+        const gap=lightPlanReserveGap(x);
+        const dueThisCycle=!!(x.targetDate&&nextDate&&x.targetDate<=nextDate);
+        const recommended=(!oneOff&&dueThisCycle)?gap:0;
+        const reserved=lightPlanReservedRemaining(x.id);
+        const amountMeta=N(x.amount)>0?`预计 ${M(x.amount)}`:"金额待定";
+        const dateMeta=x.targetDate?`计划 ${x.targetDate}`:"时间待定";
+        const suggestMeta=recommended>0?` · 本次建议 ${M(recommended)}`:"";
+        return `<div class="formGrid" style="margin-top:8px">
+          <div>
+            <div class="name">${esc(x.name)}</div>
+            <div class="meta">${amountMeta} · ${dateMeta} · 已预留 ${M(reserved)}${suggestMeta}</div>
+          </div>
+          <div><input class="lightPlanContrib" data-id="${x.id}" inputmode="decimal" type="number" value="${recommended}" min="0"></div>
+        </div>`;
+      }).join("");
+  }
+
+  projectSuggest.innerHTML=projectHtml+lightHtml;
+  document.querySelectorAll(".projectContrib,.lightPlanContrib")
+    .forEach(x=>x.addEventListener("input",recalcIncomeSummary));
 }
 function recalcIncome(){
   const p=S.incomePlans.find(x=>x.id===incPlan.value);
@@ -7855,16 +7884,22 @@ function recalcIncomeSummary(){
   const living=N(lp.amount);
   const billsList=(p&&isRecurringPlan(p)&&next)?dueBillsBetween(td(),next):[];
   const bills=sm(billsList,x=>x.amount);
-  const projects=[...document.querySelectorAll(".projectContrib")].map(x=>({projectId:x.dataset.id,amount:N(x.value)})).filter(x=>x.amount>0);
+  const projects=[...document.querySelectorAll(".projectContrib")]
+    .map(x=>({projectId:x.dataset.id,amount:N(x.value)}))
+    .filter(x=>x.amount>0);
+  const lightPlans=[...document.querySelectorAll(".lightPlanContrib")]
+    .map(x=>({lightPlanId:x.dataset.id,amount:N(x.value)}))
+    .filter(x=>x.amount>0);
   const ps=sm(projects,x=>x.amount);
+  const lps=sm(lightPlans,x=>x.amount);
 
-  const safe=amount-saving-living-bills-ps;
+  const safe=amount-saving-living-bills-ps-lps;
 
   sumIncome.textContent=M(amount);
   sumSaving.textContent=M(saving);
   sumLiving.textContent=M(living);
   sumBills.textContent=M(bills);
-  sumProjects.textContent=M(ps);
+  sumProjects.textContent=M(ps+lps);
   sumSafe.textContent=M(safe);
   sumSafe.style.color=safe<=0?"var(--danger)":"var(--accent)";
 
@@ -7928,9 +7963,15 @@ saveIncome.onclick=()=>{
   const bills=sm(billsList,x=>x.amount);
   const billItems=billsList.map(x=>({billId:x.id,dueDate:x.dueDate,amount:N(x.amount)}));
 
-  const projects=[...document.querySelectorAll(".projectContrib")].map(x=>({projectId:x.dataset.id,amount:N(x.value)})).filter(x=>x.amount>0);
+  const projects=[...document.querySelectorAll(".projectContrib")]
+    .map(x=>({projectId:x.dataset.id,amount:N(x.value)}))
+    .filter(x=>x.amount>0);
+  const lightPlans=[...document.querySelectorAll(".lightPlanContrib")]
+    .map(x=>({lightPlanId:x.dataset.id,amount:N(x.value)}))
+    .filter(x=>x.amount>0);
   const ps=sm(projects,x=>x.amount);
-  const safe=amount-saving-living-bills-ps;
+  const lps=sm(lightPlans,x=>x.amount);
+  const safe=amount-saving-living-bills-ps-lps;
 
   const planNextDateBefore=plan?.nextDate||"";
   const planFreqAtRecord=plan?.freq||"none";
@@ -7956,7 +7997,7 @@ saveIncome.onclick=()=>{
     scheduledDate:pending?.scheduledDate||planNextDateBefore,
     wasPending:!!pending,
     pendingRecordedDate:pending?.pendingRecordedDate||pending?.date||"",
-    alloc:{saving,living,bills,billItems,projects,safe}
+    alloc:{saving,living,bills,billItems,projects,lightPlans,safe}
   };
 
   if(pending){
