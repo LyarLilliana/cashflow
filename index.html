@@ -1605,6 +1605,32 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   margin-top:6px;
 }
 
+.upcomingGroup{padding:0}
+.upcomingGroup+.upcomingGroup{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.upcomingGroupTitle{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:0 1px 4px;
+  font-size:11px;
+  font-weight:760;
+  color:var(--muted);
+}
+.upcomingGroupCount{
+  font-size:10px;
+  font-weight:650;
+  color:#A0A6A2;
+}
+.upcomingGroup .item{padding:11px 0}
+.upcomingAlert{
+  margin-bottom:13px;
+  padding:10px 11px;
+  border-radius:13px;
+  background:#FAF5F2;
+}
+.upcomingAlert .item{padding:0;border:0}
+
 .billDue.overdue{color:var(--danger);font-weight:700}
 
 @media(max-width:560px){
@@ -5147,12 +5173,11 @@ function renderNow(){
 
   const horizon=next?.nextDate||addDays(td(),7);
 
-  // 每个固定账单只显示一个“当前待处理周期”。
-  // 点击“已支付”后，该周期被核销，列表立即切换到下一缴纳周期。
+  // “近期必须处理”按来源分组，避免固定账单、专项和短期计划混在同一列表。
   const billRows=S.bills.map(b=>actionableBillCycle(b.id)).filter(Boolean)
     .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
 
-  const rows=billRows.map(x=>{
+  const fixedRows=billRows.map(x=>{
     const overdue=x.dueDate<td();
     const status=overdue?"已到期":(x.dueDate===td()?"今天到期":"待处理");
     return `<div class="item"><div class="row">
@@ -5170,15 +5195,16 @@ function renderNow(){
     </div></div>`;
   });
 
+  const projectRows=[];
   activeProjects().forEach(p=>{
     projectPlannedExpenses(p)
       .filter(x=>x.date&&x.date<=horizon)
       .forEach(x=>{
         const overdue=x.date<td();
         const when=overdue?"计划日已过":x.date===td()?"今天计划":"近期计划";
-        rows.push(`<div class="item"><div class="row">
+        projectRows.push(`<div class="item"><div class="row">
           <div style="min-width:0">
-            <div class="name">计划支出 · ${esc(p.name)}</div>
+            <div class="name">${esc(p.name)}</div>
             <div class="meta">${esc(x.name||"计划支出")} · ${x.date} · ${when}</div>
           </div>
           <div style="text-align:right;min-width:92px">
@@ -5191,6 +5217,7 @@ function renderNow(){
       });
   });
 
+  const lightRows=[];
   activeLightPlans().forEach(x=>{
     const when=x.targetDate
       ?(x.targetDate<td()?"计划日已过":x.targetDate===td()?"今天处理":x.targetDate<=horizon?"近期计划":"计划 "+x.targetDate)
@@ -5198,9 +5225,9 @@ function renderNow(){
     const amountText=N(x.amount)>0?M(x.amount):"金额待定";
     const reserved=lightPlanReservedRemaining(x.id);
     const reserveMeta=reserved>0?` · 已预留 ${M(reserved)}`:"";
-    rows.push(`<div class="item"><div class="row">
+    lightRows.push(`<div class="item"><div class="row">
       <div style="min-width:0">
-        <div class="name">计划支出 · ${esc(x.name)}</div>
+        <div class="name">${esc(x.name)}</div>
         <div class="meta">${lightPlanStatusLabel(x)} · ${when}${reserveMeta}</div>
       </div>
       <div style="text-align:right;min-width:118px">
@@ -5217,9 +5244,34 @@ function renderNow(){
     </div></div>`);
   });
 
+  const groups=[];
+  if(fixedRows.length){
+    groups.push(`<div class="upcomingGroup">
+      <div class="upcomingGroupTitle"><span>固定项目</span><span class="upcomingGroupCount">${fixedRows.length} 项</span></div>
+      ${fixedRows.join("")}
+    </div>`);
+  }
+  if(projectRows.length){
+    groups.push(`<div class="upcomingGroup">
+      <div class="upcomingGroupTitle"><span>专项</span><span class="upcomingGroupCount">${projectRows.length} 项</span></div>
+      ${projectRows.join("")}
+    </div>`);
+  }
+  if(lightRows.length){
+    groups.push(`<div class="upcomingGroup">
+      <div class="upcomingGroupTitle"><span>短期计划支出</span><span class="upcomingGroupCount">${lightRows.length} 项</span></div>
+      ${lightRows.join("")}
+    </div>`);
+  }
+
   const cycleGap=Math.max(0,-N(cycleExpectedSaving));
-  if(cycleGap>0) rows.unshift(`<div class="item"><div class="row"><div><div class="name">本周期资金缺口</div><div class="meta">本周期“预计可存”已经低于 0，代表本周期收入连同原计划储蓄都已被用完。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div>`);
-  upcomingBox.innerHTML=rows.length?rows.join(""):'<div class="note">暂无近期必须处理的账单、计划支出或资金缺口。</div>';
+  const gapHtml=cycleGap>0
+    ?`<div class="upcomingAlert"><div class="item"><div class="row"><div><div class="name">本周期资金缺口</div><div class="meta">本周期“预计可存”已经低于 0，代表本周期收入连同原计划储蓄都已被用完。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div></div>`
+    :"";
+
+  upcomingBox.innerHTML=(gapHtml||groups.length)
+    ?gapHtml+groups.join("")
+    :'<div class="note">暂无近期必须处理的固定项目、专项或短期计划支出。</div>';
 
   const projectPlans=activeProjects().map(p=>({
     p,
