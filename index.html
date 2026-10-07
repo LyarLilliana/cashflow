@@ -3928,7 +3928,7 @@ function syncLivingSettlementTotals(){
     if(t.autoSettled){
       const batch=livingBatchShareForDate(date);
       const afterBatch=Math.max(0,N(t.allowance)-batch);
-      const dailyDraw=Math.min(afterBatch,dailyExpenseAmountForDate(date));
+      const dailyDraw=Math.min(afterBatch,Math.max(0,N(dailyExpenseLivingCoverMap().byDate[date])));
       // 自动补记继续保持“当天额度最终结清”的保守规则，同时优先给当天日常支出留出额度。
       // 这样跨到第二天后，日常支出仍按“基础生活 → 零花钱 → 储蓄”承担，零花钱不会被反向重复扣减。
       t.manualActualSpent=Math.max(0,afterBatch-dailyDraw);
@@ -3957,7 +3957,7 @@ function autoSettlePastLivingDays(){
 
       const batch=livingBatchShareForDate(date);
       const afterBatch=Math.max(0,allowance-batch);
-      const dailyDraw=Math.min(afterBatch,dailyExpenseAmountForDate(date));
+      const dailyDraw=Math.min(afterBatch,Math.max(0,N(dailyExpenseLivingCoverMap().byDate[date])));
       const manual=Math.max(0,afterBatch-dailyDraw);
       const actual=manual+batch;
 
@@ -3999,6 +3999,7 @@ function livingRemainingForDate(date=td()){
 function dailyExpenseLivingCoverMap(){
   const byTx={};
   const byDate={};
+  const lightReserveUsage=lightPlanReserveUsageMap();
 
   const rows=S.tx
     .filter(t=>
@@ -4033,7 +4034,9 @@ function dailyExpenseLivingCoverMap(){
       }
     }
 
-    const draw=Math.min(Math.max(0,N(t.amount)),remaining);
+    const reserveDraw=Math.max(0,N(lightReserveUsage.byExpense[t.id]));
+    const livingEligible=Math.max(0,N(t.amount)-reserveDraw);
+    const draw=Math.min(livingEligible,remaining);
     byTx[t.id]=draw;
     byDate[date]=(byDate[date]||0)+draw;
     remaining=Math.max(0,remaining-draw);
@@ -4224,8 +4227,8 @@ function fallbackLivingUsedForDate(date){
   const info=fallbackLivingDayInfo(date);
   if(!info.covered)return 0;
   const batch=livingBatchShareForDate(date);
-  const daily=dailyExpenseAmountForDate(date);
-  return Math.min(N(info.allowance),Math.max(0,batch)+Math.max(0,daily));
+  const daily=Math.max(0,N(dailyExpenseLivingCoverMap().byDate[date]));
+  return Math.min(N(info.allowance),Math.max(0,batch)+daily);
 }
 function fallbackLivingCommitmentForDate(date){
   const info=fallbackLivingDayInfo(date);
