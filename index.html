@@ -3065,16 +3065,38 @@ function accounting(){
     }));
 
   const cycleClosures=virtualCycleCloseEvents();
+  const fallbackLivingFunding={};
+  const fallbackLivingEvents=[];
+  fallbackLivingDayRows().forEach(x=>{
+    fallbackLivingEvents.push({
+      id:`flr_${x.date}`,
+      date:x.date,
+      type:"living_gap_reserve",
+      amount:N(x.allowance),
+      sourceId:x.source?.id||""
+    });
+    if(x.date<td()){
+      fallbackLivingEvents.push({
+        id:`flc_${x.date}`,
+        date:x.date,
+        type:"living_gap_close",
+        amount:N(x.allowance),
+        sourceId:x.source?.id||""
+      });
+    }
+  });
 
   const accountingDayPriority=t=>{
     // SafeSpend 按“日期”记账。上一周期结算先执行，当日收入随后建立预算池，
     // 当日支出最后消费预算池，避免同一天录入顺序造成账单或专项重复扣款。
     if(t.type==="cycle_close_saving")return 0;
     if(t.type==="income")return 1;
+    if(t.type==="living_gap_reserve")return 1.5;
+    if(t.type==="living_gap_close")return 3;
     return 2;
   };
 
-  const ordered=[...S.tx,...depositLocks,...cycleClosures]
+  const ordered=[...S.tx,...depositLocks,...cycleClosures,...fallbackLivingEvents]
     .sort((a,b)=>{
       if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
 
@@ -3089,6 +3111,76 @@ function accounting(){
     });
 
   ordered.forEach(t=>{
+    if(t.type==="living_gap_reserve"){
+      const allowance=Math.max(0,N(t.amount));
+      const pocketAvailable=Math.max(0,N(raw.safe));
+      const fromPocket=Math.min(allowance,pocketAvailable);
+      const afterPocket=Math.max(0,allowance-fromPocket);
+      const savingAvailable=Math.max(0,N(saving));
+      const fromSaving=Math.min(afterPocket,savingAvailable);
+      const gap=Math.max(0,afterPocket-fromSaving);
+
+      raw.safe-=fromPocket;
+      saving-=fromSaving;
+      if(gap>0){
+        raw.safe-=gap;
+        uncovered+=gap;
+      }
+
+      fallbackLivingFunding[t.date]={
+        date:t.date,
+        allowance,
+        pocketReserved:fromPocket,
+        savingReserved:fromSaving,
+        uncoveredReserved:gap,
+        sourceId:t.sourceId||"",
+        used:0,
+        releasedPocket:0,
+        releasedSaving:0,
+        releasedGap:0
+      };
+      effects[t.id]={
+        livingFallback:true,
+        pocketReserved:fromPocket,
+        savingReserved:fromSaving,
+        uncovered:gap
+      };
+      return;
+    }
+
+    if(t.type==="living_gap_close"){
+      const funding=fallbackLivingFunding[t.date];
+      if(!funding)return;
+
+      const used=Math.min(N(funding.allowance),fallbackLivingUsedForDate(t.date));
+      const usedPocket=Math.min(used,N(funding.pocketReserved));
+      const afterPocket=Math.max(0,used-usedPocket);
+      const usedSaving=Math.min(afterPocket,N(funding.savingReserved));
+      const usedGap=Math.max(0,afterPocket-usedSaving);
+
+      const releasePocket=Math.max(0,N(funding.pocketReserved)-usedPocket);
+      const releaseSaving=Math.max(0,N(funding.savingReserved)-usedSaving);
+      const releaseGap=Math.max(0,N(funding.uncoveredReserved)-usedGap);
+
+      raw.safe+=releasePocket+releaseGap;
+      saving+=releaseSaving;
+      uncovered=Math.max(0,uncovered-releaseGap);
+
+      funding.used=used;
+      funding.releasedPocket=releasePocket;
+      funding.releasedSaving=releaseSaving;
+      funding.releasedGap=releaseGap;
+
+      effects[t.id]={
+        livingFallbackClose:true,
+        used,
+        releasePocket,
+        releaseSaving,
+        releaseGap
+      };
+      return;
+    }
+
     if(t.type==="income"){
       const ea=effectiveIncomeAllocation(t);
       raw.safe+=N(ea.safe);
@@ -3325,7 +3417,7 @@ function accounting(){
     };
   });
 
-  return {raw,projects,saving,autoSavingUsed,manualSavingUsed,uncovered,effects};
+  return {raw,projects,saving,autoSavingUsed,manualSavingUsed,uncovered,effects,fallbackLivingFunding};
 }
 function projectAvail(p){
   return N(accounting().projects[p.id]||0);
