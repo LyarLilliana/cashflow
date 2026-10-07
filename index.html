@@ -4564,6 +4564,8 @@ function removeProjectTimelineTx(id){
 }
 
 function render(){
+  // 每次刷新都先重算既往自动结算，确保后来新增/修改的日常支出继续优先占用对应日期的基础生活额度。
+  syncLivingSettlementTotals();
   const autoSettledCount=autoSettlePastLivingDays();
   if(autoSettledCount>0)save();
 
