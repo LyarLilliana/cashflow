@@ -2890,6 +2890,53 @@ function lightPlanStatusLabel(x){
     :x.status==="skipped"?"决定不买"
     :"还在考虑";
 }
+function lightPlanAllocationItemsForIncome(t){
+  const valid=new Map((S.plannedExpenses||[]).map(x=>[x.id,x]));
+  return (t?.alloc?.lightPlans||[])
+    .map(x=>({...x,amount:Math.max(0,N(x.amount))}))
+    .filter(x=>{
+      const plan=valid.get(x.lightPlanId);
+      return plan
+        &&(plan.status==="planned"||plan.status==="bought")
+        &&x.amount>0;
+    });
+}
+function lightPlanReserveUsageMap(){
+  const pools={};
+  const byExpense={};
+  const events=S.tx
+    .filter(t=>t.type==="income"||(t.type==="expense"&&t.personalPlannedExpenseId))
+    .slice()
+    .sort((a,b)=>{
+      if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
+      if(a.type!==b.type)return a.type==="income"?-1:1;
+      return txStamp(a)-txStamp(b);
+    });
+
+  events.forEach(t=>{
+    if(t.type==="income"){
+      lightPlanAllocationItemsForIncome(t).forEach(x=>{
+        pools[x.lightPlanId]=(pools[x.lightPlanId]||0)+N(x.amount);
+      });
+      return;
+    }
+
+    const pid=t.personalPlannedExpenseId||"";
+    const available=Math.max(0,N(pools[pid]));
+    const draw=Math.min(Math.max(0,N(t.amount)),available);
+    pools[pid]=available-draw;
+    byExpense[t.id]=draw;
+  });
+
+  return {remaining:pools,byExpense};
+}
+function lightPlanReservedRemaining(id){
+  return Math.max(0,N(lightPlanReserveUsageMap().remaining[id]));
+}
+function lightPlanReserveGap(x){
+  if(!x||N(x.amount)<=0)return 0;
+  return Math.max(0,N(x.amount)-lightPlanReservedRemaining(x.id));
+}
 function resetLightPlanForm(){
   lightPlanEditId.value="";
   lightPlanName.value="";
@@ -4089,16 +4136,18 @@ function effectiveIncomeAllocation(t){
   const existingProjectIds=new Set(S.projects.map(p=>p.id));
   const projects=(t.alloc?.projects||[]).filter(x=>existingProjectIds.has(x.projectId));
   const projectTotal=sm(projects,x=>N(x.amount));
+  const lightPlans=lightPlanAllocationItemsForIncome(t);
+  const lightPlanTotal=sm(lightPlans,x=>N(x.amount));
   const saving=N(t.alloc?.saving);
 
   // New-format income is always recomputed from the current surviving plans/reservations.
-  // Legacy income keeps its old safe amount when no coverage metadata exists.
+  // “准备购买”的近期计划和专项一样先从本次收入中预留，真正付款时再核销对应预留。
   const isNew=!!(t.livingCoverageStart||t.livingCoverageEnd||t.planFreqAtRecord!==undefined);
   const safe=isNew
-    ? N(t.amount)-saving-living-bills-projectTotal
+    ? N(t.amount)-saving-living-bills-projectTotal-lightPlanTotal
     : N(t.alloc?.safe)+N(t.alloc?.living)-living;
 
-  return {saving,living,bills,billItems,projects,projectTotal,safe};
+  return {saving,living,bills,billItems,projects,projectTotal,lightPlans,lightPlanTotal,safe};
 }
 
 function activeIncomePlans(){return S.incomePlans.filter(p=>p.nextDate)}
