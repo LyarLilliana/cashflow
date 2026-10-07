@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-42-pending-income-fallback-living";
+const CACHE = "safespend-v10-43-existing-savings-label";
 const ASSETS = [
   "./",
   "./index.html",
