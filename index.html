@@ -4892,14 +4892,16 @@ function renderNow(){
   paint(savingBal,cycleExpectedSaving);
 
   const next=nextRecurringIncome();
+  const fallbackFunding=a.fallbackLivingFunding?.[td()]||null;
   if(next){
     const days=diffDays(td(),next.nextDate);
     const dailyPocket=days>0?b.safe/days:b.safe;
     const livingRemaining=livingRemainingForDate(td());
     const dailyTotal=dailyPocket+livingRemaining;
     const batchToday=livingBatchShareForDate(td());
+    const pendingNext=pendingIncomeForPlan(next.id,next.nextDate);
 
-    whyDays.textContent=`${days} 天`;
+    whyDays.textContent=pendingNext?"待到账":`${days} 天`;
     dailyFree.textContent=M(dailyPocket);
     dailyFree.style.color=(dailyPocket<0)?"var(--danger)":"inherit";
     dailyLivingRemaining.textContent=M(livingRemaining);
@@ -4907,15 +4909,22 @@ function renderNow(){
     dailyTotalSpend.textContent=M(dailyTotal);
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
     const todayLivingSettled=!!livingSettlementForDate(td());
-    dailyTotalMeta.textContent=todayLivingSettled
-      ?`今日基础生活 ¥0 · 建议零花 ${M(dailyPocket)}`
-      :batchToday>0
-        ?`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
-        :`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}`;
-    safeSub.textContent=b.safe<0
-      ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期预计可存”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
-      :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
-    nextIncomeBox.innerHTML=`<div class="row"><div><div class="name">${esc(next.name)}</div><div class="meta">${next.nextDate} · ${freqLabel(next.freq)} · 计划储蓄 ${saveRuleLabel(next)}</div></div><div class="amount pos">${M(next.amount)}</div></div>`;
+    dailyTotalMeta.textContent=fallbackFunding
+      ?`今日基础生活临时由零花 ${M(fallbackFunding.pocketReserved)} + 储蓄 ${M(fallbackFunding.savingReserved)} 承担${fallbackFunding.uncoveredReserved>0?"；资金缺口 "+M(fallbackFunding.uncoveredReserved):""}；剩余 ${M(livingRemaining)}`
+      :todayLivingSettled
+        ?`今日基础生活 ¥0 · 建议零花 ${M(dailyPocket)}`
+        :batchToday>0
+          ?`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
+          :`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}`;
+
+    safeSub.textContent=pendingNext
+      ?`${next.name} 原定 ${next.nextDate} 到账，当前已记录暂未到账。今天的基础生活会先由零花钱承担，零花钱不足的部分再由储蓄补位。`
+      :b.safe<0
+        ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期预计可存”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
+        :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
+    nextIncomeBox.innerHTML=pendingNext
+      ?`<div class="row"><div><div class="name">${esc(next.name)} · 待到账</div><div class="meta">原定 ${next.nextDate} · 已记录暂未到账 · 到账后从“记录收入”更新</div></div><div class="amount">${M(next.amount)}</div></div>`
+      :`<div class="row"><div><div class="name">${esc(next.name)}</div><div class="meta">${next.nextDate} · ${freqLabel(next.freq)} · 计划储蓄 ${saveRuleLabel(next)}</div></div><div class="amount pos">${M(next.amount)}</div></div>`;
   }else{
     const dailyPocket=b.safe;
     const livingRemaining=livingRemainingForDate(td());
@@ -5096,7 +5105,7 @@ function renderNow(){
     projectFundingBox.innerHTML="";
   }
 
-  const dayInfo=livingDayInfo(td());
+  const dayInfo=dailyLivingBudgetInfo(td());
   const settled=livingSettlementForDate(td());
   if(settled){
     const release=N(settled.allowance)-livingSettlementEffectiveActual(settled);
@@ -5150,6 +5159,10 @@ function expenseSourceLabel(t){
 }
 
 function txHtml(t,del=false,edit=false){
+  if(t.type==="income_pending"){
+    const name=esc(t.planNameAtRecord||S.incomePlans.find(x=>x.id===t.planId)?.name||"周期收入");
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">收入待到账 · ${name}</div><div class="meta">原定 ${t.scheduledDate||t.date} 到账 · ${t.pendingRecordedDate||t.date} 已记录暂未到账</div></div><div class="txRight"><div class="txAmount txMuted">待 ${M(t.expectedAmount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+  }
   if(t.type==="income"){
     const p=S.incomePlans.find(x=>x.id===t.planId);
     const ea=effectiveIncomeAllocation(t);
@@ -5287,6 +5300,12 @@ function txButtons(t,del=false,edit=false){
 function transactionActionTitle(t){
   if(!t)return "流水";
 
+  if(t.type==="income_pending"){
+    const p=S.incomePlans.find(x=>x.id===t.planId);
+    const name=p?.name||t.planNameAtRecord||"周期收入";
+    return `收入待到账 · ${name}`;
+  }
+
   if(t.type==="income"){
     const p=S.incomePlans.find(x=>x.id===t.planId);
     const name=p?.name||t.planNameAtRecord||t.incomeNote||"";
@@ -5333,6 +5352,9 @@ function transactionActionTitle(t){
 
 function transactionActionAmountText(t){
   if(!t)return "";
+  if(t.type==="income_pending"){
+    return `原定 ${t.scheduledDate||t.date} · 待到账 ${M(t.expectedAmount)}`;
+  }
   if(t.type==="living_settlement"){
     return `合计 ${M(livingSettlementTotalUsed(t))} · 预留 ${M(t.allowance)}`;
   }
