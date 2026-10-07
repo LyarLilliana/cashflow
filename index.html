@@ -2195,8 +2195,9 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
     </div>
     <div class="note" id="incomeWarning" style="margin-top:8px"></div>
     <div class="actions">
+      <button class="secondary" id="markIncomePending" style="grid-column:1/-1">这笔收入暂未到账</button>
       <button class="ghost" onclick="closeSheet('incomeSheet')">取消</button>
-      <button class="primary" id="saveIncome">确认分配</button>
+      <button class="primary" id="saveIncome">确认到账并分配</button>
     </div>
   </div>
 </div>
@@ -3709,15 +3710,13 @@ function autoSettlePastLivingDays(){
   return created;
 }
 function livingRemainingForDate(date=td()){
-  const info=livingDayInfo(date);
+  const info=dailyLivingBudgetInfo(date);
   if(!info.covered)return 0;
 
   const settled=livingSettlementForDate(date);
   if(settled)return 0;
 
-  // “今日剩余”必须反映当天基础生活额度真正还可继续使用的金额。
-  // 先扣除多日基础生活分摊，再扣除当天所有日常支出中已由基础生活承担的部分。
-  // 日常支出超过这笔余额后，超出的部分才进入零花钱计算。
+  // 今日基础生活既可以来自已到账收入预留，也可以在收入暂未到账时由零花钱/储蓄临时补位。
   return dailyLivingAvailableForNewExpense(date);
 }
 
@@ -3749,7 +3748,7 @@ function dailyExpenseLivingCoverMap(){
     const date=String(t.date||"");
     if(date!==currentDate){
       currentDate=date;
-      const info=livingDayInfo(date);
+      const info=dailyLivingBudgetInfo(date);
       const settlement=livingSettlementForDate(date);
 
       if(!info.covered){
@@ -3772,7 +3771,7 @@ function dailyExpenseLivingCoverMap(){
 }
 
 function dailyLivingAvailableForNewExpense(date=td()){
-  const info=livingDayInfo(date);
+  const info=dailyLivingBudgetInfo(date);
   if(!info.covered)return 0;
 
   const settlement=livingSettlementForDate(date);
@@ -3893,6 +3892,76 @@ function activeIncomePlans(){return S.incomePlans.filter(p=>p.nextDate)}
 function nextPlannedIncome(excludeId=""){
   const arr=activeIncomePlans().filter(p=>p.id!==excludeId).sort((a,b)=>a.nextDate.localeCompare(b.nextDate));
   return arr[0]||null;
+}
+function pendingIncomeForPlan(planId,scheduledDate=""){
+  return S.tx.find(t=>
+    t.type==="income_pending"
+    &&t.planId===planId
+    &&(!scheduledDate||t.scheduledDate===scheduledDate)
+  )||null;
+}
+function pendingIncomeRows(){
+  return S.tx
+    .filter(t=>t.type==="income_pending"&&t.scheduledDate)
+    .sort((a,b)=>String(a.scheduledDate).localeCompare(String(b.scheduledDate)));
+}
+function pendingIncomeForToday(){
+  return pendingIncomeRows().find(t=>t.scheduledDate<=td())||null;
+}
+function lateIncomeGapMap(){
+  const out={};
+  const addRange=(start,endExclusive,source)=>{
+    if(!start||!endExclusive||endExclusive<=start)return;
+    dateRange(start,endExclusive).forEach(date=>{
+      if(date>td())return;
+      if(livingDayInfo(date).covered)return;
+      if(!out[date])out[date]={date,allowance:livingRateForDate(date),source};
+    });
+  };
+
+  pendingIncomeRows().forEach(t=>{
+    addRange(t.scheduledDate,addDays(td(),1),t);
+  });
+
+  S.tx
+    .filter(t=>t.type==="income"&&t.wasPending&&t.scheduledDate&&t.date&&t.scheduledDate<t.date)
+    .forEach(t=>addRange(t.scheduledDate,t.date,t));
+
+  return out;
+}
+function fallbackLivingDayInfo(date=td()){
+  const gap=lateIncomeGapMap()[date];
+  if(!gap)return {covered:false,allowance:0,fallback:false,source:null};
+  return {
+    covered:true,
+    allowance:N(gap.allowance),
+    fallback:true,
+    source:gap.source,
+    incomeId:"",
+    income:null
+  };
+}
+function dailyLivingBudgetInfo(date=td()){
+  const funded=livingDayInfo(date);
+  if(funded.covered)return {...funded,fallback:false,source:null};
+  return fallbackLivingDayInfo(date);
+}
+function fallbackLivingUsedForDate(date){
+  const info=fallbackLivingDayInfo(date);
+  if(!info.covered)return 0;
+  const batch=livingBatchShareForDate(date);
+  const daily=dailyExpenseAmountForDate(date);
+  return Math.min(N(info.allowance),Math.max(0,batch)+Math.max(0,daily));
+}
+function fallbackLivingCommitmentForDate(date){
+  const info=fallbackLivingDayInfo(date);
+  if(!info.covered)return 0;
+  return date<td()?fallbackLivingUsedForDate(date):N(info.allowance);
+}
+function fallbackLivingDayRows(){
+  return Object.values(lateIncomeGapMap())
+    .filter(x=>x.date<=td())
+    .sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 }
 function planSavings(p,amount){
   if(!p)return 0;
