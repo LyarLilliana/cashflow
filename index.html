@@ -5143,9 +5143,32 @@ function renderNow(){
       });
   });
 
+  activeLightPlans()
+    .filter(x=>x.targetDate&&x.targetDate<=horizon)
+    .forEach(x=>{
+      const overdue=x.targetDate<td();
+      const when=overdue?"计划日已过":x.targetDate===td()?"今天处理":"近期计划";
+      const amountText=N(x.amount)>0?M(x.amount):"金额待定";
+      rows.push(`<div class="item"><div class="row">
+        <div style="min-width:0">
+          <div class="name">计划支出 · ${esc(x.name)}</div>
+          <div class="meta">${lightPlanStatusLabel(x)} · ${x.targetDate} · ${when}</div>
+        </div>
+        <div style="text-align:right;min-width:118px">
+          <div class="amount">${amountText}</div>
+          <div class="billActions">
+            ${x.status==="considering"
+              ?`<button class="doneBtn" onclick="event.stopPropagation();setLightPlanStatus('${x.id}','planned')">准备买</button>`
+              :`<button class="doneBtn" onclick="event.stopPropagation();payLightPlan('${x.id}')">记支出</button>`}
+            <button class="skipBtn" onclick="event.stopPropagation();setLightPlanStatus('${x.id}','skipped')">不买</button>
+          </div>
+        </div>
+      </div></div>`);
+    });
+
   const cycleGap=Math.max(0,-N(cycleExpectedSaving));
   if(cycleGap>0) rows.unshift(`<div class="item"><div class="row"><div><div class="name">本周期资金缺口</div><div class="meta">本周期“预计可存”已经低于 0，代表本周期收入连同原计划储蓄都已被用完。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div>`);
-  upcomingBox.innerHTML=rows.length?rows.join(""):'<div class="note">暂无待处理固定账单或本周期资金缺口。</div>';
+  upcomingBox.innerHTML=rows.length?rows.join(""):'<div class="note">暂无近期必须处理的账单、计划支出或资金缺口。</div>';
 
   const projectPlans=activeProjects().map(p=>({
     p,
