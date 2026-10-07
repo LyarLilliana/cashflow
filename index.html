@@ -1653,6 +1653,12 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 .upcomingGroup .item .amount{
   font-size:12.5px;
 }
+.upcomingSide{
+  flex:none;
+  min-width:86px;
+  max-width:116px;
+  text-align:right;
+}
 #upcomingBox .billActions{
   gap:4px;
   margin-top:4px;
@@ -5227,7 +5233,7 @@ function renderNow(){
         <div class="name">${esc(x.name)}</div>
         <div class="meta"><span class="billDue ${overdue?"overdue":""}">${x.dueDate} · ${status}</span>${x.reserved?" · 已预留":""}</div>
       </div>
-      <div style="text-align:right;min-width:118px">
+      <div class="upcomingSide">
         <div class="amount">${M(x.amount)}</div>
         <div class="billActions">
           <button class="doneBtn" onclick="event.stopPropagation();markBillHandled('${x.id}','${x.dueDate}')">已支付</button>
@@ -5249,7 +5255,7 @@ function renderNow(){
             <div class="name">${esc(p.name)}</div>
             <div class="meta">${esc(x.name||"计划支出")} · ${x.date} · ${when}</div>
           </div>
-          <div style="text-align:right;min-width:92px">
+          <div class="upcomingSide">
             <div class="amount">${M(x.amount)}</div>
             <div class="billActions">
               <button class="doneBtn" onclick="event.stopPropagation();payProjectPlannedExpense('${p.id}','${x.id}')">记支出</button>
@@ -5272,7 +5278,7 @@ function renderNow(){
         <div class="name">${esc(x.name)}</div>
         <div class="meta">${lightPlanStatusLabel(x)} · ${when}${reserveMeta}</div>
       </div>
-      <div style="text-align:right;min-width:118px">
+      <div class="upcomingSide">
         <div class="amount">${amountText}</div>
         <div class="billActions">
           <button class="doneBtn" onclick="event.stopPropagation();payLightPlan('${x.id}')">记支出</button>
