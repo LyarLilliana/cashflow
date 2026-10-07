@@ -4910,7 +4910,7 @@ function renderNow(){
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
     const todayLivingSettled=!!livingSettlementForDate(td());
     dailyTotalMeta.textContent=fallbackFunding
-      ?`今日基础生活临时由零花 ${M(fallbackFunding.pocketReserved)} + 储蓄 ${M(fallbackFunding.savingReserved)} 承担${fallbackFunding.uncoveredReserved>0?"；资金缺口 "+M(fallbackFunding.uncoveredReserved):""}；剩余 ${M(livingRemaining)}`
+      ?`今日基础生活临时由零花 ${M(fallbackFunding.pocketReserved)} + 已有储蓄 ${M(fallbackFunding.savingReserved)} 承担${fallbackFunding.uncoveredReserved>0?"；资金缺口 "+M(fallbackFunding.uncoveredReserved):""}；剩余 ${M(livingRemaining)}`
       :todayLivingSettled
         ?`今日基础生活 ¥0 · 建议零花 ${M(dailyPocket)}`
         :batchToday>0
@@ -4918,7 +4918,7 @@ function renderNow(){
           :`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}`;
 
     safeSub.textContent=pendingNext
-      ?`${next.name} 原定 ${next.nextDate} 到账，当前已记录暂未到账。今天的基础生活会先由零花钱承担，零花钱不足的部分再由储蓄补位。`
+      ?`${next.name} 原定 ${next.nextDate} 到账，当前已记录暂未到账。今天的基础生活会先由零花钱承担，零花钱不足的部分再由此前已形成的储蓄补位。`
       :b.safe<0
         ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期预计可存”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
         :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
@@ -7780,9 +7780,9 @@ function openLivingSettlement(){
     livingSumRemaining.style.color="inherit";
     livingSumManual.textContent=dailyDraw>0?"-"+M(dailyDraw):M(0);
     livingReleaseLabel.textContent="临时资金来源";
-    livingReleaseAmount.textContent=`零花 ${M(funding.pocketReserved)} · 储蓄 ${M(funding.savingReserved)}`;
+    livingReleaseAmount.textContent=`零花 ${M(funding.pocketReserved)} · 已有储蓄 ${M(funding.savingReserved)}`;
     livingReleaseAmount.style.color=funding.uncoveredReserved>0?"var(--danger)":"inherit";
-    livingSettleMeta.textContent=`${td()} · 计划收入暂未到账，今日基础生活先由零花钱承担，零花钱不足部分由储蓄补位${funding.uncoveredReserved>0?" · 仍缺 "+M(funding.uncoveredReserved):""}`;
+    livingSettleMeta.textContent=`${td()} · 计划收入暂未到账，今日基础生活先由零花钱承担，零花钱不足部分由此前已形成的储蓄补位${funding.uncoveredReserved>0?" · 仍缺 "+M(funding.uncoveredReserved):""}`;
 
     showLivingPanel("today");
     livingSheet.classList.add("show");
