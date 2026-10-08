@@ -2199,7 +2199,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="sectionTitle">银行转存提醒</div>
 
       <div class="card">
-        <div class="meta">提醒进度直接按“本周期预计可存”计算，与上方日常储蓄保持同一口径；达到额度后再根据实际已沉淀余额决定是否可以转存。</div>
+        <div class="meta">提醒进度按全部日期累计的日常储蓄计算。已转入银行的资金会从日常储蓄中扣除；当前周期预计会沉淀的结余会计入预计进度。</div>
 
         <div class="divider"></div>
 
@@ -2222,9 +2222,9 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="divider"></div>
 
         <div class="bankReminderRows">
-          <div class="explainRow"><span>本周期预计可存</span><strong id="bankReminderCurrent">¥0</strong></div>
-          <div class="explainRow"><span>已进入储蓄</span><strong id="bankReminderActual">¥0</strong></div>
-          <div class="explainRow"><span>预计周期结余</span><strong id="bankReminderPending">¥0</strong></div>
+          <div class="explainRow"><span>累计预计可转存</span><strong id="bankReminderCurrent">¥0</strong></div>
+          <div class="explainRow"><span>累计已沉淀日常储蓄</span><strong id="bankReminderActual">¥0</strong></div>
+          <div class="explainRow"><span>当前周期预计结余</span><strong id="bankReminderPending">¥0</strong></div>
           <div class="explainRow"><span>设定转存额度</span><strong id="bankReminderTarget">未设置</strong></div>
           <div class="explainRow total"><span id="bankReminderGapLabel">距离提醒额度</span><strong id="bankReminderGap">—</strong></div>
         </div>
@@ -7396,26 +7396,24 @@ function bankReminderThresholdValue(){
 function bankReminderState(){
   const cycle=currentCycleStats();
 
-  // 银行转存提醒与结果页、储蓄页使用完全同一份“本周期预计可存”。
-  // expected = lockedSaving + pocketBalance，不再额外叠加历史未转存储蓄。
-  const expected=cycle.income
-    ?N(cycle.projectedSaving)
-    :0;
-  const actual=cycle.income
-    ?N(cycle.lockedSaving)
-    :0;
-  const pending=cycle.income
-    ?N(cycle.pocketBalance)
+  // 银行转存提醒使用“全部日期累计”口径。
+  // ordinarySavingsAvailable() 是当前真实仍留在日常储蓄里的余额，
+  // 已经转入银行的 existing 存款会在 accounting() 中扣除，因此不会重复累计。
+  const available=Math.max(0,ordinarySavingsAvailable());
+
+  // 当前周期尚未结束的正结余可以提前进入“预计可转存”进度。
+  // 负结余已经通过实际消费和储蓄兜底反映在 accounting() 中，避免再次重复扣减。
+  const pending=cycle.income&&!cycle.isClosed
+    ?Math.max(0,N(cycle.pocketBalance))
     :0;
 
-  // 真正执行银行转存时仍以已经沉淀、当前可转出的日常储蓄为准，
-  // 这样提醒可以按预期提前出现，但不会把预计结余提前当成现金转存。
-  const available=Math.max(0,ordinarySavingsAvailable());
+  const actual=available;
+  const expected=actual+pending;
 
   const threshold=bankReminderThresholdValue();
   const enabled=threshold>0;
   const ready=enabled&&expected>=threshold;
-  const actualReady=enabled&&available>=threshold;
+  const actualReady=enabled&&actual>=threshold;
   const basis=Math.max(0,expected);
   const gap=enabled?Math.max(0,threshold-basis):0;
   const progress=enabled?Math.max(0,Math.min(100,basis/threshold*100)):0;
@@ -7449,7 +7447,7 @@ function renderBankDepositReminder(){
   bankReminderCurrent.textContent=M(r.current);
   bankReminderActual.textContent=M(r.actual);
   bankReminderPending.textContent=M(r.pending);
-  bankReminderPending.style.color=r.pending<0?"var(--danger)":r.pending>0?"var(--accent)":"inherit";
+  bankReminderPending.style.color=r.pending>0?"var(--accent)":"inherit";
   bankReminderTarget.textContent=r.enabled?M(r.threshold):"未设置";
 
   if(!r.enabled){
@@ -7457,7 +7455,7 @@ function renderBankDepositReminder(){
     bankReminderGap.textContent="—";
     bankReminderProgress.style.width="0%";
     bankReminderReady.style.display="none";
-    bankReminderHint.textContent="设置一个额度。提醒进度与“本周期预计可存”完全同步。";
+    bankReminderHint.textContent="设置一个额度后，进度会按全部日期累计的日常储蓄持续计算。";
   }else if(r.ready){
     bankReminderGapLabel.textContent="预计已超过提醒额度";
     bankReminderGap.textContent=M(r.current-r.threshold);
@@ -7466,15 +7464,15 @@ function renderBankDepositReminder(){
     bankReminderReady.style.display="";
 
     if(r.actualReady){
-      bankReminderReadyTitle.textContent="已经达到银行转存额度";
-      bankReminderReadyMeta.textContent=`本周期预计可存 ${M(r.current)}；当前实际可转存日常储蓄 ${M(r.available)}。`;
+      bankReminderReadyTitle.textContent="累计日常储蓄已达到银行转存额度";
+      bankReminderReadyMeta.textContent=`累计已沉淀 ${M(r.actual)}，已达到设定额度 ${M(r.threshold)}。`;
       bankReminderDepositBtn.style.display="";
-      bankReminderHint.textContent="预计已达到额度，且实际已沉淀余额足够，可以进入“新增银行存款”。";
+      bankReminderHint.textContent="当前实际日常储蓄已经达到额度，可以进入“新增银行存款”完成转存。";
     }else{
-      bankReminderReadyTitle.textContent="预计达到银行转存额度";
-      bankReminderReadyMeta.textContent=`本周期预计可存 ${M(r.current)}，其中预计周期结余为 ${M(r.pending)}。`;
+      bankReminderReadyTitle.textContent="累计预计储蓄达到银行转存额度";
+      bankReminderReadyMeta.textContent=`累计已沉淀 ${M(r.actual)}，当前周期预计再沉淀 ${M(r.pending)}。`;
       bankReminderDepositBtn.style.display="none";
-      bankReminderHint.textContent=`提醒已按预期触发；当前实际可转存日常储蓄为 ${M(r.available)}，达到额度后再执行银行转存。`;
+      bankReminderHint.textContent=`预计累计值已达到额度；当前实际可转存为 ${M(r.actual)}，等结余正式沉淀后即可转存。`;
     }
   }else{
     bankReminderGapLabel.textContent="距离提醒额度";
@@ -7482,7 +7480,7 @@ function renderBankDepositReminder(){
     bankReminderGap.style.color="inherit";
     bankReminderProgress.style.width=`${r.progress}%`;
     bankReminderReady.style.display="none";
-    bankReminderHint.textContent=`按“本周期预计可存”计算，当前已完成 ${Math.round(r.progress)}%。`;
+    bankReminderHint.textContent=`按全部日期累计计算，当前预计完成 ${Math.round(r.progress)}%。`;
   }
 
   bankReminderNowCard.style.display=r.ready?"":"none";
@@ -7490,20 +7488,20 @@ function renderBankDepositReminder(){
 
   if(r.ready){
     if(r.actualReady){
-      bankReminderNowTitle.textContent="日常储蓄已达到银行转存额度";
-      bankReminderNowMeta.textContent=`本周期预计可存 ${M(r.current)}，当前实际可转存 ${M(r.available)}。`;
+      bankReminderNowTitle.textContent="累计日常储蓄已达到银行转存额度";
+      bankReminderNowMeta.textContent=`当前实际可转存 ${M(r.actual)}，设定额度为 ${M(r.threshold)}。`;
       bankReminderNowBtn.style.display="";
 
-      bankReminderAlertTitle.textContent="日常储蓄已达到银行转存额度";
-      bankReminderAlertMeta.textContent=`预计已达到额度，当前实际可转存 ${M(r.available)}，可以进入新增银行存款录入。`;
+      bankReminderAlertTitle.textContent="累计日常储蓄已达到银行转存额度";
+      bankReminderAlertMeta.textContent=`当前实际可转存 ${M(r.actual)}，可以进入新增银行存款录入。`;
       bankReminderAlertBtn.style.display="";
     }else{
-      bankReminderNowTitle.textContent="预计储蓄达到银行转存额度";
-      bankReminderNowMeta.textContent=`本周期预计可存 ${M(r.current)}，其中 ${M(r.pending)} 尚为预计周期结余。`;
+      bankReminderNowTitle.textContent="累计预计储蓄达到银行转存额度";
+      bankReminderNowMeta.textContent=`累计已沉淀 ${M(r.actual)}，当前周期预计结余 ${M(r.pending)}。`;
       bankReminderNowBtn.style.display="none";
 
-      bankReminderAlertTitle.textContent="预计储蓄达到银行转存额度";
-      bankReminderAlertMeta.textContent=`本周期预计可存 ${M(r.current)}，当前实际可转存 ${M(r.available)}。`;
+      bankReminderAlertTitle.textContent="累计预计储蓄达到银行转存额度";
+      bankReminderAlertMeta.textContent=`累计预计可转存 ${M(r.current)}，当前实际可转存 ${M(r.actual)}。`;
       bankReminderAlertBtn.style.display="none";
     }
   }
@@ -7512,13 +7510,11 @@ function renderBankDepositReminder(){
 function openBankDepositFromReminder(){
   const r=bankReminderState();
   if(!r.enabled)return msg("请先设置银行转存提醒额度");
-  if(!r.ready)return msg(`按本周期预计可存计算，还差 ${M(r.gap)} 才达到提醒额度`);
+  if(!r.ready)return msg(`按累计日常储蓄计算，还差 ${M(r.gap)} 才达到提醒额度`);
   if(!r.actualReady){
-    return msg(`预计已达到额度，但目前实际可转存日常储蓄只有 ${M(r.available)}`);
+    return msg(`累计预计已达到额度，当前实际可转存日常储蓄为 ${M(r.available)}`);
   }
 
-  // 与“新增储蓄录入 → 新增银行存款”完全共用同一个录入流程。
-  // 提醒只负责带用户进入页面并预填建议转存金额，不直接完成银行入账。
   openBankDeposit();
   bankDepositSource.value="existing";
   bankDepositPrincipal.value=Math.min(r.threshold,r.available);
