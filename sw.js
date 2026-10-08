@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-52-savings-range-unified";
+const CACHE = "safespend-v10-53-cumulative-bank-reminder";
 const ASSETS = [
   "./",
   "./index.html",
