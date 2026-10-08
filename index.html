@@ -2058,7 +2058,39 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     <div class="section">
       <div class="sectionTitle">储蓄概览</div>
 
-      <div class="card savingAssetsUnifiedCard">
+      <div class="card historyFilter">
+        <div class="historyFilterGrid">
+          <div>
+            <label>开始日期</label>
+            <input id="savingStartDate" type="date">
+          </div>
+          <div>
+            <label>结束日期</label>
+            <input id="savingEndDate" type="date">
+          </div>
+        </div>
+
+        <div class="historyQuick" id="savingRangeQuick">
+          <button id="savingCycleBtn">当前周期</button>
+          <button id="savingMonthBtn" class="active">本月</button>
+          <button id="savingYearBtn">本年</button>
+          <button id="savingAllBtn">全部</button>
+        </div>
+
+        <div class="historyFilterMeta">
+          <span id="savingPeriodLabel">本月储蓄范围</span>
+          <span id="savingChangeCount">0 条变化</span>
+        </div>
+
+        <div class="savingPeriodHead" style="margin-top:10px">
+          <div>
+            <div class="small" id="savingPeriodValueLabel">这个范围预计新增储蓄</div>
+            <div class="savingPeriodValue" id="savingPeriodValue">¥0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card savingAssetsUnifiedCard" style="margin-top:10px">
         <div class="savingAssetsHead">
           <div>
             <div class="k" id="savingGrandLabel">筛选范围预计储蓄变化</div>
@@ -2116,38 +2148,6 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     <!-- 3. SAVINGS CHANGES -->
     <div class="section">
       <div class="sectionTitle">储蓄变化</div>
-
-      <div class="card historyFilter" style="margin-top:10px">
-        <div class="historyFilterGrid">
-          <div>
-            <label>开始日期</label>
-            <input id="savingStartDate" type="date">
-          </div>
-          <div>
-            <label>结束日期</label>
-            <input id="savingEndDate" type="date">
-          </div>
-        </div>
-
-        <div class="historyQuick" id="savingRangeQuick">
-          <button id="savingCycleBtn">当前周期</button>
-          <button id="savingMonthBtn" class="active">本月</button>
-          <button id="savingYearBtn">本年</button>
-          <button id="savingAllBtn">全部</button>
-        </div>
-
-        <div class="historyFilterMeta">
-          <span id="savingPeriodLabel">本月储蓄变化</span>
-          <span id="savingChangeCount">0 条变化</span>
-        </div>
-
-        <div class="savingPeriodHead" style="margin-top:10px">
-          <div>
-            <div class="small" id="savingPeriodValueLabel">这个范围预计新增储蓄</div>
-            <div class="savingPeriodValue" id="savingPeriodValue">¥0</div>
-          </div>
-        </div>
-      </div>
 
       <div class="card summaryLedgerCard" style="margin-top:10px">
         <div class="name" id="savingGrowthTitle">储蓄增长构成</div>
