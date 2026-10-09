@@ -2010,7 +2010,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div><div class="s">与上方“当前零花钱”完全一致</div></div>
       <div class="card stat"><div class="k">本周期账单</div><div class="v" id="billBal">¥0</div><div class="s" id="billBalSub">本周期尚待支付的固定账单</div></div>
       <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div><div class="s">已为专项准备好的钱</div></div>
-      <div class="card stat"><div class="k">本周期预计可存</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">已进入储蓄 + 当前剩余零花钱；零花钱继续消费时会实时变化</div></div>
+      <div class="card stat"><div class="k">本周期储蓄净变化</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">已进入储蓄 + 当前剩余零花钱；零花钱继续消费时会实时变化</div></div>
     </div>
 
     <div class="card" id="bankReminderNowCard" style="display:none;margin-top:12px">
@@ -2748,11 +2748,11 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
     <div class="transferSummary">
       <div class="explainRow"><span>转入后零花钱</span><strong id="transferPocketAfter">¥0</strong></div>
-      <div class="explainRow total"><span id="transferEffectLabel">本周期预计可存</span><strong id="transferProjectedSaving">¥0</strong></div>
+      <div class="explainRow total"><span id="transferEffectLabel">本周期储蓄净变化</span><strong id="transferProjectedSaving">¥0</strong></div>
     </div>
 
     <div class="note" id="transferPocketNote" style="margin-top:9px">
-      零花钱转储蓄属于资金位置调整，本周期预计可存总额保持一致；转入专项则改变资金用途。
+      零花钱转储蓄属于资金位置调整，本周期储蓄净变化总额保持一致；转入专项则改变资金用途。
     </div>
 
     <div class="actions">
@@ -5331,15 +5331,14 @@ function renderNow(){
   const cyclePocket=N(cycle.pocketBalance);
   const cycleExpectedSaving=N(cycle.projectedSaving);
 
-  // 预计可存直接采用周期结算口径。正零花会沉淀，负零花会等额压低最终可存。
+  // 本周期储蓄净变化沿用周期结算值，并单独展示累计日常储蓄余额。
+  // 正值代表本期可沉淀的净增长，负值代表本期净减少。
   savingBal.textContent=M(cycleExpectedSaving);
   savingBalSub.textContent=cycleExpectedSaving<0
-    ?`本周期储蓄净减少 ${M(Math.abs(cycleExpectedSaving))}；日常储蓄当前余额 ${M(a.saving)}`
-    :cyclePocket>0
-      ?`计划/已锁定储蓄 ${M(cycleConfirmed)} + 本周期剩余零花钱 ${M(cyclePocket)}`
-      :cyclePocket<0
-        ?`计划/已锁定储蓄 ${M(cycleConfirmed)} - 本周期零花缺口 ${M(Math.abs(cyclePocket))}`
-        :`当前计划/已锁定储蓄 ${M(cycleConfirmed)}`;
+    ?`本周期储蓄净减少 ${M(Math.abs(cycleExpectedSaving))}；当前日常储蓄余额 ${M(a.saving)}`
+    :cycleExpectedSaving>0
+      ?`本周期储蓄净增加 ${M(cycleExpectedSaving)}；当前日常储蓄余额 ${M(a.saving)}`
+      :`本周期储蓄净变化 ${M(0)}；当前日常储蓄余额 ${M(a.saving)}`;
 
   if(activeProjects().length===0){
     projectBal.textContent="暂无专项";
@@ -5385,7 +5384,7 @@ function renderNow(){
     safeSub.textContent=pendingNext
       ?`${next.name} 原定 ${next.nextDate} 到账，当前已记录暂未到账。今天的基础生活会先由零花钱承担，零花钱不足的部分再由此前已形成的储蓄补位。`
       :b.safe<0
-        ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期预计可存”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
+        ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期储蓄净变化”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
         :cycleExpectedSaving<0
           ?`当前零花钱 ${M(b.safe)} 已考虑生活费回流和本周期超支。超支已动用此前储蓄，本周期预计净减少储蓄 ${M(Math.abs(cycleExpectedSaving))}。下一笔收入预计 ${next.nextDate} 到账 ${M(next.amount)}。`
           :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
@@ -6317,10 +6316,10 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
 function periodOutcomeLabels(mode=historyMode){
   if(mode==="cycle"){
     return {
-      outcome:"本周期预计可存",
+      outcome:"本周期储蓄净变化",
       income:"本周期总收入",
       sub:"按本周期各资金桶实际归属独立结算",
-      rateSub:"本周期预计可存 ÷ 本周期总收入"
+      rateSub:"本周期储蓄净变化 ÷ 本周期总收入"
     };
   }
   if(mode==="month"){
@@ -7288,8 +7287,8 @@ function renderSavingAssetSummary(){
   savingFreePrincipal.style.color=s.dailyAfterBank<0?"var(--danger)":"var(--text)";
 
   if(s.cycleMode&&cycle.income){
-    savingDailyDesc.textContent="当前周期主值与结果页“本周期预计可存”共用同一计算，范围内其他储蓄变化同步计入";
-    savingCyclePlannedLabel.textContent="本周期预计可存";
+    savingDailyDesc.textContent="当前周期主值与结果页“本周期储蓄净变化”共用同一计算，范围内其他储蓄变化同步计入";
+    savingCyclePlannedLabel.textContent="本周期储蓄净变化";
     savingCycleRemainderLabel.textContent="其他日常储蓄变化";
     savingCyclePlanned.textContent=M(N(s.cycleProjected));
     savingCycleRemainder.textContent=M(N(s.dailySecondary));
@@ -7368,7 +7367,7 @@ function renderSavingStats(){
   savingUseLabel.textContent=cycleMode?"储蓄兜底 / 直接取用（参考）":"储蓄取用 / 超支扣减";
   savingGrowthTotalLabel.textContent="预计储蓄增长总和";
   savingGrowthNote.textContent=cycleMode
-    ?`日常储蓄变化 ${M(s.dailyAfterBank)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}；其中本周期预计可存为 ${M(N(s.cycleProjected))}。`
+    ?`日常储蓄变化 ${M(s.dailyAfterBank)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}；其中本周期储蓄净变化为 ${M(N(s.cycleProjected))}。`
     :"“当前周期预计结余”会随继续消费变化，所选范围内的银行本金与利息同步进入同一总和。";
 
   savingChangeList.innerHTML=events.length
@@ -9053,10 +9052,10 @@ function recalcPocketTransfer(){
     transferProjectedSaving.style.color="var(--accent)";
     transferPocketNote.textContent="转入专项只是在零花钱与专项之间重新分配，不会被当成已经储蓄。专项以后若有结余，结算时再转入储蓄。";
   }else{
-    transferEffectLabel.textContent="本周期预计可存";
+    transferEffectLabel.textContent="本周期储蓄净变化";
     transferProjectedSaving.textContent=M(cycle.projectedSaving);
     transferProjectedSaving.style.color=cycle.projectedSaving<=0?"var(--danger)":"var(--accent)";
-    transferPocketNote.textContent="转入储蓄只会把这笔钱从零花钱移动到“已进入储蓄”；本周期预计可存总额保持一致。";
+    transferPocketNote.textContent="转入储蓄只会把这笔钱从零花钱移动到“已进入储蓄”；本周期储蓄净变化总额保持一致。";
   }
 }
 
@@ -9105,7 +9104,7 @@ savePocketTransfer.onclick=()=>{
   save();
   closeSheet("pocketTransferSheet");
   render();
-  msg(`${M(amount)} 已从零花钱转入储蓄；本周期预计可存总额保持一致`);
+  msg(`${M(amount)} 已从零花钱转入储蓄；本周期储蓄净变化总额保持一致`);
 };
 
 
@@ -10254,7 +10253,7 @@ function summary(){
 
 当前零花钱余额：${M(b.safe)}
 本周期计划储蓄：${M(cycle.plannedSaving)}
-本周期预计可存：${M(cycle.projectedSaving)}
+本周期储蓄净变化：${M(cycle.projectedSaving)}
 本周期账单待支付：${currentCycleBillStatus().complete?"已完成":currentCycleBillStatus().none?"暂无":M(currentCycleBillStatus().outstandingAmount)}
 当前专项余额合计：${M(projectTotal)}
 本周期资金缺口：${M(Math.max(0,-N(cycle.projectedSaving)))}
@@ -10264,7 +10263,7 @@ function summary(){
 收入计划：
 ${ips||"无"}
 
-请帮我评估这一阶段的现金流、基础生活预算利用情况、零花钱、本周期预计可存和本月储蓄净增。`;
+请帮我评估这一阶段的现金流、基础生活预算利用情况、零花钱、本周期储蓄净变化和本月储蓄净增。`;
 }
 async function shareText(){
   const text=summary();
