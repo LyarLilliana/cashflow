@@ -5360,7 +5360,7 @@ function renderNow(){
   const fallbackFunding=a.fallbackLivingFunding?.[td()]||null;
   if(next){
     const days=diffDays(td(),next.nextDate);
-    const dailyPocket=days>0?b.safe/days:b.safe;
+    const dailyPocket=days>0?Math.max(0,b.safe)/days:Math.max(0,b.safe);
     const livingRemaining=livingRemainingForDate(td());
     const dailyTotal=dailyPocket+livingRemaining;
     const batchToday=livingBatchShareForDate(td());
@@ -5393,7 +5393,7 @@ function renderNow(){
       ?`<div class="row"><div><div class="name">${esc(next.name)} · 待到账</div><div class="meta">原定 ${next.nextDate} · 已记录暂未到账 · 到账后从“记录收入”更新</div></div><div class="amount">${M(next.amount)}</div></div>`
       :`<div class="row"><div><div class="name">${esc(next.name)}</div><div class="meta">${next.nextDate} · ${freqLabel(next.freq)} · 计划储蓄 ${saveRuleLabel(next)}</div></div><div class="amount pos">${M(next.amount)}</div></div>`;
   }else{
-    const dailyPocket=b.safe;
+    const dailyPocket=Math.max(0,b.safe);
     const livingRemaining=livingRemainingForDate(td());
     const dailyTotal=dailyPocket+livingRemaining;
     const batchToday=livingBatchShareForDate(td());
