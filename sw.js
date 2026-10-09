@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-57-pocket-repayment-daily-budget";
+const CACHE = "safespend-v10-58-net-saving-label";
 const ASSETS = [
   "./",
   "./index.html",
