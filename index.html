@@ -2752,7 +2752,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     </div>
 
     <div class="note" id="transferPocketNote" style="margin-top:9px">
-      转入储蓄会立即增加本周期预计可存；转入专项只改变资金用途，不会被当成已经储蓄。
+      零花钱转储蓄属于资金位置调整，本周期预计可存总额保持一致；转入专项则改变资金用途。
     </div>
 
     <div class="actions">
@@ -3385,28 +3385,14 @@ function cyclePocketSnapshot(incomeTx){
 }
 
 function virtualCycleCloseEvents(){
+  // 结算标记固定在下一笔周期收入入账前，实际金额由资金池实时结算。
   const rows=cycleIncomeRows();
-  const out=[];
-
-  rows.forEach((incomeTx,i)=>{
+  return rows.slice(0,-1).map((incomeTx,i)=>{
     const next=rows[i+1];
-    if(!next)return;
-
-    const snap=cyclePocketSnapshot(incomeTx);
-    const amount=Math.max(0,N(snap.pocketBalance));
-    if(amount<=0)return;
-
-    out.push({
-      id:`cycleclose_${incomeTx.id}`,
-      date:next.date,
-      type:"cycle_close_saving",
-      amount,
-      sourceIncomeId:incomeTx.id,
-      _sortStamp:Math.max(0,txStamp(next)-0.25)
-    });
+    return {id:`cycleclose_${incomeTx.id}`,date:next.date,
+      type:"cycle_close_saving",amount:0,sourceIncomeId:incomeTx.id,
+      _sortStamp:Math.max(0,txStamp(next)-0.25)};
   });
-
-  return out;
 }
 
 function accounting(){
@@ -3574,7 +3560,8 @@ function accounting(){
     }
 
     if(t.type==="cycle_close_saving"){
-      const amount=N(t.amount);
+      // 储蓄补位后回流的基础生活也应在本周期结束时结转。
+      const amount=Math.max(0,N(raw.safe));
       raw.safe-=amount;
       saving+=amount;
       effects[t.id]={cycleCloseSaving:amount};
@@ -3853,7 +3840,7 @@ function cycleStatsForIncome(incomeTx){
     pocketToProject:snap.pocketToProject,
     projectSettlementSaving:snap.projectSettlementSaving,
     lockedSaving,
-    endPocketSaved:isClosed?Math.max(0,snap.pocketBalance):0,
+    endPocketSaved:isClosed?Math.max(0,N(accounting().effects[`cycleclose_${incomeTx.id}`]?.cycleCloseSaving)):0,
     livingReserved:N(snap.baseAlloc.living)+sm(snap.extraAllocs,x=>N(x.living)),
     livingRelease:snap.livingRelease,
     pocketInitial:snap.pocketInitial,
@@ -5309,11 +5296,13 @@ function renderNow(){
 
   // 预计可存直接采用周期结算口径。正零花会沉淀，负零花会等额压低最终可存。
   savingBal.textContent=M(cycleExpectedSaving);
-  savingBalSub.textContent=cyclePocket>0
-    ?`计划/已锁定储蓄 ${M(cycleConfirmed)} + 当前剩余零花钱 ${M(cyclePocket)}`
-    :cyclePocket<0
-      ?`计划/已锁定储蓄 ${M(cycleConfirmed)} - 当前零花缺口 ${M(Math.abs(cyclePocket))}`
-      :`当前计划/已锁定储蓄 ${M(cycleConfirmed)}`;
+  savingBalSub.textContent=cycleExpectedSaving<0
+    ?`本周期储蓄净减少 ${M(Math.abs(cycleExpectedSaving))}；日常储蓄当前余额 ${M(a.saving)}`
+    :cyclePocket>0
+      ?`计划/已锁定储蓄 ${M(cycleConfirmed)} + 本周期剩余零花钱 ${M(cyclePocket)}`
+      :cyclePocket<0
+        ?`计划/已锁定储蓄 ${M(cycleConfirmed)} - 本周期零花缺口 ${M(Math.abs(cyclePocket))}`
+        :`当前计划/已锁定储蓄 ${M(cycleConfirmed)}`;
 
   if(activeProjects().length===0){
     projectBal.textContent="暂无专项";
@@ -5360,7 +5349,9 @@ function renderNow(){
       ?`${next.name} 原定 ${next.nextDate} 到账，当前已记录暂未到账。今天的基础生活会先由零花钱承担，零花钱不足的部分再由此前已形成的储蓄补位。`
       :b.safe<0
         ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期预计可存”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
-        :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
+        :cycleExpectedSaving<0
+          ?`当前零花钱 ${M(b.safe)} 已考虑生活费回流和本周期超支。超支已动用此前储蓄，本周期预计净减少储蓄 ${M(Math.abs(cycleExpectedSaving))}。下一笔收入预计 ${next.nextDate} 到账 ${M(next.amount)}。`
+          :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
     nextIncomeBox.innerHTML=pendingNext
       ?`<div class="row"><div><div class="name">${esc(next.name)} · 待到账</div><div class="meta">原定 ${next.nextDate} · 已记录暂未到账 · 到账后从“记录收入”更新</div></div><div class="amount">${M(next.amount)}</div></div>`
       :`<div class="row"><div><div class="name">${esc(next.name)}</div><div class="meta">${next.nextDate} · ${freqLabel(next.freq)} · 计划储蓄 ${saveRuleLabel(next)}</div></div><div class="amount pos">${M(next.amount)}</div></div>`;
@@ -6773,7 +6764,7 @@ function bankPrincipalTotal(){
 }
 
 function bankStartedPrincipalForRange(start="",end=""){
-  return sm(activeBankDeposits().filter(d=>{
+  return sm(startedBankDeposits().filter(d=>{
     const date=d.startDate||"";
     if(start&&date<start)return false;
     if(end&&date>end)return false;
@@ -6782,7 +6773,7 @@ function bankStartedPrincipalForRange(start="",end=""){
 }
 
 function bankExistingPrincipalForRange(start="",end=""){
-  return sm(activeBankDeposits().filter(d=>{
+  return sm(startedBankDeposits().filter(d=>{
     if(d.source!=="existing")return false;
     const date=d.startDate||"";
     if(start&&date<start)return false;
@@ -6792,7 +6783,7 @@ function bankExistingPrincipalForRange(start="",end=""){
 }
 
 function bankExternalPrincipalForRange(start="",end=""){
-  return sm(activeBankDeposits().filter(d=>{
+  return sm(startedBankDeposits().filter(d=>{
     if(d.source!=="external")return false;
     const date=d.startDate||"";
     if(start&&date<start)return false;
@@ -6868,10 +6859,9 @@ function savingStatsForRange(start="",end=""){
 
   // A positive pocket balance only becomes real savings when the next recurring
   // income closes the previous cycle. Attribute it to the closure date.
-  const closeEvents=virtualCycleCloseEvents().filter(t=>inRange(t.date));
-  const pocketClosed=sm(closeEvents,t=>N(t.amount));
-
   const engineEffects=accounting().effects;
+  const closeEvents=virtualCycleCloseEvents().filter(t=>inRange(t.date));
+  const pocketClosed=sm(closeEvents,t=>N(engineEffects[t.id]?.cycleCloseSaving));
   const expenses=S.tx.filter(t=>t.type==="expense"&&inRange(t.date));
 
   const directSavingUse=sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount));
@@ -7116,18 +7106,17 @@ function savingChangeEvents(){
   });
 
   virtualCycleCloseEvents().forEach(t=>{
+    const amount=Math.max(0,N(effects[t.id]?.cycleCloseSaving));
+    if(amount<=0)return;
     events.push({
-      id:t.id,
-      date:t.date,
-      name:"周期结余转储蓄",
+      id:t.id,date:t.date,name:"周期结余转储蓄",
       meta:"上一收入周期剩余零花钱自动沉淀",
-      amount:N(t.amount),
-      impact:N(t.amount),
-      mode:"pos"
+      amount,impact:amount,mode:"pos"
     });
   });
 
-  activeBankDeposits().forEach(d=>{
+  // 未来计划存款仅在银行计划中展示，实际资产与变化从开始日计入。
+  startedBankDeposits().forEach(d=>{
     if(d.source==="existing"){
       events.push({
         id:`bankExisting_${d.id}`,
@@ -7559,7 +7548,7 @@ function renderSavings(){
         <div>存期<strong>${depositTermLabel(d)}</strong></div>
         <div>每日预估利息<strong>${M(daily)}</strong></div>
         <div>累计预估利息<strong>${M(interestNow)}</strong></div>
-        <div>当前预估价值<strong>${M(N(d.principal)+interestNow)}</strong></div>
+        <div>${future?"计划存入本金":"当前预估价值"}<strong>${M(N(d.principal)+interestNow)}</strong></div>
         <div>到期处理<strong>${d.depositType==="fixed"?depositRenewalLabel(d):"活期无固定到期"}</strong></div>
       </div>
 
