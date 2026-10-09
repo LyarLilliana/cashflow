@@ -3411,7 +3411,19 @@ function accounting(){
   let autoSavingUsed=0;
   let manualSavingUsed=0;
   let uncovered=0;
+  let autoSavingDebt=0;
   const effects={};
+  // Within one income cycle, newly released pocket cash first reimburses
+  // savings automatically drawn for earlier pocket overruns in this cycle.
+  const creditPocket=value=>{
+    const amount=N(value);
+    if(amount<=0){raw.safe+=amount;return 0;}
+    const repaid=Math.min(amount,autoSavingDebt);
+    autoSavingDebt=Math.max(0,autoSavingDebt-repaid);
+    saving+=repaid;
+    raw.safe+=amount-repaid;
+    return repaid;
+  };
 
   const depositLocks=startedBankDeposits()
     .filter(d=>d.source==="existing")
@@ -3520,7 +3532,7 @@ function accounting(){
       const releaseSaving=Math.max(0,N(funding.savingReserved)-usedSaving);
       const releaseGap=Math.max(0,N(funding.uncoveredReserved)-usedGap);
 
-      raw.safe+=releasePocket+releaseGap;
+      const repaid=creditPocket(releasePocket+releaseGap);
       saving+=releaseSaving;
       uncovered=Math.max(0,uncovered-releaseGap);
 
@@ -3534,14 +3546,17 @@ function accounting(){
         used,
         releasePocket,
         releaseSaving,
-        releaseGap
+        releaseGap,
+        pocketSavingRepaid:repaid
       };
       return;
     }
 
     if(t.type==="income"){
       const ea=effectiveIncomeAllocation(t);
-      raw.safe+=N(ea.safe);
+      if(isCycleIncomeTx(t))autoSavingDebt=0;
+      const repaid=creditPocket(N(ea.safe));
+      if(repaid>0)effects[t.id]={pocketSavingRepaid:repaid};
       if((ea.billItems||[]).length){
         ea.billItems.forEach(x=>{
           const key=billPoolKey(x.billId,x.dueDate);
@@ -3585,9 +3600,10 @@ function accounting(){
       const netRelease=grossRelease-dailyDraw;
 
       // 当天剩余基础生活先承担“日常支出”，真正没用掉的部分才回到零花钱。
-      raw.safe += netRelease;
+      const repaid=creditPocket(netRelease);
       effects[t.id]={
         livingRelease:netRelease,
+        pocketSavingRepaid:repaid,
         livingReleaseGross:grossRelease,
         livingToDaily:dailyDraw,
         livingActual:actual
@@ -3660,10 +3676,20 @@ function accounting(){
       let gap=0;
       let savingDraw=0;
       let pocketDraw=0;
+      let automaticDraw=0;
 
       if(overPlan>0&&source==="safe"){
-        raw.safe-=overPlan;
-        pocketDraw=overPlan;
+        const beforePocket=N(raw.safe);
+        const spendable=Math.max(0,beforePocket);
+        pocketDraw=Math.min(overPlan,spendable);
+        const remainder=overPlan-pocketDraw;
+        automaticDraw=Math.min(remainder,Math.max(0,saving));
+        gap=Math.max(0,remainder-automaticDraw);
+        raw.safe=Math.min(0,beforePocket)+spendable-pocketDraw-gap;
+        saving-=automaticDraw;
+        autoSavingUsed+=automaticDraw;
+        autoSavingDebt+=automaticDraw;
+        uncovered+=gap;
       }else if(overPlan>0){
         const beforeSaving=saving;
         saving-=overPlan;
@@ -3674,7 +3700,7 @@ function accounting(){
       }
 
       effects[t.id]={
-        autoDraw:0,
+        autoDraw:automaticDraw,
         manualDraw:savingDraw,
         projectPocketDraw:pocketDraw,
         projectFromBudget:fromProject,
@@ -3721,13 +3747,16 @@ function accounting(){
       refreshBillRaw();
 
       const beforeSafe=N(raw.safe);
-      const overPocket=Math.max(0,extra-Math.max(0,beforeSafe));
+      const pocketAvailable=Math.max(0,beforeSafe);
+      const fromPocket=Math.min(extra,pocketAvailable);
+      const overPocket=extra-fromPocket;
       const autoDraw=Math.min(overPocket,Math.max(0,saving));
       const gap=Math.max(0,overPocket-autoDraw);
 
-      raw.safe-=extra;
+      raw.safe=Math.min(0,beforeSafe)+pocketAvailable-fromPocket-gap;
       saving-=autoDraw;
       autoSavingUsed+=autoDraw;
+      autoSavingDebt+=autoDraw;
       uncovered+=gap;
 
       effects[t.id]={
@@ -3762,6 +3791,7 @@ function accounting(){
 
     saving-=autoDraw;
     autoSavingUsed+=autoDraw;
+    autoSavingDebt+=autoDraw;
     uncovered+=gap;
 
     // 已预留的近期计划资金先核销；剩余部分再按“基础生活 → 零花钱 → 储蓄”继续承担。
@@ -3786,9 +3816,14 @@ function accounting(){
 function projectAvail(p){
   return N(accounting().projects[p.id]||0);
 }
+function currentPocketBalance(a=accounting(),cycle=currentCycleStats()){
+  // The signed cycle pocket includes overruns previously covered from savings.
+  return cycle.income?Math.min(N(a.raw.safe),N(cycle.pocketBalance)):N(a.raw.safe);
+}
 function bal(){
   const a=accounting();
-  return {safe:a.raw.safe,living:a.raw.safe,bills:a.raw.bills,saving:a.saving};
+  const safe=currentPocketBalance(a,currentCycleStats());
+  return {safe,living:safe,bills:a.raw.bills,saving:a.saving};
 }
 
 
@@ -5268,7 +5303,9 @@ function updateDisclosureAllToggles(){
 }
 
 function renderNow(){
-  const a=accounting(),b={safe:a.raw.safe,living:a.raw.safe,bills:a.raw.bills,saving:a.saving},cycle=currentCycleStats();
+  const a=accounting(),cycle=currentCycleStats();
+  const safe=currentPocketBalance(a,cycle);
+  const b={safe,living:safe,bills:a.raw.bills,saving:a.saving};
   const projectTotal=sm(activeProjects(),p=>N(a.projects[p.id]||0));
 
   safeNow.textContent=M(b.safe);
@@ -5591,15 +5628,14 @@ function renderNow(){
   const dayInfo=dailyLivingBudgetInfo(td());
   const settled=livingSettlementForDate(td());
   if(settled){
-    const release=N(settled.allowance)-livingSettlementEffectiveActual(settled);
+    const release=N(a.effects[settled.id]?.livingRelease);
+    const repaid=Math.max(0,N(a.effects[settled.id]?.pocketSavingRepaid));
+    const pocketRelease=Math.max(0,release-repaid);
 
     if(release>0){
-      const releaseRemaining=livingReleaseRemaining(settled);
-      const untouched=Math.abs(releaseRemaining-release)<0.005;
-
-      livingSettleBtn.textContent=untouched
-        ?`基础生活 · 已结算 · 转入零花 ${M(releaseRemaining)}`
-        :`基础生活 · 已结算 · 转入零花剩余 ${M(releaseRemaining)}`;
+      livingSettleBtn.textContent=repaid>0.005
+        ?`基础生活 · 已结算 · 回补储蓄 ${M(repaid)}${pocketRelease>0.005?" · 回流零花 "+M(pocketRelease):""}`
+        :`基础生活 · 已结算 · 已回流零花 ${M(pocketRelease)}`;
     }else if(release<0){
       livingSettleBtn.textContent=`基础生活 · 已结算 · 超支 ${M(Math.abs(release))}`;
     }else{
@@ -6870,8 +6906,12 @@ function savingStatsForRange(start="",end=""){
     t=>N(t.projectOverrunAmount||engineEffects[t.id]?.overPlan)
   );
   const automaticSavingUse=sm(
-    expenses.filter(t=>t.bucket!=="saving"&&t.bucket!=="project"),
+    expenses.filter(t=>t.bucket!=="saving"&&(t.bucket!=="project"||t.projectOverrunSource==="safe")),
     t=>N(engineEffects[t.id]?.autoDraw)
+  );
+  const automaticSavingRepayment=sm(
+    S.tx.filter(t=>inRange(t.date)),
+    t=>N(engineEffects[t.id]?.pocketSavingRepaid)
   );
 
   const deductions=directSavingUse+projectSavingUse+automaticSavingUse;
@@ -6887,6 +6927,7 @@ function savingStatsForRange(start="",end=""){
     +pocketClosed
     +projectSurplus
     +extra
+    +automaticSavingRepayment
     -deductions;
 
   // Moving existing ordinary savings into a bank deposit changes location only.
@@ -6912,6 +6953,7 @@ function savingStatsForRange(start="",end=""){
     projectSurplus,
     extra,
     deductions,
+    automaticSavingRepayment,
     ordinaryGross,
     ordinaryNet,
     bankStarted,
@@ -7014,6 +7056,13 @@ function savingChangeEvents(){
     const date=t.date||"";
 
     if(t.type==="income"){
+      const repaid=N(effects[t.id]?.pocketSavingRepaid);
+      if(repaid>0)events.push({
+        id:"savingRepay_"+t.id,date,
+        name:"周期内零花结余归还储蓄",
+        meta:"先补回此前由储蓄承担的超支",
+        amount:repaid,impact:repaid,mode:"pos"
+      });
       const amount=N(effectiveIncomeAllocation(t).saving);
       if(amount>0){
         const plan=S.incomePlans.find(p=>p.id===t.planId);
@@ -7038,6 +7087,17 @@ function savingChangeEvents(){
           mode:"pos"
         });
       }
+      return;
+    }
+
+    if(t.type==="living_settlement"){
+      const repaid=N(effects[t.id]?.pocketSavingRepaid);
+      if(repaid>0)events.push({
+        id:"savingRepay_"+t.id,date,
+        name:"基础生活结余归还储蓄",
+        meta:"当日基础生活结余优先回补本周期已自动取用的储蓄",
+        amount:repaid,impact:repaid,mode:"pos"
+      });
       return;
     }
 
@@ -7087,7 +7147,7 @@ function savingChangeEvents(){
       }else if(t.bucket==="project"&&(t.projectOverrunSource==="saving"||!t.projectOverrunSource)){
         used=N(t.projectOverrunAmount||effects[t.id]?.overPlan);
         if(used>0)meta="专项超出部分由储蓄支付";
-      }else if(t.bucket!=="project"){
+      }else if(t.bucket!=="project"||t.projectOverrunSource==="safe"){
         used=N(effects[t.id]?.autoDraw);
         if(used>0)meta="预算不足后自动动用储蓄";
       }
