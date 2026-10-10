@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-64-carryover-savings-wallet";
+const CACHE = "safespend-v10-65-pooled-locked-savings-qa";
 const ASSETS = [
   "./",
   "./index.html",
