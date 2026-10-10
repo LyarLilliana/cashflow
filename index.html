@@ -9926,7 +9926,7 @@ function openTxEdit(id){
 
     editTxHint.textContent=bucket==="bill"
       ?"这是历史固定账单流水。固定账单今后统一从账单模块处理；这里保留原账单来源，只修改金额、日期和备注等历史内容。"
-      :"这里还原“记一笔支出”的输入：日常支出、专项项目或从储蓄取用，以及金额、花钱日期、专项超支来源和备注。";
+      :"这里还原“记一笔支出”的输入：日常支出可选择正常或挪用专项，并可修改挪用来源、补回方式、金额、日期及备注。";
 
     const refresh=()=>refreshExpenseEditFields(t);
     document.getElementById("editExpenseBucket").addEventListener("change",()=>{
