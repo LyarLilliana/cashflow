@@ -72,7 +72,7 @@ button{touch-action:manipulation}
 
 
 #savingRangeQuick{
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
 }
 .bankReminderSavedHead{
   color:var(--muted);
@@ -1812,24 +1812,14 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   input,select,input[type="date"]{font-size:15px;padding-left:10px;padding-right:10px}
   input[type="date"]{letter-spacing:-.2px}
 }@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.quick{grid-template-columns:repeat(4,1fr)}}
-/* 储蓄概览：缩小日期筛选，金额保持唯一视觉主值 */
+/* 储蓄概览使用与结果页一致的统计范围控件 */
+#savingRangePanel .historyQuick{grid-template-columns:repeat(5,minmax(0,1fr))}
+.resultRangePanel .resultCustomDates .dateFieldWrap,
+.resultRangePanel .resultCustomDates .dateFieldWrap input[type="date"],
+.resultRangePanel .resultCustomDates .dateFieldWrap .dateVisual{height:36px;min-height:36px}
+.resultRangePanel .resultCustomDates .dateFieldWrap .dateVisual{line-height:36px;border-radius:9px;font-size:10.5px}
 .savingOverviewCard{padding:14px 16px 12px}
-.savingOverviewRange #savingRangeQuick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0}
-.savingOverviewRange #savingRangeQuick button{min-height:32px;padding:5px 2px;border-radius:10px;border:1px solid #E9EBE7;background:#F8F9F7;font-size:10.5px;line-height:1.2}
-.savingOverviewRange #savingRangeQuick button.active{background:var(--accentSoft);color:var(--accent);border-color:#C9DDD5}
-.savingOverviewDates{margin-top:5px;color:var(--muted);font-size:10.5px}
-.savingOverviewDates>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px;cursor:pointer;list-style:none;white-space:nowrap}
-.savingOverviewDates>summary::-webkit-details-marker,.savingOverviewBreakdown>summary::-webkit-details-marker{display:none}
-.savingOverviewDates #savingPeriodLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.savingOverviewDateRight{display:flex;align-items:center;gap:7px;white-space:nowrap;flex:none}
-.savingOverviewChevron{display:inline-block;font-size:14px;transition:transform .16s ease}
-.savingOverviewDates[open] .savingOverviewChevron{transform:rotate(180deg)}
-.savingOverviewDateGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:9px 0 3px;border-top:1px solid var(--line)}
-.savingOverviewDateGrid label{font-size:10px;margin-bottom:4px}
-.savingOverviewDateGrid input[type="date"],.savingOverviewDateGrid .dateFieldWrap,.savingOverviewDateGrid .dateFieldWrap input[type="date"],.savingOverviewDateGrid .dateFieldWrap .dateVisual{height:38px;min-height:38px}
-.savingOverviewDateGrid input[type="date"]{border-radius:10px;font-size:12px;padding:0 8px;line-height:38px}
-.savingOverviewDateGrid .dateFieldWrap .dateVisual{border-radius:10px;font-size:12px;line-height:38px;padding:0 8px}
-.savingOverviewResult{margin-top:10px;padding:13px 1px 9px;border-top:1px solid var(--line)}
+.savingOverviewResult{padding:2px 1px 11px}
 .savingOverviewResult .k{font-size:12px;color:var(--muted);font-weight:690}
 .savingOverviewResult .savingHeroValue{font-size:32px;line-height:1.15;margin-top:5px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .savingOverviewAssetTotals{margin-top:4px;border-top:1px solid var(--line)}
@@ -1838,6 +1828,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .savingOverviewAssetRow strong{font-size:17px;font-weight:800;letter-spacing:-.25px;color:var(--text);font-variant-numeric:tabular-nums}
 .savingOverviewBreakdown{border-top:1px solid var(--line);margin-top:5px;padding-top:4px}
 .savingOverviewBreakdown>summary{min-height:32px;display:flex;align-items:center;justify-content:center;gap:6px;list-style:none;cursor:pointer;color:var(--muted);font-size:11px;font-weight:660}
+.savingOverviewBreakdown>summary::-webkit-details-marker{display:none}
 .savingOverviewBreakdown>summary span{display:inline-block;transition:transform .16s ease;font-size:14px}
 .savingOverviewBreakdown[open]>summary span{transform:rotate(180deg)}
 .savingOverviewBreakdownBody{padding:4px 1px 8px}
@@ -1845,8 +1836,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .savingOverviewDetailTitle.bank{margin-top:8px;padding-top:12px;border-top:1px solid var(--line)}
 .savingOverviewBreakdownBody .explainRow{font-size:11.5px;padding:6px 0}
 .savingOverviewBreakdownBody .explainRow strong{font-variant-numeric:tabular-nums}
-@media(max-width:380px){.savingOverviewCard{padding-left:13px;padding-right:13px}.savingOverviewResult .savingHeroValue{font-size:29px}.savingOverviewAssetRow strong{font-size:15px}.savingOverviewDates{font-size:10px}}
-
+@media(max-width:380px){.savingOverviewCard{padding-left:13px;padding-right:13px}.savingOverviewResult .savingHeroValue{font-size:29px}.savingOverviewAssetRow strong{font-size:15px}}
 </style>
 </head>
 <body class="booting">
@@ -2092,22 +2082,29 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     <!-- 1. SAVINGS OVERVIEW -->
     <div class="section">
       <div class="sectionTitle">储蓄概览</div>
-      <div class="card savingOverviewCard">
-        <div class="savingOverviewRange">
-          <div class="historyQuick" id="savingRangeQuick" aria-label="储蓄统计范围">
-            <button id="savingCycleBtn">当前周期</button>
-            <button id="savingMonthBtn" class="active">本月</button>
-            <button id="savingYearBtn">本年</button>
-            <button id="savingAllBtn">全部</button>
-          </div>
-          <details class="savingOverviewDates">
-            <summary><span id="savingPeriodLabel">统计日期</span><span class="savingOverviewDateRight"><span id="savingChangeCount">0 条变化</span><span class="savingOverviewChevron" aria-hidden="true">⌄</span></span></summary>
-            <div class="savingOverviewDateGrid">
-              <div><label for="savingStartDate">开始日期</label><input id="savingStartDate" type="date"></div>
-              <div><label for="savingEndDate">结束日期</label><input id="savingEndDate" type="date"></div>
-            </div>
-          </details>
+      <div class="resultRangeBar">
+        <span class="resultRangeLabel">统计范围</span>
+        <button class="resultRangeToggle" id="savingRangeToggle" type="button" aria-controls="savingRangePanel" aria-expanded="false">
+          <span class="rangeValue" id="savingRangeText">本月</span>
+          <span class="rangeAction">修改</span>
+        </button>
+      </div>
+      <div class="resultRangePanel" id="savingRangePanel" hidden>
+        <div class="historyQuick" id="savingRangeQuick">
+          <button id="savingCycleBtn" type="button">当前周期</button>
+          <button id="savingMonthBtn" class="active" type="button">本月</button>
+          <button id="savingYearBtn" type="button">本年</button>
+          <button id="savingAllBtn" type="button">全部</button>
+          <button id="savingCustomBtn" type="button">自定义</button>
         </div>
+        <div class="resultCustomDates" id="savingCustomDates" hidden>
+          <div class="historyFilterGrid">
+            <div><label for="savingStartDate">开始日期</label><input id="savingStartDate" type="date"></div>
+            <div><label for="savingEndDate">结束日期</label><input id="savingEndDate" type="date"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card savingOverviewCard">
         <div class="savingOverviewResult">
           <div class="k" id="savingGrandLabel">储蓄净变化</div>
           <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
@@ -2150,9 +2147,11 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
     <!-- 3. SAVINGS CHANGES -->
     <div class="section">
-      <div class="sectionTitle">储蓄变化</div>
-
-      <div class="card summaryLedgerCard" style="margin-top:10px">
+      <div class="sectionHeader">
+        <div class="sectionTitle">储蓄变化</div>
+        <span class="small" id="savingChangeCount">0 条变化</span>
+      </div>
+      <div class="card summaryLedgerCard">
         <div class="name" id="savingGrowthTitle">储蓄增长构成</div>
         <div class="meta" id="savingGrowthMeta">只展示这个统计范围内形成或减少储蓄的项目；日常储蓄转银行只改变资金位置，不重复计入增长。</div>
 
@@ -6972,7 +6971,20 @@ function savingStatsForRange(start="",end=""){
 
 let savingRangePreset="month";
 
+function savingRangeDisplayLabel(){
+  const start=savingStartDate.value||"",end=savingEndDate.value||"";
+  if(savingRangePreset==="cycle")return `当前周期 · ${start}${end&&end!==start?" 至 "+end:""}`;
+  if(savingRangePreset==="month"&&start)return `${start.slice(0,7)} · 本月`;
+  if(savingRangePreset==="year"&&start)return `${start.slice(0,4)} · 本年`;
+  if(savingRangePreset==="all")return "全部期间";
+  if(!start&&!end)return "全部期间";
+  if(start&&end&&start===end)return start;
+  if(start&&end)return `${start} 至 ${end}`;
+  if(start)return `${start} 起`;
+  return `截至 ${end}`;
+}
 function renderSavingRangeViews(){
+  savingRangeText.textContent=savingRangeDisplayLabel();
   renderSavingStats();
   renderSavingAssetSummary();
 }
@@ -6984,6 +6996,7 @@ function setSavingRangePreset(mode){
   savingMonthBtn.classList.toggle("active",mode==="month");
   savingYearBtn.classList.toggle("active",mode==="year");
   savingAllBtn.classList.toggle("active",mode==="all");
+  savingCustomBtn.classList.remove("active");
 
   const today=td();
 
@@ -7004,6 +7017,9 @@ function setSavingRangePreset(mode){
     savingEndDate.value="";
   }
 
+  savingCustomDates.hidden=true;
+  savingRangePanel.hidden=true;
+  savingRangeToggle.setAttribute("aria-expanded","false");
   syncDateDisplays();
   renderSavingRangeViews();
 }
@@ -7319,10 +7335,6 @@ function renderSavingStats(){
   const range=s.range;
   const cycleMode=s.cycleMode;
 
-  savingPeriodLabel.textContent=range.start&&range.end
-    ?`${range.start} 至 ${range.end}`
-    :range.start?`${range.start} 起`:range.end?`截至 ${range.end}`:"全部日期";
-
   const events=filteredSavingChangeEvents(range.start,range.end);
   savingChangeCount.textContent=`${events.length} 条变化`;
 
@@ -7381,28 +7393,40 @@ function renderSavingStats(){
     :'<div class="note">这个时间范围内还没有储蓄变化。</div>';
 }
 
-savingStartDate.addEventListener("change",()=>{
+function onSavingCustomDateChange(){
   savingRangePreset="custom";
   savingCycleBtn.classList.remove("active");
   savingMonthBtn.classList.remove("active");
   savingYearBtn.classList.remove("active");
   savingAllBtn.classList.remove("active");
+  savingCustomBtn.classList.add("active");
+  savingRangePanel.hidden=false;
+  savingCustomDates.hidden=false;
+  savingRangeToggle.setAttribute("aria-expanded","true");
   renderSavingRangeViews();
-});
-
-savingEndDate.addEventListener("change",()=>{
-  savingRangePreset="custom";
-  savingCycleBtn.classList.remove("active");
-  savingMonthBtn.classList.remove("active");
-  savingYearBtn.classList.remove("active");
-  savingAllBtn.classList.remove("active");
-  renderSavingRangeViews();
-});
-
+}
+savingStartDate.addEventListener("change",onSavingCustomDateChange);
+savingEndDate.addEventListener("change",onSavingCustomDateChange);
 savingCycleBtn.onclick=()=>setSavingRangePreset("cycle");
 savingMonthBtn.onclick=()=>setSavingRangePreset("month");
 savingYearBtn.onclick=()=>setSavingRangePreset("year");
 savingAllBtn.onclick=()=>setSavingRangePreset("all");
+savingRangeToggle.onclick=()=>{
+  const opening=savingRangePanel.hidden;
+  savingRangePanel.hidden=!opening;
+  savingRangeToggle.setAttribute("aria-expanded",String(opening));
+  if(!opening)savingCustomDates.hidden=true;
+  if(opening&&savingRangePreset==="custom")savingCustomDates.hidden=false;
+};
+savingCustomBtn.onclick=()=>{
+  const opening=savingCustomDates.hidden;
+  savingCustomDates.hidden=!opening;
+  savingCycleBtn.classList.toggle("active",!opening&&savingRangePreset==="cycle");
+  savingMonthBtn.classList.toggle("active",!opening&&savingRangePreset==="month");
+  savingYearBtn.classList.toggle("active",!opening&&savingRangePreset==="year");
+  savingAllBtn.classList.toggle("active",!opening&&savingRangePreset==="all");
+  savingCustomBtn.classList.toggle("active",opening||savingRangePreset==="custom");
+};
 
 saveBankReminderThreshold.onclick=()=>{
   const amount=Math.max(0,N(bankReminderThreshold.value));
