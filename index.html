@@ -6308,6 +6308,7 @@ function pocketOutflowAmountForTx(t,effects=null){
     return Math.max(0,N(t.amount));
   }
 
+  if(t.type==="short_transfer"&&t.direction==="in")return Math.max(0,N(t.pocketPortion));
   if(t.type!=="expense")return 0;
 
   const fx=effects?.[t.id]||null;
