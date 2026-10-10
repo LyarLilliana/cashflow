@@ -1857,6 +1857,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .savingOverviewCurrent small{display:block;font-size:9px;color:var(--muted);margin-top:3px}
 .savingOverviewCurrent strong{font-size:17px;white-space:nowrap;color:var(--text)}
 .shortAccountLineSub>span:last-child{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.shortAccountLineSub>.small{min-width:0;line-height:1.55;flex:1}
 /* 次级计算按需查看 */
 .savingsChangeDisclosure>summary{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:11px;font-weight:700;min-height:28px;cursor:pointer;list-style:none}
 .savingsChangeDisclosure>summary::-webkit-details-marker{display:none}
@@ -7891,7 +7892,7 @@ function shortRateEstimate(account,days=30){
   return balance*rate/100*days/365;
 }
 function shortRateLabel(rate){
-  return Number(rate).toFixed(3).replace(/0+$/,"").replace(/\\.$/,"")+"%";
+  return Number(rate).toFixed(3).replace(/0+$/,"").replace(/[.]$/,"")+"%";
 }
 function renderShortAccounts(){
   const accounts=S.shortAccounts||[];
