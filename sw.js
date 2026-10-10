@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-60-savings-range-parity";
+const CACHE = "safespend-v10-61-short-locked-savings";
 const ASSETS = [
   "./",
   "./index.html",
