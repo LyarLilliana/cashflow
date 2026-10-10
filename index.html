@@ -2988,17 +2988,6 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   <p class="note" id="shortTransferHint"></p>
   <div class="actions"><button class="ghost" type="button" onclick="closeSheet('shortTransferSheet')">取消</button><button class="primary" id="saveShortTransfer" type="button">保存记录</button></div>
 </div></div>
-<div class="sheet" id="projectBorrowSheet"><div class="sheetCard">
-  <h2 class="sheetTitle">专项资金挪用</h2>
-  <div class="formGrid one">
-    <div><label for="projectBorrowAccount">资金来源专项</label><select id="projectBorrowAccount"></select></div>
-    <div><label for="projectBorrowAmount">实际消费金额</label><input id="projectBorrowAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></div>
-    <div><label for="projectBorrowNote">购买用途</label><input id="projectBorrowNote" maxlength="80" placeholder="例如 衣服"></div>
-    <div><label for="projectBorrowMode">处理方式</label><select id="projectBorrowMode"><option value="temporary">临时挪用，计划补回</option><option value="permanent">永久从专项支出</option></select></div>
-  </div>
-  <p class="note">一次登记对应一笔实际消费，并同步减少专项可用余额。</p>
-  <div class="actions"><button class="ghost" type="button" onclick="closeSheet('projectBorrowSheet')">取消</button><button class="primary" id="saveProjectBorrow" type="button">保存挪用</button></div>
-</div></div>
 <div class="sheet" id="projectRepaySheet"><div class="sheetCard">
   <h2 class="sheetTitle">补回专项资金</h2>
   <input id="projectRepayAccount" type="hidden">
@@ -7929,24 +7918,6 @@ function deleteShortRecord(id){
   }
   save();render();msg("记录已撤销");
 }
-function openProjectBorrow(){
-  const ps=activeProjects().filter(p=>projectAvail(p)>0);
-  if(!ps.length)return msg("当前没有可挪用的专项余额");
-  projectBorrowAccount.innerHTML=ps.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${M(projectAvail(p))}</option>`).join("");
-  projectBorrowAmount.value="";projectBorrowNote.value="";projectBorrowMode.value="temporary";
-  projectBorrowSheet.classList.add("show");
-}
-saveProjectBorrow.onclick=()=>{
-  const id=projectBorrowAccount.value,amount=Math.round(N(projectBorrowAmount.value)*100)/100;
-  if(!Number.isFinite(amount)||amount<=0)return msg("请输入正确金额");
-  const p=S.projects.find(x=>x.id===id);
-  if(!p)return msg("请选择专项");
-  if(amount>projectAvail(p)+0.005)return msg(`专项可用余额为 ${M(projectAvail(p))}`);
-  S.tx.push({id:"pb"+Date.now(),date:td(),type:"expense",bucket:"project",refId:id,
-    amount,note:"专项挪用 · "+(projectBorrowNote.value.trim()||"临时消费"),
-    projectBorrow:true,projectBorrowTemporary:projectBorrowMode.value==="temporary"});
-  save();closeSheet("projectBorrowSheet");render();msg("专项挪用与消费已同步记录");
-};
 function openProjectRepay(id){
   const p=S.projects.find(x=>x.id===id);if(!p)return;
   projectRepayAccount.value=id;projectRepayAmount.value=projectRepayPending(id).toFixed(2);
