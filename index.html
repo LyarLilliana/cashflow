@@ -3784,8 +3784,10 @@ function accounting(){
       return;
     }
     if(t.type==="short_transfer"){
-      saving+=t.direction==="in"?-N(t.amount):N(t.amount);
-      effects[t.id]={internalShortTransfer:true};
+      const pocketPart=t.direction==="in"?Math.min(N(t.amount),Math.max(0,N(t.pocketPortion))):0;
+      saving+=t.direction==="in"?-(N(t.amount)-pocketPart):N(t.amount);
+      raw.safe-=pocketPart;
+      effects[t.id]={internalShortTransfer:true,pocketToShort:pocketPart};
       return;
     }
     if(t.type==="short_interest"||t.type==="short_spend"){
