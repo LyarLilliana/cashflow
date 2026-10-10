@@ -10379,6 +10379,9 @@ saveTxEdit.onclick=()=>{
       .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value))}))
       .filter(x=>x.amount>0);
 
+    const repayments=[...document.querySelectorAll(".editIncomeRepayAmount")]
+      .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value)),repayment:true}))
+      .filter(x=>x.amount>0);
     const billItems=recurring
       ?editedIncomeBillItems(t,t.date,next)
       :[];
