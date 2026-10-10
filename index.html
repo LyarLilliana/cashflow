@@ -5426,15 +5426,15 @@ function renderPlan(){
 
   const activePs=activeProjects();
   projectList.innerHTML=activePs.length?activePs.map(p=>{
-    const funded=projectFunded(p),spent=projectSpent(p),gap=projectGap(p);
+    const funded=projectFunded(p),spent=projectSpent(p),gap=projectGap(p),repay=projectRepayPending(p.id);
     const planned=projectPlannedTotal(p);
     const pct=Math.min(100,Math.max(0,funded/Math.max(1,N(p.budget))*100));
     return `<div class="item" onclick="editProject('${p.id}')">
       <div class="row"><div><div class="name">${esc(p.name)}</div>
-      <div class="meta">预算 ${M(p.budget)} · 已备 ${M(funded)} · 已花 ${M(spent)}${planned>0?" · 待支出规划 "+M(planned):""}${p.dueDate?" · "+p.dueDate:""}</div></div>
+      <div class="meta">预算 ${M(p.budget)} · 已备 ${M(funded)} · 已花 ${M(spent)}${planned>0?" · 待支出规划 "+M(planned):""}${p.dueDate?" · "+p.dueDate:""}${repay>0?" · 待补回 "+M(repay):""}</div></div>
       <div style="text-align:right"><div class="amount ${gap>0?"warn":"pos"}">${gap>0?"缺 "+M(gap):"已备妥"}</div>
       <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteProject('${p.id}')">删除</button></div></div>
-      <div class="progress"><span style="width:${pct}%"></span></div></div>`;
+      <div class="progress"><span style="width:${pct}%"></span></div>${repay>0?`<div class="projectRepayInline"><span>待补回 <strong>${M(repay)}</strong></span><button type="button" class="secondary" onclick="event.stopPropagation();openProjectRepay('${p.id}')">补回</button></div>`:""}</div>`;
   }).join(""):'<div class="note">还没有进行中的专项计划。</div>';
 
   const archived=archivedProjects();
