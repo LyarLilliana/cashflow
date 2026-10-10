@@ -9387,21 +9387,31 @@ saveExtraSaving.onclick=()=>{
   if(locked)tx.shortAccountId=accountId;
   if(tx.type==="short_transfer")tx.direction="in";
   if(combined){tx.pocketPortion=combined.pocket;tx.savingPortion=combined.saving;tx.fundingMode="combined";}
+  const auditing=locked&&source!=="new"&&date<=td();
+  const checkpoints=auditing?walletFundingCheckDates(date):[];
+  const historyBefore=auditing?walletFundingSnapshots(checkpoints):[];
   if(newAccount)S.shortAccounts.push(newAccount);
   S.tx.push(tx);
 
   if(locked&&!shortLedgerValid(accountId)){
     S.tx=S.tx.filter(t=>t.id!==tx.id);
     if(newAccount)S.shortAccounts=S.shortAccounts.filter(a=>a.id!==newAccount.id);
-    return msg("资金登记后账户历史余额异常，请检查存入日期");
+    return msg("该账户后续取用或转存的余额不足，请调整金额或日期");
+  }
+  if(auditing&&!walletFundingRemainsCovered(historyBefore,walletFundingSnapshots(checkpoints))){
+    S.tx=S.tx.filter(t=>t.id!==tx.id);
+    if(newAccount)S.shortAccounts=S.shortAccounts.filter(a=>a.id!==newAccount.id);
+    return msg("这笔资金在该日期之后已用于其他支出或转存，请调整金额或日期");
   }
 
   save();
   closeSheet("extraSavingSheet");
   render();
-  msg(locked
-    ?`${M(amount)} 已存入「${shortSavingsAccountLabel(accountId)}」并锁定`
-    :`${M(amount)} 已记入日常储蓄`);
+  msg(date>td()
+    ?`${M(amount)} 已安排在 ${date} 存入；到日期前不影响实际余额`
+    :locked
+      ?`${M(amount)} 已记入「${shortSavingsAccountLabel(accountId)}」并锁定`
+      :`${M(amount)} 已记入日常储蓄`);
 };
 
 
