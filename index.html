@@ -10384,6 +10384,11 @@ saveTxEdit.onclick=()=>{
     const repayments=[...document.querySelectorAll(".editIncomeRepayAmount")]
       .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value)),repayment:true}))
       .filter(x=>x.amount>0);
+    if(repayments.some(x=>{
+      const own=sm((t.alloc?.projects||[]).filter(v=>v.projectId===x.projectId&&v.repayment),v=>N(v.amount));
+      return x.amount>projectRepayPending(x.projectId)+own+0.005;
+    }))return msg("专项补回金额超过该专项的待补回余额");
+
     const billItems=recurring
       ?editedIncomeBillItems(t,t.date,next)
       :[];
