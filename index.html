@@ -3566,7 +3566,8 @@ function shortLedgerValid(id){
 }
 function projectRepayPending(projectId){
   const borrowed=sm(S.tx.filter(t=>t.type==="expense"&&t.refId===projectId&&t.projectBorrowTemporary),t=>N(t.amount));
-  const repaid=sm(S.tx.filter(t=>t.repaymentOf===projectId),t=>N(t.amount));
+  const repaid=sm(S.tx.filter(t=>t.repaymentOf===projectId),t=>N(t.amount))
+    +sm(S.tx.filter(t=>t.type==="income"),t=>sm((t.alloc?.projects||[]).filter(x=>x.projectId===projectId&&x.repayment),x=>N(x.amount)));
   return Math.max(0,borrowed-repaid);
 }
 function accounting(){
@@ -7875,12 +7876,7 @@ function renderShortAccounts(){
       <button type="button" onclick="openBankFromShort('${a.id}')">转存</button>
       <button type="button" onclick="openShortAccount('${a.id}')">修改</button>
     </span></div></div>`).join(""):'<div class="shortAccountEmpty"><div class="note">在「记额外储蓄」里选择锁定账户，首次记录时可直接创建小荷包。</div><button class="secondary" type="button" onclick="openExtraSaving(&quot;short&quot;)">开始存入</button></div>';
-  const pending=(S.projects||[]).filter(p=>projectRepayPending(p.id)>0);
-  projectBorrowList.innerHTML=pending.length?pending.map(p=>`<div class="shortBorrowLine">
-    <div><div class="name">${esc(p.name)}</div><div class="meta">待补回 ${M(projectRepayPending(p.id))}</div></div>
-    <button class="secondary" type="button" onclick="openProjectRepay('${p.id}')">补回</button>
-  </div>`).join(""):'<div class="note">临时挪用专项后，这里将显示待补回金额。</div>';
-  projectBorrowSection.style.display=pending.length?"":"none";
+
 }
 function openBankFromShort(id){
   const a=S.shortAccounts.find(x=>x.id===id);
