@@ -7720,7 +7720,7 @@ function renderBankDepositReminder(){
     bankReminderGap.textContent="—";
     bankReminderProgress.style.width="0%";
     bankReminderReady.style.display="none";
-    bankReminderHint.textContent="设置一个额度后，进度会按全部日期累计的日常储蓄持续计算。";
+    bankReminderHint.textContent="设置目标后，进度会根据全部日期的日常储蓄与短期储蓄累计计算。";
   }else if(r.ready){
     bankReminderGapLabel.textContent="预计已超过提醒额度";
     bankReminderGap.textContent=M(r.current-r.threshold);
@@ -7729,10 +7729,10 @@ function renderBankDepositReminder(){
     bankReminderReady.style.display="";
 
     if(r.actualReady){
-      bankReminderReadyTitle.textContent="累计日常储蓄已达到银行转存额度";
+      bankReminderReadyTitle.textContent="储蓄已达到银行转存额度";
       bankReminderReadyMeta.textContent=`累计已沉淀 ${M(r.actual)}，已达到设定额度 ${M(r.threshold)}。`;
       bankReminderDepositBtn.style.display="";
-      bankReminderHint.textContent="当前实际日常储蓄已经达到额度，可以进入“新增银行存款”完成转存。";
+      bankReminderHint.textContent="实际可转存储蓄已达目标，选择短期账户或日常储蓄作为转存来源。多个账户可先归集再转存。";
     }else{
       bankReminderReadyTitle.textContent="累计预计储蓄达到银行转存额度";
       bankReminderReadyMeta.textContent=`累计已沉淀 ${M(r.actual)}，当前周期预计再沉淀 ${M(r.pending)}。`;
@@ -7753,11 +7753,11 @@ function renderBankDepositReminder(){
 
   if(r.ready){
     if(r.actualReady){
-      bankReminderNowTitle.textContent="累计日常储蓄已达到银行转存额度";
+      bankReminderNowTitle.textContent="储蓄已达到银行转存额度";
       bankReminderNowMeta.textContent=`当前实际可转存 ${M(r.actual)}，设定额度为 ${M(r.threshold)}。`;
       bankReminderNowBtn.style.display="";
 
-      bankReminderAlertTitle.textContent="累计日常储蓄已达到银行转存额度";
+      bankReminderAlertTitle.textContent="储蓄已达到银行转存额度";
       bankReminderAlertMeta.textContent=`当前实际可转存 ${M(r.actual)}，可以进入新增银行存款录入。`;
       bankReminderAlertBtn.style.display="";
     }else{
@@ -7775,14 +7775,22 @@ function renderBankDepositReminder(){
 function openBankDepositFromReminder(){
   const r=bankReminderState();
   if(!r.enabled)return msg("请先设置银行转存提醒额度");
-  if(!r.ready)return msg(`按累计日常储蓄计算，还差 ${M(r.gap)} 才达到提醒额度`);
+  if(!r.ready)return msg(`距离银行转存目标还差 ${M(r.gap)}`);
   if(!r.actualReady){
-    return msg(`累计预计已达到额度，当前实际可转存日常储蓄为 ${M(r.available)}`);
+    return msg(`预计已达到目标，当前实际已存可转存余额为 ${M(r.available)}`);
   }
 
   openBankDeposit();
-  bankDepositSource.value="existing";
-  bankDepositPrincipal.value=Math.min(r.threshold,r.available);
+  const largest=(S.shortAccounts||[]).slice().sort((a,b)=>shortAccountBalance(b.id)-shortAccountBalance(a.id))[0];
+  if(largest&&shortAccountBalance(largest.id)>0){
+    bankDepositSource.value="short";
+    bankShortAccount.value=largest.id;
+    bankDepositSheet.dataset.sourceShortAccount=largest.id;
+    bankDepositPrincipal.value=Math.min(r.threshold,shortAccountBalance(largest.id));
+  }else{
+    bankDepositSource.value="existing";
+    bankDepositPrincipal.value=Math.min(r.threshold,Math.max(0,ordinarySavingsAvailable()));
+  }
   refreshBankDepositForm();
 }
 
@@ -9167,6 +9175,10 @@ function bankDepositSelectedMonths(){
 }
 
 function refreshBankDepositForm(){
+  const selected=bankShortAccount.value||bankDepositSheet.dataset.sourceShortAccount||"";
+  bankShortAccount.innerHTML=(S.shortAccounts||[]).map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${M(shortAccountBalance(a.id))}</option>`).join("");
+  if(selected&&[...bankShortAccount.options].some(x=>x.value===selected))bankShortAccount.value=selected;
+  bankShortAccountRow.style.display=bankDepositSource.value==="short"?"block":"none";
   const fixed=bankDepositType.value==="fixed";
 
   bankDepositTermWrap.style.display=fixed?"block":"none";
@@ -9190,6 +9202,8 @@ bankDepositType.addEventListener("change",refreshBankDepositForm);
 bankDepositTerm.addEventListener("change",refreshBankDepositForm);
 bankDepositCustomTerm.addEventListener("input",refreshBankDepositForm);
 bankDepositStart.addEventListener("change",refreshBankDepositForm);
+bankDepositSource.addEventListener("change",refreshBankDepositForm);
+bankShortAccount.addEventListener("change",()=>{bankDepositSheet.dataset.sourceShortAccount=bankShortAccount.value});
 
 /* Bank deposits */
 function openBankDeposit(){
@@ -9204,6 +9218,7 @@ function openBankDeposit(){
   bankDepositCustomTerm.value="";
   bankDepositMaturity.value=addMonths(td(),36);
   bankDepositSource.value="existing";
+  bankDepositSheet.dataset.sourceShortAccount="";
   bankDepositRenewal.value="manual";
   bankDepositNote.value="";
   deleteBankDeposit.style.display="none";
@@ -9224,6 +9239,8 @@ function editBankDeposit(id){
   bankDepositRate.value=N(d.annualRate);
   bankDepositStart.value=d.startDate||"";
   bankDepositSource.value=d.source||"existing";
+  bankDepositSheet.dataset.sourceShortAccount=d.shortAccountId||"";
+  bankShortAccount.value=d.shortAccountId||"";
   bankDepositRenewal.value=d.renewal||"manual";
   bankDepositNote.value=d.note||"";
 
@@ -9265,6 +9282,7 @@ saveBankDeposit.onclick=()=>{
     ?addMonths(startDate,termMonths)
     :"";
   const source=bankDepositSource.value;
+  const shortAccountId=source==="short"?bankShortAccount.value:"";
   const renewal=depositType==="fixed"?bankDepositRenewal.value:"manual";
   const note=bankDepositNote.value.trim();
 
@@ -9272,6 +9290,12 @@ saveBankDeposit.onclick=()=>{
   if(!startDate)return msg("请选择存入日期");
   if(depositType==="fixed"&&termMonths<=0)return msg("请选择或填写定期存款期限");
 
+  if(source==="short"){
+    if(!shortAccountId||!(S.shortAccounts||[]).some(a=>a.id===shortAccountId))return msg("请选择短期储蓄账户");
+    if(startDate>td())return msg("请在实际转存当日登记短期储蓄转存");
+    const available=shortAccountBalance(shortAccountId,startDate,id);
+    if(principal>available+0.005)return msg(`该账户可用于转存 ${M(Math.max(0,available))}`);
+  }
   if(source==="existing"){
     const old=S.deposits.find(x=>x.id===id);
     const restored=old&&old.source==="existing"?N(old.principal):0;
@@ -9281,6 +9305,8 @@ saveBankDeposit.onclick=()=>{
     }
   }
 
+  const original=id?{...S.deposits.find(x=>x.id===id)}:null;
+  let createdId="";
   const record={
     name,
     depositType,
@@ -9290,6 +9316,7 @@ saveBankDeposit.onclick=()=>{
     termMonths,
     maturityDate,
     source,
+    shortAccountId,
     renewal,
     note
   };
@@ -9299,7 +9326,14 @@ saveBankDeposit.onclick=()=>{
     if(!d)return;
     Object.assign(d,record);
   }else{
-    S.deposits.push({id:"bd"+Date.now(),...record});
+    createdId="bd"+Date.now();
+    S.deposits.push({id:createdId,...record});
+  }
+  const ledgerAccountIds=new Set([shortAccountId,original?.shortAccountId].filter(Boolean));
+  if([...ledgerAccountIds].some(id=>!shortLedgerValid(id))||N(accounting().saving)<-0.005){
+    if(original){const d=S.deposits.find(x=>x.id===id);if(d)Object.assign(d,original);}
+    else S.deposits=S.deposits.filter(d=>d.id!==createdId);
+    return msg("此次转存会导致储蓄账户余额不足，请调整本金或日期");
   }
 
   save();
