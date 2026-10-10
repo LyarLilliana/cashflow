@@ -2169,6 +2169,13 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
             <div class="savingOverviewDetailTitle bank">银行资产构成</div>
             <div class="explainRow"><span>新增本金</span><strong id="savingBankPrincipal">¥0</strong></div>
             <div class="explainRow"><span>利息变化</span><strong id="savingBankInterest">¥0</strong></div>
+            <div class="savingOverviewDetailTitle bank">储蓄资产对账</div>
+            <div class="explainRow"><span id="savingReconcileOpeningLabel">范围期初资产</span><strong id="savingReconcileOpening">¥0</strong></div>
+            <div class="explainRow"><span>期间实际净变化</span><strong id="savingReconcileBooked">¥0</strong></div>
+            <div class="explainRow"><span>范围期末实际资产</span><strong id="savingReconcileClosing">¥0</strong></div>
+            <div class="explainRow"><span>预计待沉淀结余</span><strong id="savingReconcilePending">¥0</strong></div>
+            <div class="explainRow total"><span>范围期末预计资产</span><strong id="savingReconcileForecast">¥0</strong></div>
+            <div class="small" id="savingReconcileStatus" style="margin-top:5px;color:var(--muted)">期初资产 + 实际净变化 = 期末实际资产。</div>
           </div>
         </details>
       </div>
@@ -7478,6 +7485,39 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   };
 }
 
+// One source of truth for the actual assets held at a given date.
+// Future-dated bank deposits and short transfers are excluded until effective;
+// accrued but unpaid bank interest is displayed as an estimate.
+function savingsAssetBalanceAt(asOf=td()){
+  const date=!asOf||asOf>td()?td():asOf;
+  const ordinary=N(accounting(date).saving);
+  const locked=sm(S.shortAccounts||[],a=>shortAccountBalance(a.id,date));
+  const deposits=startedBankDeposits(date);
+  const bankPrincipal=sm(deposits,d=>N(d.principal));
+  const bankEstimatedInterest=sm(deposits,d=>depositAccruedInterest(d,date));
+  return ordinary+locked+bankPrincipal+bankEstimatedInterest;
+}
+
+// Booked asset movements reconcile against independent historical snapshots.
+// A closeout deposited on the first day of a new income cycle belongs to the
+// previous cycle. The current cycle therefore begins after that carryover.
+function savingsAssetReconciliationForRange(start="",end="",summary=null){
+  const closingDate=end&&end<td()?end:td();
+  const openingDate=start?addDays(start,-1):"";
+  const priorCycleCarry=summary?.cycleMode&&start
+    ?sm(virtualCycleCloseEvents().filter(t=>t.date===start),
+      t=>N(accounting().effects[t.id]?.cycleCloseSaving))
+    :0;
+  const opening=(openingDate?savingsAssetBalanceAt(openingDate):0)+priorCycleCarry;
+  const closing=savingsAssetBalanceAt(closingDate);
+  const booked=closing-opening;
+  const pending=summary?N(summary.pendingPocket):0;
+  const forecast=closing+pending;
+  const projectedChange=booked+pending;
+  const breakdownGap=summary?projectedChange-N(summary.expected):0;
+  return {opening,closing,booked,pending,forecast,projectedChange,breakdownGap,priorCycleCarry};
+}
+
 function selectedSavingRangeSummary(){
   const range=savingRangeBounds();
   return {
@@ -7525,7 +7565,20 @@ function renderSavingAssetSummary(){
   savingBankTotal.textContent=M(s.bankTotal);
   savingBankTotal.style.color=s.bankTotal<0?"var(--danger)":"inherit";
 
-  const currentAssets=N(accounting().saving)+shortBalanceTotal()+bankPrincipalTotal()+bankInterestTotal();
+  const currentAssets=savingsAssetBalanceAt(td());
+  const reconciliation=savingsAssetReconciliationForRange(s.range.start,s.range.end,s);
+  savingReconcileOpeningLabel.textContent=s.cycleMode&&reconciliation.priorCycleCarry>0
+    ?"周期期初资产（含上期结转）":"范围期初资产";
+  savingReconcileOpening.textContent=M(reconciliation.opening);
+  savingReconcileBooked.textContent=M(reconciliation.booked);
+  savingReconcileClosing.textContent=M(reconciliation.closing);
+  savingReconcilePending.textContent=M(reconciliation.pending);
+  savingReconcileForecast.textContent=M(reconciliation.forecast);
+  const reconciliationMismatch=Math.abs(reconciliation.breakdownGap)>0.015;
+  savingReconcileStatus.textContent=reconciliationMismatch
+    ?`对账提醒：分类汇总与资产流水相差 ${M(reconciliation.breakdownGap)}，请核对历史分配及转存记录。`
+    :"期初资产 + 已发生净变化 = 期末实际资产；预计结余正式结算后再计入余额。";
+  savingReconcileStatus.style.color=reconciliationMismatch?"var(--danger)":"var(--muted)";
   savingCurrentAssets.textContent=M(currentAssets);
   savingCurrentAssets.style.color=currentAssets<0?"var(--danger)":"var(--text)";
   savingGrandTotal.textContent=M(s.expected);
