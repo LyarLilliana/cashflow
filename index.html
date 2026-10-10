@@ -8781,6 +8781,10 @@ saveIncome.onclick=()=>{
   const lps=sm(lightPlans,x=>x.amount);
   const safe=amount-saving-living-bills-ps-lps;
 
+  if(repayments.some(x=>x.amount>projectRepayPending(x.projectId)+0.005))
+    return msg("专项补回金额超过待补回余额");
+  if(safe<-0.005)return msg("本次收入分配超过实际到账金额，请减少预留或补回金额");
+
   const planNextDateBefore=plan?.nextDate||"";
   const planFreqAtRecord=plan?.freq||"none";
   const currentCycleIncomeId=!recurring?(currentCycleStats().income?.id||""):"";
@@ -8805,7 +8809,7 @@ saveIncome.onclick=()=>{
     scheduledDate:pending?.scheduledDate||planNextDateBefore,
     wasPending:!!pending,
     pendingRecordedDate:pending?.pendingRecordedDate||pending?.date||"",
-    alloc:{saving,living,bills,billItems,projects,lightPlans,safe}
+    alloc:{saving,living,bills,billItems,projects:[...projects,...repayments],lightPlans,safe}
   };
 
   if(pending){
