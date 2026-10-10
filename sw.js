@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-67-ledger-longpress-edit";
+const CACHE = "safespend-v10-68-income-edit-preview";
 const ASSETS = [
   "./",
   "./index.html",
