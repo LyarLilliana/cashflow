@@ -2513,6 +2513,22 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <option value="saving">从储蓄取用</option>
         </select>
       </div>
+      <div id="spendPaymentModeRow">
+        <label for="spendPaymentMode">日常消费方式</label>
+        <select id="spendPaymentMode">
+          <option value="normal">正常支出</option>
+          <option value="borrow">挪用专项资金</option>
+        </select>
+      </div>
+      <div id="spendBorrowFields" style="display:none">
+        <div><label for="spendBorrowProject">从哪个专项挪用</label><select id="spendBorrowProject"></select></div>
+        <div style="margin-top:8px"><label for="spendBorrowDisposition">挪用后是否补回</label>
+          <select id="spendBorrowDisposition">
+            <option value="temporary">临时挪用，之后补回</option>
+            <option value="permanent">不补回，直接扣减专项</option>
+          </select>
+        </div>
+      </div>
       <div id="refRow" style="display:none"><label id="refLabel">选择项目</label><select id="spendRef"></select></div>
       <div><label>金额</label><input id="spendAmount" inputmode="decimal" type="number"></div>
       <div><label>花钱日期</label><input id="spendDate" type="date"></div>
@@ -10366,6 +10382,8 @@ saveTxEdit.onclick=()=>{
 function openSpend(){
   plannedExpensePayment=null;
   spendBucket.value="safe";
+  spendPaymentMode.value="normal";
+  spendBorrowDisposition.value="temporary";
   spendAmount.value="";
   spendNote.value="";
   spendDate.value=td();
@@ -10375,6 +10393,17 @@ function openSpend(){
   spendSheet.classList.add("show");
 }
 function refreshProjectOverrunUI(){
+  if(spendBucket.value==="safe"&&spendPaymentMode.value==="borrow"){
+    projectOverrunRow.style.display="none";
+    const p=S.projects.find(x=>x.id===spendBorrowProject.value);
+    if(!p){spendHint.textContent="请先选择有可用余额的专项";return;}
+    const available=Math.max(0,projectAvail(p));
+    const amount=Math.max(0,N(spendAmount.value));
+    spendHint.textContent=amount>available
+      ?`${p.name} 可挪用 ${M(available)}，不足以支付本次 ${M(amount)}。`
+      :`从「${p.name}」挪用 ${M(amount)}；这笔记为日常消费，并扣减专项余额。${spendBorrowDisposition.value==="temporary"?" 将留下待补回记录。":" 不产生待补回记录。"}`;
+    return;
+  }
   if(spendBucket.value!=="project"){
     projectOverrunRow.style.display="none";
     return;
@@ -10404,6 +10433,15 @@ function refreshProjectOverrunUI(){
 function refreshSpendRefs(){
   const t=spendBucket.value,b=bal();
   projectOverrunRow.style.display="none";
+  spendPaymentModeRow.style.display=t==="safe"?"block":"none";
+  const borrow=t==="safe"&&spendPaymentMode.value==="borrow";
+  spendBorrowFields.style.display=borrow?"block":"none";
+  if(borrow){
+    const previous=spendBorrowProject.value;
+    const projects=activeProjects().filter(p=>projectAvail(p)>0);
+    spendBorrowProject.innerHTML=projects.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · 可用 ${M(projectAvail(p))}</option>`).join("");
+    if(projects.some(p=>p.id===previous))spendBorrowProject.value=previous;
+  }
 
   if(t==="project"){
     refRow.style.display="block";
@@ -10430,17 +10468,21 @@ function refreshSpendRefs(){
         ?`当前储蓄余额 ${M(b.saving)}`
         :"请选择专项";
 
-  if(t==="project")refreshProjectOverrunUI();
+  if(t==="project"||borrow)refreshProjectOverrunUI();
 }
 spendBucket.onchange=refreshSpendRefs;
+spendPaymentMode.addEventListener("change",refreshSpendRefs);
+spendBorrowProject.addEventListener("change",refreshProjectOverrunUI);
+spendBorrowDisposition.addEventListener("change",refreshProjectOverrunUI);
 spendRef.onchange=refreshProjectOverrunUI;
 spendDate.addEventListener("change",refreshSpendRefs);
 spendAmount.addEventListener("input",refreshProjectOverrunUI);
 projectOverrunSource.addEventListener("change",refreshProjectOverrunUI);
 saveSpend.onclick=()=>{
-  const bucket=spendBucket.value;
+  const projectBorrow=spendBucket.value==="safe"&&spendPaymentMode.value==="borrow";
+  const bucket=projectBorrow?"project":spendBucket.value;
   const amount=N(spendAmount.value);
-  const refId=spendRef.value;
+  const refId=projectBorrow?spendBorrowProject.value:spendRef.value;
   const note=spendNote.value.trim();
   const spendDateValue=spendDate.value||td();
   const b=bal();
@@ -10449,6 +10491,12 @@ saveSpend.onclick=()=>{
   if(!spendDateValue)return msg("请选择花钱日期");
   if(spendDateValue>td())return msg("花钱日期不能晚于今天");
   if(bucket==="project"&&!refId)return msg("请选择对应专项");
+  if(projectBorrow){
+    const p=S.projects.find(x=>x.id===refId);
+    const available=p?Math.max(0,projectAvail(p)):0;
+    if(!p)return msg("请选择有效的挪用专项");
+    if(amount>available+0.005)return msg(`「${p.name}」当前可挪用 ${M(available)}，请调整金额`);
+  }
 
   if(bucket==="saving"){
     if(b.saving<=0)return msg("当前储蓄余额为 0");
@@ -10513,6 +10561,8 @@ saveSpend.onclick=()=>{
     cycleDueDate,
     projectOverrunSource:projectOverrunSourceValue,
     projectOverrunAmount,
+    projectBorrow,
+    projectBorrowTemporary:projectBorrow&&spendBorrowDisposition.value==="temporary",
     projectPlannedExpenseId:projectPlannedExpenseSnapshot?.id||"",
     projectPlannedExpenseSnapshot,
     personalPlannedExpenseId:personalPlannedExpenseSnapshot?.id||"",
@@ -10525,7 +10575,9 @@ saveSpend.onclick=()=>{
   closeSheet("spendSheet");
   render();
 
-  if(bucket==="project"&&N(ef.overPlan)>0){
+  if(projectBorrow){
+    msg(`日常消费已记录，从「${S.projects.find(p=>p.id===refId)?.name||"专项"}」挪用 ${M(amount)}${spendBorrowDisposition.value==="temporary"?"，待补回已登记":""}`);
+  }else if(bucket==="project"&&N(ef.overPlan)>0){
     const from=ef.projectOverrunSource==="safe"?"零花钱":"储蓄";
     msg(`专项已记录，超出 ${M(ef.overPlan)} 已从${from}支付`);
   }else if(N(ef.plannedReserveDraw)>0){
