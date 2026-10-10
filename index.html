@@ -2180,7 +2180,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <button class="secondary" type="button" onclick="openExtraSaving('short')">记入锁定储蓄</button>
           <button class="ghost" type="button" onclick="openShortTransfer('','interest')">登记收益</button>
         </div>
-        <div class="small" style="margin-top:9px">短期储蓄默认锁定，转入后退出日常消费兜底池。每笔主动取用和银行转存均保留记录。</div>
+        <div class="small" style="margin-top:9px">通过「记额外储蓄」存入小荷包后即锁定，不自动参与零花钱或超支兜底；只有主动取出时才会解锁。</div>
       </div>
     </div>
     <!-- 2. BANK DEPOSITS -->
@@ -2999,11 +2999,11 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   <div class="actions"><button class="ghost" type="button" onclick="closeSheet('shortAccountSheet')">取消</button><button class="primary" id="saveShortAccount" type="button">保存账户</button></div>
 </div></div>
 <div class="sheet" id="shortTransferSheet"><div class="sheetCard">
-  <h2 class="sheetTitle">短期储蓄调动</h2>
+  <h2 class="sheetTitle">锁定储蓄取用</h2>
   <div class="formGrid one">
     <div><label for="shortTransferAccount">储蓄账户</label><select id="shortTransferAccount"></select></div>
     <div><label for="shortTransferAction">记录类型</label><select id="shortTransferAction">
-      <option value="in">日常储蓄转入</option><option value="out">取回日常储蓄</option>
+      <option value="out">取回日常储蓄</option>
       <option value="interest">实际到账收益</option><option value="spend">动用储蓄消费</option>
     </select></div>
     <div><label for="shortTransferAmount">金额</label><input id="shortTransferAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00"></div>
@@ -7921,7 +7921,7 @@ saveShortAccount.onclick=()=>{
   else S.shortAccounts.push({id:"sa"+Date.now(),name});
   save();closeSheet("shortAccountSheet");render();msg("账户已保存");
 };
-function openShortTransfer(id="",action="in"){
+function openShortTransfer(id="",action="out"){
   if(!(S.shortAccounts||[]).length){openShortAccount();return;}
   shortTransferAccount.innerHTML=S.shortAccounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("");
   if(id)shortTransferAccount.value=id;
