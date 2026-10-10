@@ -2146,6 +2146,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="savingOverviewResult">
           <div class="k" id="savingGrandLabel">储蓄净变化</div>
           <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
+          <div class="small" id="savingCashflowHint" style="margin-top:3px;color:var(--muted)">其中，本期预计可存 ¥0</div>
         </div>
         <div class="savingOverviewAssetTotals">
           <div class="savingOverviewAssetRow"><span>日常储蓄变化</span><strong id="savingFreePrincipal">¥0</strong></div>
@@ -6583,132 +6584,31 @@ function periodOutcomeLabels(mode=historyMode){
   };
 }
 
-function periodSavableForRange(start="",end=""){
+// A single dated savings ledger feeds the Result and Savings tabs.
+// Current-period cashflow excludes pre-existing external bank capital and
+// not-yet-credited estimated bank interest shown in the asset view.
+function periodSavableForRange(start="",end="",mode=historyMode){
   const inRange=date=>{
     const d=String(date||"");
-    if(!d||d>td())return false;
-    if(start&&d<start)return false;
-    if(end&&d>end)return false;
-    return true;
+    return !!d&&d<=td()&&(!start||d>=start)&&(!end||d<=end);
   };
-
-  const incomes=S.tx.filter(t=>t.type==="income"&&inRange(t.date));
-  const income=sm(incomes,t=>N(t.amount));
-
-  // 只拿“这段时间收入里本来就属于可存体系”的两部分作为起点：
-  // 直接储蓄 + 零花钱。基础生活 / 固定账单 / 专项预留已经从这里剥离，
-  // 后续对应支出因此不能再次扣一次。
-  const allocs=incomes.map(t=>effectiveIncomeAllocation(t));
-  const directSaving=sm(allocs,a=>N(a.saving));
-  const pocketInitial=sm(allocs,a=>N(a.safe));
-
-  const effects=accounting().effects;
-
-  // 基础生活结算后的回流必须采用“净回流”。
-  // 当天日常支出已经优先使用的基础生活额度继续留在基础生活池中，
-  // 只有真正剩余的部分才回到零花钱，避免结果页把同一笔钱重复计入。
-  const livingRelease=sm(
-    S.tx.filter(t=>t.type==="living_settlement"&&inRange(t.coveredDate||t.date)),
-    t=>{
-      const fx=effects?.[t.id]||{};
-      if(fx.livingRelease!==undefined)return N(fx.livingRelease);
-
-      const date=t.coveredDate||t.date||"";
-      const grossRelease=N(t.allowance)-livingSettlementEffectiveActual(t);
-      const dailyDraw=Math.min(
-        Math.max(0,grossRelease),
-        Math.max(0,N(dailyExpenseLivingCoverMap().byDate[date]))
-      );
-      return grossRelease-dailyDraw;
-    }
+  const income=sm(
+    S.tx.filter(t=>t.type==="income"&&inRange(t.date)),
+    t=>N(t.amount)
   );
-
-  let pocketSpend=0;
-  let pocketToProject=0;
-
-  S.tx.forEach(t=>{
-    const d=historyTxDate(t);
-    if(!inRange(d))return;
-
-    if(t.type==="pocket_to_project"){
-      pocketToProject+=Math.max(0,N(t.amount));
-      return;
-    }
-
-    // 零花 → 储蓄只是同一个“可存池”内部换位置，总可存不变。
-    if(t.type==="pocket_to_saving"||t.type==="pocket_to_short")return;
-
-    if(t.type!=="expense")return;
-
-    const fx=effects?.[t.id]||{};
-
-    if(t.settledBillId||t.bucket==="bill"){
-      // 账单只把实际由零花钱承担的超额部分算进来。
-      pocketSpend+=Math.max(0,N(fx.billPocketDraw));
-      return;
-    }
-
-    if(t.bucket==="project"){
-      // 专项本金由专项自己承担；只有明确由零花钱补的超支影响预计可存。
-      pocketSpend+=Math.max(
-        0,
-        N(fx.projectPocketDraw),
-        t.projectOverrunSource==="safe"?N(t.projectOverrunAmount):0
-      );
-      return;
-    }
-
-    if(t.bucket==="saving"){
-      // 从既有储蓄取用属于储蓄资产变化，不回头扣本期预计可存。
-      return;
-    }
-
-    // 日常支出统一遵循：当日基础生活 → 零花钱 → 储蓄。
-    // 结果统计只扣除真正落到“零花钱 / 储蓄 / 缺口”的部分，
-    // 已由当日基础生活承担的金额不能再次减少预计可存。
-    const nonLivingSpend=
-      N(fx.pocketDraw)
-      +N(fx.autoDraw)
-      +N(fx.uncovered);
-    const fallbackNonLiving=Math.max(
-      0,
-      N(t.amount)-Math.max(0,N(fx.livingDraw))
-    );
-    pocketSpend+=Math.max(0,nonLivingSpend||fallbackNonLiving);
-  });
-
-  const expected=
-    directSaving
-    +pocketInitial
-    +livingRelease
-    -pocketSpend
-    -pocketToProject;
-
-  return {
-    income,
-    directSaving,
-    pocketInitial,
-    livingRelease,
-    pocketSpend,
-    pocketToProject,
-    expected
-  };
+  const savings=savingSummaryForRange(start,end,mode==="cycle");
+  return {income,expected:N(savings.cashflowGrowth)};
 }
 
 function periodOutcomeForRange(start="",end="",mode=historyMode){
   const spend=spendingBreakdownForRange(start,end);
 
-  let savable=periodSavableForRange(start,end);
+  let savable=periodSavableForRange(start,end,mode);
 
   if(mode==="cycle"){
     const cycle=currentCycleStats();
     if(cycle.income){
-      // 当前周期继续使用同一套周期引擎；其 projectedSaving 已与上述单位匹配逻辑一致。
-      savable={
-        ...savable,
-        income:N(cycle.incomeTotal),
-        expected:N(cycle.projectedSaving)
-      };
+      savable={...savable,income:N(cycle.incomeTotal)};
     }
   }
 
@@ -7508,10 +7408,9 @@ function filteredSavingChangeEvents(start="",end=""){
   });
 }
 
-function selectedSavingRangeSummary(){
-  const range=savingRangeBounds();
-  const cycleMode=savingRangePreset==="cycle";
-  const raw=expectedSavingGrowthForRange(range.start,range.end,cycleMode);
+function savingSummaryForRange(start="",end="",cycleMode=false){
+  const range={start,end};
+  const raw=expectedSavingGrowthForRange(start,end,cycleMode);
   const interestGrowth=N(raw.interestGrowth!==undefined?raw.interestGrowth:raw.interest);
   const bankPrincipal=N(raw.bankStarted);
 
@@ -7555,6 +7454,11 @@ function selectedSavingRangeSummary(){
   const shortTotal=short.delta;
   const bankTotal=bankPrincipal+interestGrowth;
   const expected=dailyAfterBank+shortTotal+bankTotal;
+  // External bank balances were already owned before being entered in the app.
+  // Bank interest here is an estimate, tracked separately from cash earnings.
+  // Internal movement among ordinary, locked and bank holdings has zero
+  // impact on this cashflow value.
+  const cashflowGrowth=expected-N(s.bankExternal)-interestGrowth;
 
   return {
     ...s,
@@ -7569,7 +7473,16 @@ function selectedSavingRangeSummary(){
     shortTotal,
     bankPrincipal,
     bankTotal,
-    expected
+    expected,
+    cashflowGrowth
+  };
+}
+
+function selectedSavingRangeSummary(){
+  const range=savingRangeBounds();
+  return {
+    ...savingSummaryForRange(range.start,range.end,savingRangePreset==="cycle"),
+    range
   };
 }
 
@@ -7577,7 +7490,8 @@ function renderSavingAssetSummary(){
   const s=selectedSavingRangeSummary();
   const cycle=currentCycleStats();
 
-  savingGrandLabel.textContent="储蓄净变化";
+  savingGrandLabel.textContent="储蓄资产预计净变化";
+  savingCashflowHint.textContent=`其中，本期预计可存 ${M(s.cashflowGrowth)}`;
 
   savingFreePrincipal.textContent=M(s.dailyAfterBank);
   savingFreePrincipal.style.color=s.dailyAfterBank<0?"var(--danger)":"var(--text)";
@@ -7665,7 +7579,7 @@ function renderSavingStats(){
   savingIncreaseTitle.textContent=cycleMode?"当前周期构成":"增加";
   savingAdjustTitle.textContent=cycleMode?"范围调整":"调整";
   savingUseLabel.textContent=cycleMode?"储蓄兜底 / 直接取用（参考）":"储蓄取用 / 超支扣减";
-  savingGrowthTotalLabel.textContent="预计储蓄增长总和";
+  savingGrowthTotalLabel.textContent="储蓄资产预计净变化";
   savingGrowthNote.textContent=cycleMode
     ?`日常储蓄变化 ${M(s.dailyAfterBank)} + 短期储蓄变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。`
     :`日常储蓄变化 ${M(s.dailyAfterBank)} + 短期储蓄变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。资金内部转移只影响存放位置。`;
