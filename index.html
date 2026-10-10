@@ -8574,8 +8574,9 @@ function projectSuggestionInputs(){
   const oneOff=incPlan.value==="__extra__" || (selectedPlan&&!isRecurringPlan(selectedPlan));
   const suggestProjects=activeProjects().filter(p=>projectGap(p)>0);
   const suggestLightPlans=activeLightPlans().filter(x=>x.status==="planned");
+  const repayProjects=oneOff?activeProjects().filter(p=>projectRepayPending(p.id)>0):[];
 
-  if(!suggestProjects.length&&!suggestLightPlans.length){
+  if(!suggestProjects.length&&!suggestLightPlans.length&&!repayProjects.length){
     projectSuggestMeta.textContent="当前没有需要预留的专项，也没有已确定准备购买的近期计划。";
     projectSuggest.innerHTML='<div class="note">暂无需要预留的项目。</div>';
     return;
@@ -8643,8 +8644,15 @@ function projectSuggestionInputs(){
       }).join("");
   }
 
-  projectSuggest.innerHTML=projectHtml+lightHtml;
-  document.querySelectorAll(".projectContrib,.lightPlanContrib")
+  const repayHtml=repayProjects.length
+    ?'<div class="small" style="margin:11px 0 3px;font-weight:700">从本次收入补回专项</div>'
+      +repayProjects.map(p=>`<div class="formGrid" style="margin-top:8px">
+        <div><div class="name">${esc(p.name)}</div><div class="meta">临时挪用待补回 ${M(projectRepayPending(p.id))}</div></div>
+        <div><input class="projectRepayContrib" data-id="${p.id}" inputmode="decimal" type="number" min="0" max="${projectRepayPending(p.id)}" step="0.01" value="0"></div>
+      </div>`).join("")
+    :"";
+  projectSuggest.innerHTML=projectHtml+repayHtml+lightHtml;
+  document.querySelectorAll(".projectContrib,.projectRepayContrib,.lightPlanContrib")
     .forEach(x=>x.addEventListener("input",recalcIncomeSummary));
 }
 function recalcIncome(){
@@ -8681,10 +8689,13 @@ function recalcIncomeSummary(){
   const projects=[...document.querySelectorAll(".projectContrib")]
     .map(x=>({projectId:x.dataset.id,amount:N(x.value)}))
     .filter(x=>x.amount>0);
+  const repayments=[...document.querySelectorAll(".projectRepayContrib")]
+    .map(x=>({projectId:x.dataset.id,amount:N(x.value),repayment:true}))
+    .filter(x=>x.amount>0);
   const lightPlans=[...document.querySelectorAll(".lightPlanContrib")]
     .map(x=>({lightPlanId:x.dataset.id,amount:N(x.value)}))
     .filter(x=>x.amount>0);
-  const ps=sm(projects,x=>x.amount);
+  const ps=sm([...projects,...repayments],x=>x.amount);
   const lps=sm(lightPlans,x=>x.amount);
 
   const safe=amount-saving-living-bills-ps-lps;
@@ -8760,10 +8771,13 @@ saveIncome.onclick=()=>{
   const projects=[...document.querySelectorAll(".projectContrib")]
     .map(x=>({projectId:x.dataset.id,amount:N(x.value)}))
     .filter(x=>x.amount>0);
+  const repayments=[...document.querySelectorAll(".projectRepayContrib")]
+    .map(x=>({projectId:x.dataset.id,amount:N(x.value),repayment:true}))
+    .filter(x=>x.amount>0);
   const lightPlans=[...document.querySelectorAll(".lightPlanContrib")]
     .map(x=>({lightPlanId:x.dataset.id,amount:N(x.value)}))
     .filter(x=>x.amount>0);
-  const ps=sm(projects,x=>x.amount);
+  const ps=sm([...projects,...repayments],x=>x.amount);
   const lps=sm(lightPlans,x=>x.amount);
   const safe=amount-saving-living-bills-ps-lps;
 
