@@ -9265,9 +9265,12 @@ function refreshExtraSavingDestination(){
   }
   extraSavingNewAccountRow.style.display=locked&&extraSavingAccount.value==="__new__"?"block":"none";
   const source=extraSavingFunding.value;
+  refreshExtraSavingCombinedPreview();
   extraSavingDestinationHint.textContent=!locked
     ?"额外存下的资金进入日常储蓄，仍按现有规则参与超支兜底；已计入的资金不要重复记为新增。"
-    :source==="saving"
+    :source==="combined"
+      ?"从已有储蓄与日常支出剩余合并转入，系统自动分配并保留来源；转入后锁定，原有储蓄不重复计算。"
+      :source==="saving"
       ?"从已记账的日常储蓄转入，储蓄总额不变；转入后会锁定，不再自动补贴零花钱。"
       :source==="pocket"
         ?"从现有零花钱转入，日常可花余额减少，锁定储蓄增加；之后不会自动用于消费。"
@@ -9281,7 +9284,7 @@ function openExtraSaving(destination="ordinary",accountId=""){
   extraSavingDestination.value=destination==="short"?"short":"ordinary";
   extraSavingAccount.value=accountId||"";
   extraSavingNewAccount.value="";
-  extraSavingFunding.value=destination==="short"?"saving":"new";
+  extraSavingFunding.value=destination==="short"?"combined":"new";
   refreshExtraSavingDestination();
   if(accountId&&[...extraSavingAccount.options].some(x=>x.value===accountId)){
     extraSavingAccount.value=accountId;
@@ -9293,6 +9296,7 @@ function openExtraSaving(destination="ordinary",accountId=""){
 extraSavingDestination.addEventListener("change",refreshExtraSavingDestination);
 extraSavingAccount.addEventListener("change",refreshExtraSavingDestination);
 extraSavingFunding.addEventListener("change",refreshExtraSavingDestination);
+extraSavingAmount.addEventListener("input",refreshExtraSavingCombinedPreview);
 
 saveExtraSaving.onclick=()=>{
   const date=extraSavingDate.value||td();
