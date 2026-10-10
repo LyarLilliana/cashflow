@@ -3147,7 +3147,8 @@ function projectFunded(p){
     S.tx.filter(t=>t.type==="pocket_to_project"&&t.projectId===p.id),
     t=>N(t.amount)
   );
-  return N(p.initialFund)+incomeFunded+pocketFunded;
+  const savingFunded=sm(S.tx.filter(t=>t.type==="saving_to_project"&&t.projectId===p.id),t=>N(t.amount));
+  return N(p.initialFund)+incomeFunded+pocketFunded+savingFunded;
 }
 function projectSpent(p){return sm(S.tx.filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id),t=>t.amount)}
 function projectPlannedExpenses(p){
@@ -5931,6 +5932,14 @@ function txHtml(t,del=false,edit=false){
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项恢复 · ${name}</div><div class="meta">${t.date} · 重新纳入进行中专项</div></div><div class="txRight"><div class="txAmount txMuted">${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
+  if(["short_transfer","short_interest","short_spend","saving_to_project"].includes(t.type)){
+    const move=t.type==="short_transfer";
+    const positive=t.type==="short_interest",spend=t.type==="short_spend";
+    const title=t.type==="saving_to_project"?"日常储蓄补回专项":
+      move?(t.direction==="in"?"转入短期储蓄":"取回日常储蓄"):positive?"短期储蓄到账收益":"短期储蓄取用";
+    const account=t.type==="saving_to_project"?(S.projects.find(p=>p.id===t.projectId)?.name||"专项"):shortAccountName(t.shortAccountId);
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title} · ${esc(account)}</div><div class="meta">${t.date}${t.note?" · "+esc(t.note):""}</div></div><div class="txRight"><div class="txAmount ${positive?"pos":spend?"neg":"txMuted"}">${positive?"+":spend?"-":"→ "}${M(t.amount)}</div>${t.type==="saving_to_project"?"":`<button class="txTinyBtn" type="button" onclick="deleteShortRecord('${t.id}')">撤销</button>`}</div></div></div>`;
+  }
   if(t.type==="extra_saving"){
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">额外储蓄${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date} · 直接记入储蓄</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
@@ -7778,8 +7787,122 @@ function openBankDepositFromReminder(){
 }
 
 
+function renderShortAccounts(){
+  const accounts=S.shortAccounts||[];
+  shortSavedTotal.textContent=M(shortBalanceTotal());
+  shortAccountList.innerHTML=accounts.length?accounts.map(a=>`<div class="shortAccountLine">
+    <div class="shortAccountLineTop"><div class="name">${esc(a.name)}</div><strong>${M(shortAccountBalance(a.id))}</strong></div>
+    <div class="shortAccountLineSub"><span class="small">默认锁定 · 可主动转存</span><span>
+      <button type="button" onclick="openShortTransfer('${a.id}','in')">转入</button>
+      <button type="button" onclick="openShortTransfer('${a.id}','out')">取出</button>
+      <button type="button" onclick="openShortAccount('${a.id}')">修改</button>
+    </span></div></div>`).join(""):'<div class="note" style="padding:12px 0">建立支付宝小荷包等储蓄账户，之后逐笔转入即可开始积累。</div>';
+  const pending=(S.projects||[]).filter(p=>projectRepayPending(p.id)>0);
+  projectBorrowList.innerHTML=pending.length?pending.map(p=>`<div class="shortBorrowLine">
+    <div><div class="name">${esc(p.name)}</div><div class="meta">待补回 ${M(projectRepayPending(p.id))}</div></div>
+    <button class="secondary" type="button" onclick="openProjectRepay('${p.id}')">补回</button>
+  </div>`).join(""):'<div class="note">临时挪用专项后，这里将显示待补回金额。</div>';
+  projectBorrowSection.style.display=(S.projects||[]).length?"":"none";
+}
+function openShortAccount(id=""){
+  const a=(S.shortAccounts||[]).find(x=>x.id===id);
+  shortAccountId.value=id;shortAccountName.value=a?.name||"";
+  shortAccountSheetTitle.textContent=a?"修改短期储蓄账户":"新增短期储蓄账户";
+  shortAccountSheet.classList.add("show");
+}
+saveShortAccount.onclick=()=>{
+  const id=shortAccountId.value,name=shortAccountName.value.trim();
+  if(!name)return msg("请输入账户名称");
+  if(id){const a=S.shortAccounts.find(x=>x.id===id);if(!a)return;a.name=name;}
+  else S.shortAccounts.push({id:"sa"+Date.now(),name});
+  save();closeSheet("shortAccountSheet");render();msg("账户已保存");
+};
+function openShortTransfer(id="",action="in"){
+  if(!(S.shortAccounts||[]).length){openShortAccount();return;}
+  shortTransferAccount.innerHTML=S.shortAccounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("");
+  if(id)shortTransferAccount.value=id;
+  shortTransferAction.value=action;shortTransferAmount.value="";
+  shortTransferDate.value=td();shortTransferNote.value="";
+  updateShortTransferHint();syncDateDisplays();
+  shortTransferSheet.classList.add("show");
+}
+function updateShortTransferHint(){
+  const balance=shortAccountBalance(shortTransferAccount.value),action=shortTransferAction.value;
+  const note=action==="in"?"转入后锁定，退出日常储蓄兜底池":action==="out"?"转回日常储蓄，解锁后可再次调配":action==="interest"?"仅登记实际到账的收益":"属于主动储蓄取用，同时记录消费";
+  shortTransferHint.textContent=`账户余额 ${M(balance)}。 ${note}。`;
+}
+shortTransferAccount.addEventListener("change",updateShortTransferHint);
+shortTransferAction.addEventListener("change",updateShortTransferHint);
+saveShortTransfer.onclick=()=>{
+  const accountId=shortTransferAccount.value,action=shortTransferAction.value;
+  const amount=Math.round(N(shortTransferAmount.value)*100)/100;
+  const date=shortTransferDate.value||td(),note=shortTransferNote.value.trim();
+  if(!S.shortAccounts.some(a=>a.id===accountId))return msg("请选择储蓄账户");
+  if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效金额");
+  if(date>td())return msg("只能登记已实际发生的转账");
+  if(action==="in"&&amount>Math.max(0,N(accounting().saving))+0.005)return msg(`日常储蓄可转入 ${M(Math.max(0,N(accounting().saving)))}`);
+  if(action!=="in"&&action!=="interest"&&amount>shortAccountBalance(accountId,date)+0.005)
+    return msg(`该日账户余额为 ${M(Math.max(0,shortAccountBalance(accountId,date)))}`);
+  const type=action==="interest"?"short_interest":action==="spend"?"short_spend":"short_transfer";
+  const t={id:"sh"+Date.now(),date,type,shortAccountId:accountId,amount,note};
+  if(type==="short_transfer")t.direction=action;
+  S.tx.push(t);
+  if(!shortLedgerValid(accountId)){
+    S.tx=S.tx.filter(x=>x.id!==t.id);
+    return msg("后续日期余额不足，请调整记录日期或金额");
+  }
+  save();closeSheet("shortTransferSheet");render();msg("短期储蓄记录已保存");
+};
+function deleteShortRecord(id){
+  const t=S.tx.find(x=>x.id===id);
+  if(!t||!["short_transfer","short_interest","short_spend"].includes(t.type))return;
+  if(!confirm("撤销这笔短期储蓄记录？"))return;
+  S.tx=S.tx.filter(x=>x.id!==id);
+  if(!shortLedgerValid(t.shortAccountId)||N(accounting().saving)<-0.005){
+    S.tx.push(t);return msg("撤销后其他余额不足，请先核对后续资金调动");
+  }
+  save();render();msg("记录已撤销");
+}
+function openProjectBorrow(){
+  const ps=activeProjects().filter(p=>projectAvail(p)>0);
+  if(!ps.length)return msg("当前没有可挪用的专项余额");
+  projectBorrowAccount.innerHTML=ps.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${M(projectAvail(p))}</option>`).join("");
+  projectBorrowAmount.value="";projectBorrowNote.value="";projectBorrowMode.value="temporary";
+  projectBorrowSheet.classList.add("show");
+}
+saveProjectBorrow.onclick=()=>{
+  const id=projectBorrowAccount.value,amount=Math.round(N(projectBorrowAmount.value)*100)/100;
+  if(!Number.isFinite(amount)||amount<=0)return msg("请输入正确金额");
+  const p=S.projects.find(x=>x.id===id);
+  if(!p)return msg("请选择专项");
+  if(amount>projectAvail(p)+0.005)return msg(`专项可用余额为 ${M(projectAvail(p))}`);
+  S.tx.push({id:"pb"+Date.now(),date:td(),type:"expense",bucket:"project",refId:id,
+    amount,note:"专项挪用 · "+(projectBorrowNote.value.trim()||"临时消费"),
+    projectBorrow:true,projectBorrowTemporary:projectBorrowMode.value==="temporary"});
+  save();closeSheet("projectBorrowSheet");render();msg("专项挪用与消费已同步记录");
+};
+function openProjectRepay(id){
+  const p=S.projects.find(x=>x.id===id);if(!p)return;
+  projectRepayAccount.value=id;projectRepayAmount.value=projectRepayPending(id).toFixed(2);
+  projectRepayHint.textContent=`${p.name} · 待补回 ${M(projectRepayPending(id))}`;
+  projectRepaySource.value="safe";projectRepaySheet.classList.add("show");
+}
+saveProjectRepay.onclick=()=>{
+  const id=projectRepayAccount.value,amount=Math.round(N(projectRepayAmount.value)*100)/100;
+  const source=projectRepaySource.value;
+  if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效金额");
+  if(amount>projectRepayPending(id)+0.005)return msg("金额超过待补回余额");
+  if(source==="safe"&&amount>Math.max(0,N(bal().safe))+0.005)return msg("日常可用余额不足");
+  if(source==="saving"&&amount>Math.max(0,N(accounting().saving))+0.005)return msg("日常储蓄余额不足");
+  S.tx.push({id:"pr"+Date.now(),date:td(),amount,projectId:id,repaymentOf:id,
+    type:source==="safe"?"pocket_to_project":"saving_to_project",
+    note:"补回专项 · "+(S.projects.find(p=>p.id===id)?.name||"专项")});
+  save();closeSheet("projectRepaySheet");render();msg("专项已补回");
+};
+
 function renderSavings(){
   renderSavingRangeViews();
+  renderShortAccounts();
   renderBankDepositReminder();
 
   const deposits=[...activeBankDeposits()].sort((a,b)=>
