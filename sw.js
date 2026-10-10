@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-63-daily-borrow-mode";
+const CACHE = "safespend-v10-63-extra-savings-locked-wallet";
 const ASSETS = [
   "./",
   "./index.html",
