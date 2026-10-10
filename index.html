@@ -6300,7 +6300,7 @@ function sortHistoryNewestFirst(a,b){
 function pocketOutflowAmountForTx(t,effects=null){
   if(!t)return 0;
 
-  if(t.type==="pocket_to_saving"||t.type==="pocket_to_project"){
+  if(t.type==="pocket_to_saving"||t.type==="pocket_to_project"||t.type==="pocket_to_short"){
     return Math.max(0,N(t.amount));
   }
 
@@ -10202,7 +10202,11 @@ function openTxEdit(id){
         </div>
         <div>
           <label>金额</label>
-          <input id="editExtraSavingAmount" inputmode="decimal" type="number" min="0" value="${N(t.amount)}">
+          <input id="editExtraSavingAmount" inputmode="decimal" type="number" min="0.01" step="0.01" value="${N(t.amount)}">
+        </div>
+        <div style="grid-column:1/-1">
+          <label>存放账户</label>
+          <div class="note">${t.shortAccountId?"锁定储蓄 · "+esc(shortSavingsAccountLabel(t.shortAccountId)):"日常储蓄"}</div>
         </div>
         <div style="grid-column:1/-1">
           <label>备注</label>
@@ -10210,7 +10214,7 @@ function openTxEdit(id){
         </div>
       </div>
     `;
-    editTxHint.textContent="日期、金额和备注都可以重新修改。";
+    editTxHint.textContent="可修改日期、金额和备注。锁定储蓄账户归属保持固定，防止重复记账。";
   }else if(t.type==="pocket_to_saving"||t.type==="pocket_to_project"){
     const target=t.type==="pocket_to_project"?"project":"saving";
     editTxTitle.textContent="修改零花钱转出";
@@ -10485,13 +10489,18 @@ saveTxEdit.onclick=()=>{
     syncLivingSettlementTotals();
   }else if(t.type==="extra_saving"){
     const date=document.getElementById("editExtraSavingDate").value||t.date||td();
-    const amount=Math.max(0,N(document.getElementById("editExtraSavingAmount").value));
-    if(amount<=0)return msg("请输入额外储蓄金额");
+    const amount=Math.round(N(document.getElementById("editExtraSavingAmount").value)*100)/100;
+    if(!Number.isFinite(amount)||amount<=0)return msg("请输入额外储蓄金额");
     if(date>td())return msg("日期不能晚于今天");
 
+    const previous={...t};
     t.date=date;
     t.amount=amount;
     t.note=document.getElementById("editExtraSavingNote").value.trim();
+    if(t.shortAccountId&&!shortLedgerValid(t.shortAccountId)){
+      Object.assign(t,previous);
+      return msg("修改会导致锁定账户后续资金不足，请检查金额或日期");
+    }
   }else if(t.type==="pocket_to_saving"||t.type==="pocket_to_project"){
     const target=document.getElementById("editTransferTarget").value;
     const amount=Math.max(0,N(document.getElementById("editTransferAmount").value));
@@ -10795,7 +10804,12 @@ function removeTx(id){
     restoredPlannedExpense=true;
   }
 
+  const previousTx=S.tx;
   S.tx=S.tx.filter(x=>x.id!==id);
+  if(target.shortAccountId&&!shortLedgerValid(target.shortAccountId)){
+    S.tx=previousTx;
+    return msg("这笔储蓄已被后续取用或转存，请先调整后续记录");
+  }
   if(target.type==="living_batch")syncLivingSettlementTotals();
   save();
   render();
