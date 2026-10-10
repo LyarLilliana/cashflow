@@ -1837,6 +1837,21 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .savingOverviewBreakdownBody .explainRow{font-size:11.5px;padding:6px 0}
 .savingOverviewBreakdownBody .explainRow strong{font-variant-numeric:tabular-nums}
 @media(max-width:380px){.savingOverviewCard{padding-left:13px;padding-right:13px}.savingOverviewResult .savingHeroValue{font-size:29px}.savingOverviewAssetRow strong{font-size:15px}}
+/* 短期储蓄：紧凑账户卡片 */
+.shortAccountCard{padding:13px 15px}
+.shortAccountHeadline{display:flex;justify-content:space-between;align-items:center;gap:9px;padding-bottom:10px}
+.shortAccountHeadline strong{display:block;font-size:23px;letter-spacing:-.4px;margin-top:3px;color:var(--accent)}
+.shortAccountList{border-top:1px solid var(--line)}
+.shortAccountLine{padding:10px 0;border-bottom:1px solid var(--line)}
+.shortAccountLineTop{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.shortAccountLineTop strong{font-size:16px}
+.shortAccountLineSub{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:5px}
+.shortAccountLineSub button{border:0;background:transparent;color:var(--accent);font-size:10.5px;font-weight:700;padding:4px 3px}
+.shortAccountActions{display:flex;gap:8px;margin-top:10px}
+.shortAccountActions button{flex:1;font-size:11px;padding:10px 5px;min-height:38px}
+.shortBorrowLine{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.shortBorrowLine:last-child{border-bottom:0}
+.shortBorrowLine .meta{font-size:10px}
 </style>
 </head>
 <body class="booting">
@@ -2111,6 +2126,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         </div>
         <div class="savingOverviewAssetTotals">
           <div class="savingOverviewAssetRow"><span>日常储蓄变化</span><strong id="savingFreePrincipal">¥0</strong></div>
+          <div class="savingOverviewAssetRow"><span>短期储蓄变化</span><strong id="savingShortChange">¥0</strong></div>
           <div class="savingOverviewAssetRow"><span>银行资产变化</span><strong id="savingBankTotal">¥0</strong></div>
         </div>
         <details class="savingOverviewBreakdown">
@@ -2120,12 +2136,41 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
             <div class="explainRow"><span id="savingCyclePlannedLabel">已形成或减少</span><strong id="savingCyclePlanned">¥0</strong></div>
             <div class="explainRow"><span id="savingCycleRemainderLabel">预计结余</span><strong id="savingCycleRemainder">¥0</strong></div>
             <div class="explainRow"><span>转入银行</span><strong id="savingDailyBankTransfer">¥0</strong></div>
+            <div class="explainRow"><span>转入短期储蓄</span><strong id="savingShortInboundDetail">¥0</strong></div>
+            <div class="explainRow"><span>短期储蓄转回</span><strong id="savingShortOutboundDetail">¥0</strong></div>
             <div class="savingOverviewDetailTitle bank">银行资产构成</div>
             <div class="explainRow"><span>新增本金</span><strong id="savingBankPrincipal">¥0</strong></div>
             <div class="explainRow"><span>利息变化</span><strong id="savingBankInterest">¥0</strong></div>
           </div>
         </details>
       </div>
+    </div>
+
+    <!-- LOCKED SHORT-TERM SAVINGS -->
+    <div class="section">
+      <div class="sectionHeader">
+        <div class="sectionTitle">短期储蓄</div>
+        <button class="sectionToggle" type="button" onclick="openShortAccount()">新增账户</button>
+      </div>
+      <div class="card shortAccountCard">
+        <div class="shortAccountHeadline">
+          <div><div class="small">已锁定储蓄余额</div><strong id="shortSavedTotal">¥0</strong></div>
+          <span class="badge">积累后转存</span>
+        </div>
+        <div class="shortAccountList" id="shortAccountList"></div>
+        <div class="shortAccountActions">
+          <button class="secondary" type="button" onclick="openShortTransfer()">转入 / 取出</button>
+          <button class="ghost" type="button" onclick="openShortTransfer('','interest')">登记收益</button>
+        </div>
+        <div class="small" style="margin-top:9px">短期储蓄默认锁定，转入后退出日常消费兜底池。每笔主动取用和银行转存均保留记录。</div>
+      </div>
+    </div>
+    <div class="section" id="projectBorrowSection">
+      <div class="sectionHeader">
+        <div class="sectionTitle">专项资金挪用</div>
+        <button class="sectionToggle" type="button" onclick="openProjectBorrow()">记录挪用</button>
+      </div>
+      <div class="card shortAccountCard" id="projectBorrowList"></div>
     </div>
 
     <!-- 2. BANK DEPOSITS -->
@@ -2166,12 +2211,15 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <div class="summaryRow"><span>额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
           <div class="summaryRow"><span>外部存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
           <div class="summaryRow"><span>银行预估利息</span><strong id="savingInterestGrowthPart">¥0</strong></div>
+          <div class="summaryRow"><span>短期储蓄到账收益</span><strong id="savingShortInterestPart">¥0</strong></div>
         </div>
 
         <div class="summaryGroup">
           <div class="summaryGroupTitle" id="savingAdjustTitle">调整</div>
           <div class="summaryRow"><span id="savingUseLabel">储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
           <div class="summaryRow"><span>日常储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
+          <div class="summaryRow"><span>短期储蓄取用</span><strong id="savingShortUsePart">¥0</strong></div>
+          <div class="summaryRow"><span>储蓄补回专项</span><strong id="savingProjectRepayPart">¥0</strong></div>
           <div class="summaryRow summaryTotal"><span id="savingGrowthTotalLabel">预计储蓄增长总和</span><strong id="savingGrowthTotal">¥0</strong></div>
         </div>
 
@@ -2201,7 +2249,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="sectionTitle">银行转存提醒</div>
 
       <div class="card">
-        <div class="meta">提醒进度按全部日期累计的日常储蓄计算。已转入银行的资金会从日常储蓄中扣除；当前周期预计会沉淀的结余会计入预计进度。</div>
+        <div class="meta">实际可转存额包括日常储蓄与短期储蓄，按全部日期累计。当前周期尚未结算的预计结余单独纳入预估进度。</div>
 
         <div class="divider"></div>
 
@@ -2225,7 +2273,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
         <div class="bankReminderRows">
           <div class="explainRow"><span>累计预计可转存</span><strong id="bankReminderCurrent">¥0</strong></div>
-          <div class="explainRow"><span>累计已沉淀日常储蓄</span><strong id="bankReminderActual">¥0</strong></div>
+          <div class="explainRow"><span>实际可转存储蓄</span><strong id="bankReminderActual">¥0</strong></div>
           <div class="explainRow"><span>当前周期预计结余</span><strong id="bankReminderPending">¥0</strong></div>
           <div class="explainRow"><span>设定转存额度</span><strong id="bankReminderTarget">未设置</strong></div>
           <div class="explainRow total"><span id="bankReminderGapLabel">距离提醒额度</span><strong id="bankReminderGap">—</strong></div>
@@ -2847,9 +2895,13 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div>
         <label>本金来源</label>
         <select id="bankDepositSource">
-          <option value="existing">从已有储蓄转入</option>
+          <option value="existing">从日常储蓄转入</option>
+          <option value="short">从短期储蓄转存</option>
           <option value="external">外部新增储蓄并存入</option>
         </select>
+      </div>
+      <div id="bankShortAccountRow" style="display:none">
+        <label for="bankShortAccount">短期储蓄来源账户</label><select id="bankShortAccount"></select>
       </div>
       <div>
         <label>到期处理</label>
@@ -2877,6 +2929,51 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   </div>
 </div>
 
+<div class="sheet" id="shortAccountSheet"><div class="sheetCard">
+  <h2 class="sheetTitle" id="shortAccountSheetTitle">新增短期储蓄账户</h2>
+  <input id="shortAccountId" type="hidden">
+  <label for="shortAccountName">账户名称</label>
+  <input id="shortAccountName" maxlength="40" placeholder="例如 支付宝小荷包">
+  <p class="note">建立账户后，再使用转入功能逐笔锁定储蓄资金。</p>
+  <div class="actions"><button class="ghost" type="button" onclick="closeSheet('shortAccountSheet')">取消</button><button class="primary" id="saveShortAccount" type="button">保存账户</button></div>
+</div></div>
+<div class="sheet" id="shortTransferSheet"><div class="sheetCard">
+  <h2 class="sheetTitle">短期储蓄调动</h2>
+  <div class="formGrid one">
+    <div><label for="shortTransferAccount">储蓄账户</label><select id="shortTransferAccount"></select></div>
+    <div><label for="shortTransferAction">记录类型</label><select id="shortTransferAction">
+      <option value="in">日常储蓄转入</option><option value="out">取回日常储蓄</option>
+      <option value="interest">实际到账收益</option><option value="spend">动用储蓄消费</option>
+    </select></div>
+    <div><label for="shortTransferAmount">金额</label><input id="shortTransferAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+    <div><label for="shortTransferDate">实际日期</label><input id="shortTransferDate" type="date"></div>
+    <div><label for="shortTransferNote">用途备注</label><input id="shortTransferNote" maxlength="80" placeholder="可选"></div>
+  </div>
+  <p class="note" id="shortTransferHint"></p>
+  <div class="actions"><button class="ghost" type="button" onclick="closeSheet('shortTransferSheet')">取消</button><button class="primary" id="saveShortTransfer" type="button">保存记录</button></div>
+</div></div>
+<div class="sheet" id="projectBorrowSheet"><div class="sheetCard">
+  <h2 class="sheetTitle">专项资金挪用</h2>
+  <div class="formGrid one">
+    <div><label for="projectBorrowAccount">资金来源专项</label><select id="projectBorrowAccount"></select></div>
+    <div><label for="projectBorrowAmount">实际消费金额</label><input id="projectBorrowAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></div>
+    <div><label for="projectBorrowNote">购买用途</label><input id="projectBorrowNote" maxlength="80" placeholder="例如 衣服"></div>
+    <div><label for="projectBorrowMode">处理方式</label><select id="projectBorrowMode"><option value="temporary">临时挪用，计划补回</option><option value="permanent">永久从专项支出</option></select></div>
+  </div>
+  <p class="note">一次登记对应一笔实际消费，并同步减少专项可用余额。</p>
+  <div class="actions"><button class="ghost" type="button" onclick="closeSheet('projectBorrowSheet')">取消</button><button class="primary" id="saveProjectBorrow" type="button">保存挪用</button></div>
+</div></div>
+<div class="sheet" id="projectRepaySheet"><div class="sheetCard">
+  <h2 class="sheetTitle">补回专项资金</h2>
+  <input id="projectRepayAccount" type="hidden">
+  <p class="note" id="projectRepayHint"></p>
+  <div class="formGrid one">
+    <div><label for="projectRepayAmount">补回金额</label><input id="projectRepayAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></div>
+    <div><label for="projectRepaySource">资金来源</label><select id="projectRepaySource"><option value="safe">日常支出余额</option><option value="saving">日常储蓄</option></select></div>
+  </div>
+  <div class="actions"><button class="ghost" type="button" onclick="closeSheet('projectRepaySheet')">取消</button><button class="primary" id="saveProjectRepay" type="button">确认补回</button></div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -2890,6 +2987,7 @@ const defaults={
   plannedExpenses:[],
   projects:[],
   deposits:[],
+  shortAccounts:[],
   tx:[]
 };
 let S=load();
@@ -2951,6 +3049,7 @@ function normalize(d){
     ...p,
     plannedExpenses:Array.isArray(p.plannedExpenses)?p.plannedExpenses:[]
   }));
+  s.shortAccounts=Array.isArray(d.shortAccounts)?d.shortAccounts.filter(x=>x?.id).map(x=>({...x,name:String(x.name||"短期储蓄")})):[];
   s.deposits=Array.isArray(d.deposits)?d.deposits:[];
   s.deposits=s.deposits.map(dep=>{
     const x={...dep};
