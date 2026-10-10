@@ -9752,6 +9752,22 @@ function billCycleForEditedExpense(bid,referenceDate,ignoreId){
 
 function refreshExpenseEditFields(t,selectedRef=""){
   const bucket=document.getElementById("editExpenseBucket")?.value||"safe";
+  const borrow=bucket==="safe"&&document.getElementById("editExpensePaymentMode")?.value==="borrow";
+  const paymentModeRow=document.getElementById("editExpensePaymentModeRow");
+  const borrowFields=document.getElementById("editExpenseBorrowFields");
+  if(paymentModeRow)paymentModeRow.style.display=bucket==="safe"?"":"none";
+  if(borrowFields)borrowFields.style.display=borrow?"":"none";
+  if(borrow){
+    const pid=document.getElementById("editExpenseBorrowProject")?.value;
+    const project=S.projects.find(x=>x.id===pid);
+    const date=document.getElementById("editExpenseDate").value||t.date||td();
+    const amount=Math.max(0,N(document.getElementById("editExpenseAmount").value));
+    const available=projectBalanceBeforeEdit(pid,t.id,date);
+    const meta=document.getElementById("editExpenseBorrowMeta");
+    if(meta)meta.textContent=project
+      ?`专项可挪用 ${M(available)}；本次 ${M(amount)}${amount>available?"，金额超过可用余额":""}`
+      :"请选择原专项";
+  }
   const refRow=document.getElementById("editExpenseRefRow");
   const refLabel=document.getElementById("editExpenseRefLabel");
   const ref=document.getElementById("editExpenseRef");
@@ -9871,7 +9887,7 @@ function openTxEdit(id){
 
     editTxHint.textContent="对应账单、实际支付金额、流水日期和备注都可以修改。修改流水日期后，这笔固定账单会移动到新的日期，并重新匹配缴纳周期、统计范围和当时的账单预留。";
   }else if(t.type==="expense"){
-    const bucket=t.bucket==="living"?"safe":t.bucket;
+    const bucket=t.projectBorrow?"safe":(t.bucket==="living"?"safe":t.bucket);
 
     editTxTitle.textContent="修改支出流水";
     editTxFields.innerHTML=`
@@ -9888,6 +9904,24 @@ function openTxEdit(id){
           </select>
         </div>
 
+        <div id="editExpensePaymentModeRow" style="display:none">
+          <label for="editExpensePaymentMode">日常消费方式</label>
+          <select id="editExpensePaymentMode">
+            <option value="normal" ${!t.projectBorrow?"selected":""}>正常支出</option>
+            <option value="borrow" ${t.projectBorrow?"selected":""}>挪用专项资金</option>
+          </select>
+        </div>
+        <div id="editExpenseBorrowFields" style="display:none">
+          <label for="editExpenseBorrowProject">挪用专项</label>
+          <select id="editExpenseBorrowProject">${txProjectOptions(t.projectBorrow?t.refId:"",true)}</select>
+          <div style="margin-top:8px"><label for="editExpenseBorrowDisposition">补回方式</label>
+            <select id="editExpenseBorrowDisposition">
+              <option value="temporary" ${t.projectBorrowTemporary?"selected":""}>临时挪用，之后补回</option>
+              <option value="permanent" ${!t.projectBorrowTemporary?"selected":""}>不补回，直接扣减专项</option>
+            </select>
+          </div>
+          <div class="small" id="editExpenseBorrowMeta" style="margin-top:6px"></div>
+        </div>
         <div id="editExpenseRefRow" style="display:none">
           <label id="editExpenseRefLabel">选择项目</label>
           <select id="editExpenseRef"></select>
@@ -9927,6 +9961,9 @@ function openTxEdit(id){
     document.getElementById("editExpenseBucket").addEventListener("change",()=>{
       refreshExpenseEditFields(t,"");
     });
+    document.getElementById("editExpensePaymentMode").addEventListener("change",refresh);
+    document.getElementById("editExpenseBorrowProject").addEventListener("change",refresh);
+    document.getElementById("editExpenseBorrowDisposition").addEventListener("change",refresh);
     document.getElementById("editExpenseRef").addEventListener("change",refresh);
     document.getElementById("editExpenseAmount").addEventListener("input",refresh);
     document.getElementById("editExpenseDate").addEventListener("change",refresh);
@@ -10254,7 +10291,9 @@ saveTxEdit.onclick=()=>{
     t.projectOverrunAmount=0;
     t.projectOverrunSource="";
   }else if(t.type==="expense"){
-    const bucket=document.getElementById("editExpenseBucket").value;
+    const chosenBucket=document.getElementById("editExpenseBucket").value;
+    const projectBorrow=chosenBucket==="safe"&&document.getElementById("editExpensePaymentMode").value==="borrow";
+    const bucket=projectBorrow?"project":chosenBucket;
     const amount=Math.max(0,N(document.getElementById("editExpenseAmount").value));
     const date=document.getElementById("editExpenseDate").value||t.date||td();
     const note=document.getElementById("editExpenseNote").value.trim();
@@ -10263,7 +10302,13 @@ saveTxEdit.onclick=()=>{
     if(date>td())return msg("花钱日期不能晚于今天");
 
     let refId="";
-    if(bucket==="bill"||bucket==="project"){
+    if(projectBorrow){
+      refId=document.getElementById("editExpenseBorrowProject").value;
+      const p=S.projects.find(x=>x.id===refId);
+      if(!p)return msg("请选择挪用专项");
+      const available=projectBalanceBeforeEdit(refId,t.id,date);
+      if(amount>available+0.005)return msg(`专项可挪用 ${M(available)}，请调整金额`);
+    }else if(bucket==="bill"||bucket==="project"){
       refId=document.getElementById("editExpenseRef").value;
       if(!refId)return msg("请选择对应项目");
     }
@@ -10288,6 +10333,8 @@ saveTxEdit.onclick=()=>{
     }
 
     t.bucket=bucket;
+    t.projectBorrow=projectBorrow;
+    t.projectBorrowTemporary=projectBorrow&&document.getElementById("editExpenseBorrowDisposition").value==="temporary";
     t.amount=amount;
     t.date=date;
     t.note=note;
@@ -10303,7 +10350,7 @@ saveTxEdit.onclick=()=>{
     }else if(bucket==="project"){
       t.cycleDueDate="";
       const before=projectBalanceBeforeEdit(refId,t.id,date);
-      const over=Math.max(0,amount-before);
+      const over=projectBorrow?0:Math.max(0,amount-before);
       t.projectOverrunAmount=over;
       t.projectOverrunSource=over>0
         ?document.getElementById("editExpenseOverrunSource").value
