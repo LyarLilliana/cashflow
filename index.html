@@ -9301,7 +9301,10 @@ function openExtraSaving(destination="ordinary",accountId=""){
   syncDateDisplays();
   extraSavingSheet.classList.add("show");
 }
-extraSavingDestination.addEventListener("change",refreshExtraSavingDestination);
+extraSavingDestination.addEventListener("change",()=>{
+  if(extraSavingDestination.value==="short")extraSavingFunding.value="combined";
+  refreshExtraSavingDestination();
+});
 extraSavingAccount.addEventListener("change",refreshExtraSavingDestination);
 extraSavingFunding.addEventListener("change",refreshExtraSavingDestination);
 extraSavingAmount.addEventListener("input",refreshExtraSavingCombinedPreview);
