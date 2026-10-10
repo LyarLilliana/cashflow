@@ -1852,6 +1852,11 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .shortBorrowLine{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
 .shortBorrowLine:last-child{border-bottom:0}
 .shortBorrowLine .meta{font-size:10px}
+/* 当前储蓄资产（存量）与所选期间储蓄变化（流量）独立呈现 */
+.savingOverviewCurrent{display:flex;justify-content:space-between;gap:12px;align-items:center;border-top:1px solid var(--line);padding:10px 1px 8px;color:var(--muted);font-size:11px}
+.savingOverviewCurrent small{display:block;font-size:9px;color:var(--muted);margin-top:3px}
+.savingOverviewCurrent strong{font-size:17px;white-space:nowrap;color:var(--text)}
+.shortAccountLineSub>span:last-child{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
 </style>
 </head>
 <body class="booting">
@@ -2128,6 +2133,10 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <div class="savingOverviewAssetRow"><span>日常储蓄变化</span><strong id="savingFreePrincipal">¥0</strong></div>
           <div class="savingOverviewAssetRow"><span>短期储蓄变化</span><strong id="savingShortChange">¥0</strong></div>
           <div class="savingOverviewAssetRow"><span>银行资产变化</span><strong id="savingBankTotal">¥0</strong></div>
+        </div>
+        <div class="savingOverviewCurrent">
+          <span>当前累计储蓄资产 <small>含银行预估利息</small></span>
+          <strong id="savingCurrentAssets">¥0</strong>
         </div>
         <details class="savingOverviewBreakdown">
           <summary>查看金额构成<span aria-hidden="true">⌄</span></summary>
@@ -7519,6 +7528,9 @@ function renderSavingAssetSummary(){
   savingBankTotal.textContent=M(s.bankTotal);
   savingBankTotal.style.color=s.bankTotal<0?"var(--danger)":"inherit";
 
+  const currentAssets=N(accounting().saving)+shortBalanceTotal()+bankPrincipalTotal()+bankInterestTotal();
+  savingCurrentAssets.textContent=M(currentAssets);
+  savingCurrentAssets.style.color=currentAssets<0?"var(--danger)":"var(--text)";
   savingGrandTotal.textContent=M(s.expected);
   savingGrandTotal.style.color=s.expected<0?"var(--danger)":"var(--accent)";
 }
@@ -7573,7 +7585,7 @@ function renderSavingStats(){
   savingGrowthTotalLabel.textContent="预计储蓄增长总和";
   savingGrowthNote.textContent=cycleMode
     ?`日常储蓄变化 ${M(s.dailyAfterBank)} + 短期储蓄变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。`
-    :"“当前周期预计结余”会随继续消费变化，所选范围内的银行本金与利息同步进入同一总和。";
+    :`日常储蓄变化 ${M(s.dailyAfterBank)} + 短期储蓄变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。资金内部转移只影响存放位置。`;
 
   savingChangeList.innerHTML=events.length
     ?events.slice(0,30).map(ev=>`
@@ -7800,9 +7812,10 @@ function renderShortAccounts(){
   shortSavedTotal.textContent=M(shortBalanceTotal());
   shortAccountList.innerHTML=accounts.length?accounts.map(a=>`<div class="shortAccountLine">
     <div class="shortAccountLineTop"><div class="name">${esc(a.name)}</div><strong>${M(shortAccountBalance(a.id))}</strong></div>
-    <div class="shortAccountLineSub"><span class="small">默认锁定 · 可主动转存</span><span>
+    <div class="shortAccountLineSub"><span class="small">默认锁定</span><span>
       <button type="button" onclick="openShortTransfer('${a.id}','in')">转入</button>
       <button type="button" onclick="openShortTransfer('${a.id}','out')">取出</button>
+      <button type="button" onclick="openBankFromShort('${a.id}')">转存</button>
       <button type="button" onclick="openShortAccount('${a.id}')">修改</button>
     </span></div></div>`).join(""):'<div class="note" style="padding:12px 0">建立支付宝小荷包等储蓄账户，之后逐笔转入即可开始积累。</div>';
   const pending=(S.projects||[]).filter(p=>projectRepayPending(p.id)>0);
@@ -7811,6 +7824,19 @@ function renderShortAccounts(){
     <button class="secondary" type="button" onclick="openProjectRepay('${p.id}')">补回</button>
   </div>`).join(""):'<div class="note">临时挪用专项后，这里将显示待补回金额。</div>';
   projectBorrowSection.style.display=(S.projects||[]).length?"":"none";
+}
+function openBankFromShort(id){
+  const a=S.shortAccounts.find(x=>x.id===id);
+  if(!a)return;
+  const amount=shortAccountBalance(id);
+  if(amount<=0)return msg("当前短期账户尚无可转存余额");
+  openBankDeposit();
+  bankDepositSource.value="short";
+  bankShortAccount.value=id;
+  bankDepositSheet.dataset.sourceShortAccount=id;
+  bankDepositPrincipal.value=amount.toFixed(2);
+  bankDepositName.value=a.name+" 转存";
+  refreshBankDepositForm();
 }
 function openShortAccount(id=""){
   const a=(S.shortAccounts||[]).find(x=>x.id===id);
@@ -7865,8 +7891,9 @@ function deleteShortRecord(id){
   const t=S.tx.find(x=>x.id===id);
   if(!t||!["short_transfer","short_interest","short_spend"].includes(t.type))return;
   if(!confirm("撤销这笔短期储蓄记录？"))return;
+  const dailyBefore=N(accounting().saving);
   S.tx=S.tx.filter(x=>x.id!==id);
-  if(!shortLedgerValid(t.shortAccountId)||N(accounting().saving)<-0.005){
+  if(!shortLedgerValid(t.shortAccountId)||N(accounting().saving)<Math.min(0,dailyBefore)-0.005){
     S.tx.push(t);return msg("撤销后其他余额不足，请先核对后续资金调动");
   }
   save();render();msg("记录已撤销");
@@ -7940,6 +7967,7 @@ function renderSavings(){
       </div>
 
       <div class="savingMiniGrid">
+        <div>资金来源<strong>${d.source==="short"?esc(shortAccountName(d.shortAccountId)):d.source==="existing"?"日常储蓄":"外部新增"}</strong></div>
         <div>存入金额<strong>${M(d.principal)}</strong></div>
         <div>年利率<strong>${rateText}%</strong></div>
         <div>存款类型<strong>${depositTypeLabel(d)}</strong></div>
@@ -9330,7 +9358,7 @@ saveBankDeposit.onclick=()=>{
     S.deposits.push({id:createdId,...record});
   }
   const ledgerAccountIds=new Set([shortAccountId,original?.shortAccountId].filter(Boolean));
-  if([...ledgerAccountIds].some(id=>!shortLedgerValid(id))||N(accounting().saving)<-0.005){
+  if([...ledgerAccountIds].some(id=>!shortLedgerValid(id))){
     if(original){const d=S.deposits.find(x=>x.id===id);if(d)Object.assign(d,original);}
     else S.deposits=S.deposits.filter(d=>d.id!==createdId);
     return msg("此次转存会导致储蓄账户余额不足，请调整本金或日期");
