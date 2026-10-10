@@ -9731,8 +9731,12 @@ function txIncomePlanOptions(t){
 }
 
 function txIncomeProjectRows(t){
-  const allocMap=new Map((t.alloc?.projects||[]).map(x=>[x.projectId,N(x.amount)]));
-  const rows=S.projects.filter(p=>!p.archived||allocMap.has(p.id));
+  const allocMap=new Map(),repayMap=new Map();
+  (t.alloc?.projects||[]).forEach(x=>{
+    const map=x.repayment?repayMap:allocMap;
+    map.set(x.projectId,(map.get(x.projectId)||0)+N(x.amount));
+  });
+  const rows=S.projects.filter(p=>!p.archived||allocMap.has(p.id)||repayMap.has(p.id));
 
   if(!rows.length){
     return '<div class="note">当前没有可分配的专项。</div>';
