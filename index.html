@@ -9229,6 +9229,36 @@ saveLivingBatch.onclick=()=>{
 };
 
 /* Extra savings */
+// Backdated transfers may move money that later paid an expense or bank lock.
+// Compare dated ledgers before/after recording, so historical funding never silently goes negative.
+function walletFundingCheckDates(fromDate){
+  const end=td();
+  const dates=new Set([fromDate,end]);
+  S.tx.forEach(t=>{
+    if(t.date&&t.date>=fromDate&&t.date<=end)dates.add(t.date);
+  });
+  (S.deposits||[]).forEach(d=>{
+    if(d.source==="existing"&&d.startDate>=fromDate&&d.startDate<=end)dates.add(d.startDate);
+  });
+  fallbackLivingDayRows().forEach(x=>{
+    if(x.date>=fromDate&&x.date<=end)dates.add(x.date);
+  });
+  return [...dates].sort();
+}
+function walletFundingSnapshots(dates){
+  return dates.map(date=>{
+    const a=accounting(date);
+    return {date,saving:N(a.saving),uncovered:N(a.uncovered)};
+  });
+}
+function walletFundingRemainsCovered(before,after){
+  return before.length===after.length&&before.every((prev,i)=>{
+    const now=after[i];
+    return prev.date===now.date
+      &&now.uncovered<=prev.uncovered+0.005
+      &&now.saving>=Math.min(0,prev.saving)-0.005;
+  });
+}
 function combinedSavingsAvailable(asOf=td()){
   const a=accounting(asOf);
   const saving=Math.max(0,Math.round(N(a.saving)*100)/100);
