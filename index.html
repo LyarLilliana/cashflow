@@ -4531,6 +4531,11 @@ function billPaidBeforeIncome(bid,dueDate,incomeTx){
   return sm(
     S.tx.filter(tx=>
       billPaymentMatchesCycle(tx,bid,dueDate)
+      // A bill paid earlier on the SAME calendar day may already be linked to
+      // this income. It must consume this income's reservation, not erase it.
+      // Payments from earlier dates or other income cycles still reduce the
+      // amount that can be reserved by this income.
+      &&!(tx.cycleIncomeId===incomeTx.id&&tx.date===incomeTx.date)
       &&txPrecedesIncome(tx,incomeTx)
     ),
     tx=>N(tx.amount)
@@ -5017,7 +5022,10 @@ function markBillHandled(bid,dueDate){
     note:b.name,
     settledBillId:bid,
     cycleDueDate:dueDate,
-    billHandledDirect:true
+    billHandledDirect:true,
+    // Bind the payment to the current income cycle even when it is recorded
+    // on the income date; reservation and payment remain a single cash outflow.
+    cycleIncomeId:cycleIncomeIdForDate(td())
   });
 
   save();
