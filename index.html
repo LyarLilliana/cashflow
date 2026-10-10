@@ -9316,10 +9316,10 @@ saveExtraSaving.onclick=()=>{
   const source=locked?extraSavingFunding.value:"new";
 
   if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效的额外储蓄金额");
-  if(date>td())return msg("只能记录已经存入的资金");
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return msg("请选择有效的转入日期");
 
   let accountId="",newAccount=null;
-  const combined=locked&&source==="combined"?combinedSavingSplit(amount):null;
+  const combined=locked&&source==="combined"?combinedSavingSplit(amount,combinedSavingsAvailable(date)):null;
   if(locked){
     accountId=extraSavingAccount.value;
     if(accountId==="__new__"){
@@ -9334,16 +9334,14 @@ saveExtraSaving.onclick=()=>{
     if(!newAccount&&!S.shortAccounts.some(a=>a.id===accountId)){
       return msg("请选择一个短期储蓄账户");
     }
-    // 现有资金内部划转仅在今天登记，避免补记时覆盖历史预算余额。
-    if(source!=="new"&&date!==td()){
-      return msg("从现有资金池划转请使用今天日期");
+    // Any date can be entered. Fund the movement from balances existing on that date.
+    const atDate=combinedSavingsAvailable(date);
+    if(combined&&!combined.valid)return msg(`${date} 合并可转入 ${M(atDate.total)}，不足以转入 ${M(amount)}`);
+    if(source==="saving"&&amount>atDate.saving+0.005){
+      return msg(`${date} 已有储蓄可转入 ${M(atDate.saving)}`);
     }
-    if(combined&&!combined.valid)return msg(`合并可转入 ${M(combinedSavingsAvailable().total)}，不足以转入 ${M(amount)}`);
-    if(source==="saving"&&amount>Math.max(0,N(accounting().saving))+0.005){
-      return msg(`日常储蓄当前可转入 ${M(Math.max(0,N(accounting().saving)))}`);
-    }
-    if(source==="pocket"&&amount>Math.max(0,N(bal().safe))+0.005){
-      return msg(`当前日常支出可转入 ${M(Math.max(0,N(bal().safe)))}`);
+    if(source==="pocket"&&amount>atDate.pocket+0.005){
+      return msg(`${date} 日常支出余额可转入 ${M(atDate.pocket)}`);
     }
   }
 
