@@ -9559,7 +9559,7 @@ saveBankDeposit.onclick=()=>{
 
   if(source==="short"){
     if(!shortAccountId||!(S.shortAccounts||[]).some(a=>a.id===shortAccountId))return msg("请选择短期储蓄账户");
-    if(startDate>td())return msg("请在实际转存当日登记短期储蓄转存");
+    // Backdated deposits and future transfer plans use the selected effective date.
     const available=shortAccountBalance(shortAccountId,startDate,id);
     if(principal>available+0.005)return msg(`该账户可用于转存 ${M(Math.max(0,available))}`);
   }
@@ -9607,7 +9607,9 @@ saveBankDeposit.onclick=()=>{
   closeSheet("bankDepositSheet");
   render();
 
-  if(id){
+  if(startDate>td()){
+    msg(`已记录 ${startDate} 的转存计划；此前不会改变实际资产余额`);
+  }else if(id){
     msg("银行存款已修改");
   }else{
     const reminderAfter=bankReminderState();
