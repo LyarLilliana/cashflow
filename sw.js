@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-62-short-savings-interaction-fix";
+const CACHE = "safespend-v10-63-daily-borrow-mode";
 const ASSETS = [
   "./",
   "./index.html",
