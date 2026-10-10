@@ -9277,7 +9277,7 @@ function refreshExtraSavingDestination(){
   extraSavingDestinationHint.textContent=!locked
     ?"额外存下的资金进入日常储蓄，仍按现有规则参与超支兜底；已计入的资金不要重复记为新增。"
     :source==="combined"
-      ?"从已有储蓄与日常支出剩余合并转入，系统自动分配并保留来源；转入后锁定，原有储蓄不重复计算。"
+      ?"可将上周期结转储蓄与本周期日常支出剩余合并存入，系统先使用已有储蓄，不足部分再使用日常剩余；已结算的基础生活回流已包含在日常余额中。专项、账单预留和原本锁定的资产不会自动挪用。"
       :source==="saving"
       ?"从已记账的日常储蓄转入，储蓄总额不变；转入后会锁定，不再自动补贴零花钱。"
       :source==="pocket"
