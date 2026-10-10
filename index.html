@@ -3567,6 +3567,12 @@ function shortLedgerValid(id){
   S.deposits.filter(d=>d.source==="short"&&d.shortAccountId===id).forEach(d=>dates.add(d.startDate));
   return [...dates].every(date=>shortAccountBalance(id,date)>=-0.005);
 }
+function projectRepaymentTotals(projectId,excludeBorrowId=""){
+  const borrowed=sm(S.tx.filter(t=>t.type==="expense"&&t.refId===projectId&&t.projectBorrowTemporary&&t.id!==excludeBorrowId),t=>N(t.amount));
+  const repaid=sm(S.tx.filter(t=>t.repaymentOf===projectId),t=>N(t.amount))
+    +sm(S.tx.filter(t=>t.type==="income"),t=>sm((t.alloc?.projects||[]).filter(x=>x.projectId===projectId&&x.repayment),x=>N(x.amount)));
+  return {borrowed,repaid};
+}
 function projectRepayPending(projectId){
   const borrowed=sm(S.tx.filter(t=>t.type==="expense"&&t.refId===projectId&&t.projectBorrowTemporary),t=>N(t.amount));
   const repaid=sm(S.tx.filter(t=>t.repaymentOf===projectId),t=>N(t.amount))
@@ -10469,6 +10475,11 @@ saveTxEdit.onclick=()=>{
       if(!refId)return msg("请选择对应项目");
     }
 
+    if(t.projectBorrowTemporary){
+      const loan=projectRepaymentTotals(t.refId,t.id);
+      const remains=loan.borrowed+(projectBorrow&&document.getElementById("editExpenseBorrowDisposition").value==="temporary"&&refId===t.refId?amount:0);
+      if(remains+0.005<loan.repaid)return msg("这笔挪用已经有补回记录。请先核对或撤销相关补回，再修改挪用金额、来源或类型");
+    }
     const oldBucket=t.bucket;
     const oldRef=t.refId;
 
@@ -10808,6 +10819,10 @@ saveSpend.onclick=()=>{
 function removeTx(id){
   const target=S.tx.find(x=>x.id===id);
   if(!target)return;
+  if(target.type==="expense"&&target.projectBorrowTemporary){
+    const loan=projectRepaymentTotals(target.refId,target.id);
+    if(loan.borrowed+0.005<loan.repaid)return msg("这笔专项挪用已有补回记录。请先撤销对应的补回记录，再删除原消费");
+  }
 
   if(target.type==="income"&&target.planId){
     const samePlan=S.tx.filter(x=>x.type==="income"&&x.planId===target.planId&&x.id!==id)
