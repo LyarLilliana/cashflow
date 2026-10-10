@@ -5063,6 +5063,7 @@ function archiveProject(id){
   if(!p)return;
   if(projectPlannedExpenses(p).length>0)return msg("专项还有待支出规划，请先记为支出或删除规划");
   if(projectGap(p)>0)return msg("专项还有资金缺口，暂时不能结算");
+  if(projectRepayPending(p.id)>0)return msg("专项仍有临时挪用待补回，请先完成补回后再结算归档");
 
   const available=Math.max(0,projectAvail(p));
   const funded=projectFunded(p);
@@ -5438,7 +5439,7 @@ function renderPlan(){
     return `<div class="item" onclick="editProject('${p.id}')">
       <div class="row"><div><div class="name">${esc(p.name)}</div>
       <div class="meta">预算 ${M(p.budget)} · 已备 ${M(funded)} · 已花 ${M(spent)}${planned>0?" · 待支出规划 "+M(planned):""}${p.dueDate?" · "+p.dueDate:""}${repay>0?" · 待补回 "+M(repay):""}</div></div>
-      <div style="text-align:right"><div class="amount ${gap>0?"warn":"pos"}">${gap>0?"缺 "+M(gap):"已备妥"}</div>
+      <div style="text-align:right"><div class="amount ${gap>0?"warn":"pos"}">${repay>0?"待补回 "+M(repay):gap>0?"缺 "+M(gap):"已备妥"}</div>
       <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteProject('${p.id}')">删除</button></div></div>
       <div class="progress"><span style="width:${pct}%"></span></div>${repay>0?`<div class="projectRepayInline"><span>待补回 <strong>${M(repay)}</strong></span><button type="button" class="secondary" onclick="event.stopPropagation();openProjectRepay('${p.id}')">补回</button></div>`:""}</div>`;
   }).join(""):'<div class="note">还没有进行中的专项计划。</div>';
@@ -5795,13 +5796,14 @@ function renderNow(){
       const pendingRepay=projectRepayPending(p.id);
       if(pendingRepay>0){
         summaryMeta+=" · 待补回 "+M(pendingRepay);
+        if(plan.gap===0){summaryValue="待补回 "+M(pendingRepay);summaryClass="projectPlanGap projectCycleWarn";}
         detailHtml+=`<div class="projectRepayInline">
           <span>已临时挪用，待补回 <strong>${M(pendingRepay)}</strong></span>
           <button class="secondary" type="button" onclick="event.stopPropagation();openProjectRepay('${p.id}')">补回</button>
         </div>`;
       }
 
-      const actions=plan.gap===0&&N(p.budget)>0
+      const actions=plan.gap===0&&pendingRepay<=0&&N(p.budget)>0
         ?`<div class="projectItemActions">
             <button class="archiveBtn" onclick="editProject('${p.id}')">修改</button>
             <button class="archiveBtn primaryAction" onclick="archiveProject('${p.id}')">结算并归档</button>
