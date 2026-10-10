@@ -2177,7 +2177,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         </div>
         <div class="shortAccountList" id="shortAccountList"></div>
         <div class="shortAccountActions">
-          <button class="secondary" type="button" onclick="openShortTransfer()">转入 / 取出</button>
+          <button class="secondary" type="button" onclick="openExtraSaving('short')">记入锁定储蓄</button>
           <button class="ghost" type="button" onclick="openShortTransfer('','interest')">登记收益</button>
         </div>
         <div class="small" style="margin-top:9px">短期储蓄默认锁定，转入后退出日常消费兜底池。每笔主动取用和银行转存均保留记录。</div>
@@ -2307,7 +2307,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="card savingAddCard">
         <button class="ghost savingAddAction" onclick="openExtraSaving()">
           <span class="savingAddActionTitle">记额外储蓄</span>
-          <span class="savingAddActionMeta">把额外存下来的钱加入日常储蓄</span>
+          <span class="savingAddActionMeta">存入日常储蓄或小荷包等锁定账户</span>
         </button>
         <button class="ghost savingAddAction" onclick="openBankDeposit()">
           <span class="savingAddActionTitle">新增银行存款</span>
@@ -2858,7 +2858,32 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       </div>
       <div>
         <label>金额</label>
-        <input id="extraSavingAmount" inputmode="decimal" type="number" min="0" placeholder="0">
+        <input id="extraSavingAmount" inputmode="decimal" type="number" min="0.01" step="0.01" placeholder="0">
+      </div>
+      <div style="grid-column:1/-1">
+        <label for="extraSavingDestination">存到哪里</label>
+        <select id="extraSavingDestination">
+          <option value="ordinary">日常储蓄</option>
+          <option value="short">短期锁定储蓄（小荷包等）</option>
+        </select>
+      </div>
+      <div id="extraSavingShortFields" style="grid-column:1/-1;display:none">
+        <div>
+          <label for="extraSavingAccount">锁定储蓄账户</label>
+          <select id="extraSavingAccount"></select>
+        </div>
+        <div id="extraSavingNewAccountRow" style="margin-top:9px;display:none">
+          <label for="extraSavingNewAccount">新账户名称</label>
+          <input id="extraSavingNewAccount" maxlength="40" placeholder="例如 支付宝小荷包">
+        </div>
+        <div style="margin-top:9px">
+          <label for="extraSavingFunding">这笔钱原来在哪里</label>
+          <select id="extraSavingFunding">
+            <option value="new">额外新存入（此前未记过账）</option>
+            <option value="saving">已有日常储蓄</option>
+            <option value="pocket">日常支出剩余（零花钱）</option>
+          </select>
+        </div>
       </div>
       <div style="grid-column:1/-1">
         <label>备注</label>
@@ -2866,7 +2891,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       </div>
     </div>
     <div class="note" style="margin-top:10px">
-      “额外储蓄”用于记录不属于收入周期自动结算、但你确实另外存下来的钱。若只是把当前零花钱转成储蓄，请继续使用“零花钱转储蓄”，避免重复计算。
+      <span id="extraSavingDestinationHint">记录此前未被系统计入的额外储蓄。如果钱已在其他资金池，请选择正确来源，避免重复计算。</span>
     </div>
     <div class="actions">
       <button class="ghost" onclick="closeSheet('extraSavingSheet')">取消</button>
@@ -7840,11 +7865,11 @@ function renderShortAccounts(){
   shortAccountList.innerHTML=accounts.length?accounts.map(a=>`<div class="shortAccountLine">
     <div class="shortAccountLineTop"><div class="name">${esc(a.name)}</div><strong>${M(shortAccountBalance(a.id))}</strong></div>
     <div class="shortAccountLineSub"><span class="small">默认锁定</span><span>
-      <button type="button" onclick="openShortTransfer('${a.id}','in')">转入</button>
+      <button type="button" onclick="openExtraSaving('short','${a.id}')">转入</button>
       <button type="button" onclick="openShortTransfer('${a.id}','out')">取出</button>
       <button type="button" onclick="openBankFromShort('${a.id}')">转存</button>
       <button type="button" onclick="openShortAccount('${a.id}')">修改</button>
-    </span></div></div>`).join(""):'<div class="shortAccountEmpty"><div class="note">先创建一个账户，例如支付宝小荷包，之后就能转入和管理锁定储蓄。</div><button class="secondary" type="button" onclick="openShortAccount()">创建首个账户</button></div>';
+    </span></div></div>`).join(""):'<div class="shortAccountEmpty"><div class="note">在「记额外储蓄」里选择锁定账户，首次记录时可直接创建小荷包。</div><button class="secondary" type="button" onclick="openExtraSaving(&quot;short&quot;)">开始存入</button></div>';
   const pending=(S.projects||[]).filter(p=>projectRepayPending(p.id)>0);
   projectBorrowList.innerHTML=pending.length?pending.map(p=>`<div class="shortBorrowLine">
     <div><div class="name">${esc(p.name)}</div><div class="meta">待补回 ${M(projectRepayPending(p.id))}</div></div>
