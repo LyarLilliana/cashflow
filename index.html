@@ -9765,7 +9765,7 @@ function txIncomePlanOptions(t){
   let html=`<option value="__extra__" ${selected==="__extra__"?"selected":""}>单次额外收入</option>`;
 
   S.incomePlans.forEach(p=>{
-    html+=`<option value="${p.id}" ${selected===p.id?"selected":""}>${esc(p.name)} · ${freqLabel(p.freq)}</option>`;
+    html+=`<option value="${p.id}" ${selected===p.id?"selected":""}>${esc(p.name)} · ${M(p.amount)}</option>`;
   });
 
   if(t.planId&&!S.incomePlans.some(p=>p.id===t.planId)){
@@ -9778,40 +9778,26 @@ function txIncomePlanOptions(t){
 function txIncomeProjectRows(t){
   const allocMap=new Map(),repayMap=new Map();
   (t.alloc?.projects||[]).forEach(x=>{
-    const map=x.repayment?repayMap:allocMap;
-    map.set(x.projectId,(map.get(x.projectId)||0)+N(x.amount));
+    const target=x.repayment?repayMap:allocMap;
+    target.set(x.projectId,(target.get(x.projectId)||0)+N(x.amount));
   });
   const rows=S.projects.filter(p=>!p.archived||allocMap.has(p.id)||repayMap.has(p.id));
-
-  if(!rows.length){
-    return '<div class="note">当前没有可分配的专项。</div>';
-  }
-
-  return rows.map(p=>`
-    <div class="txEditProjectRow">
-      <div>
-        <div class="txEditProjectName">${esc(p.name)}</div>
-        <div class="txEditProjectMeta">${p.archived?"已归档 · ":""}当前专项缺口 ${M(projectGap(p))}</div>
-      </div>
-      <input
-        class="editIncomeProjectAmount"
-        data-id="${p.id}"
-        inputmode="decimal"
-        type="number"
-        min="0"
-        value="${allocMap.get(p.id)||0}"
-      >
-    </div>
-    ${(projectRepayPending(p.id)+(repayMap.get(p.id)||0))>0.005
-      ?`<div class="txEditProjectRow">
-        <div><div class="txEditProjectName">补回 · ${esc(p.name)}</div>
-          <div class="txEditProjectMeta">临时挪用待补回 ${M(projectRepayPending(p.id)+(repayMap.get(p.id)||0))}</div></div>
-        <input class="editIncomeRepayAmount" data-id="${p.id}" inputmode="decimal" type="number" min="0" step="0.01"
-          value="${repayMap.get(p.id)||0}">
-      </div>`:""}
-  `).join("");
+  if(!rows.length)return "";
+  const projectHtml=rows.map(p=>`
+    <div class="formGrid" style="margin-top:8px">
+      <div><div class="name">${esc(p.name)}</div>
+        <div class="meta">${p.archived?"已归档 · ":""}当前还缺 ${M(projectGap(p))} · 本次已预留 ${M(allocMap.get(p.id)||0)}</div></div>
+      <div><input class="editIncomeProjectAmount" data-id="${p.id}" inputmode="decimal" type="number" min="0" step="0.01" value="${allocMap.get(p.id)||0}"></div>
+    </div>`).join("");
+  const repayments=rows.filter(p=>projectRepayPending(p.id)+(repayMap.get(p.id)||0)>0.005)
+    .map(p=>`<div class="formGrid" style="margin-top:8px">
+      <div><div class="name">${esc(p.name)}</div>
+        <div class="meta">临时挪用待补回 ${M(projectRepayPending(p.id)+(repayMap.get(p.id)||0))}</div></div>
+      <div><input class="editIncomeRepayAmount" data-id="${p.id}" inputmode="decimal" type="number" min="0" step="0.01" value="${repayMap.get(p.id)||0}"></div>
+    </div>`).join("");
+  return '<div class="small" style="margin:4px 0 2px;font-weight:700">专项</div>'
+    +projectHtml+(repayments?'<div class="small" style="margin:12px 0 2px;font-weight:700">从本次收入补回专项</div>'+repayments:"");
 }
-
 
 function txIncomeLightRows(t){
   const amounts=new Map();
@@ -10104,6 +10090,7 @@ function openTxEdit(id){
   if(!t||!transactionEditable(t))return msg("这条流水没有可还原的输入表单");
 
   editTxId.value=t.id;
+  saveTxEdit.disabled=false;
 
   if(t.type==="income"){
     editTxTitle.textContent="修改这笔收入";
