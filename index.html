@@ -2296,8 +2296,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
     <div class="section" id="projectBorrowSection">
       <div class="sectionHeader">
-        <div class="sectionTitle">专项资金挪用</div>
-        <button class="sectionToggle" type="button" onclick="openProjectBorrow()">记录挪用</button>
+        <div class="sectionTitle">专项待补回</div>
       </div>
       <div class="card shortAccountCard" id="projectBorrowList"></div>
     </div>
@@ -5861,6 +5860,7 @@ function expenseSourceLabel(t){
 
   if(t.bucket==="project"){
     const p=S.projects.find(x=>x.id===t.refId);
+    if(t.projectBorrow)return `挪用专项 · ${p?.name||"专项"}${t.projectBorrowTemporary?" · 待补回":""}`;
     return p?`专项 · ${p.name}`:"专项";
   }
 
@@ -6006,7 +6006,8 @@ function txHtml(t,del=false,edit=false){
     extraMeta=` · 超出 ${M(t.projectOverrunAmount)} 由${source}支付`;
   }
   const sourceLabel=expenseSourceLabel(t);
-  return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${map[t.bucket]||"支出"}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${sourceLabel?" · "+esc(sourceLabel):""}${extraMeta}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+  const category=t.projectBorrow?"日常支出 · 挪用":(map[t.bucket]||"支出");
+  return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${category}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${sourceLabel?" · "+esc(sourceLabel):""}${extraMeta}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
 }
 function transactionEditable(t){
   if(!t)return false;
@@ -6079,7 +6080,7 @@ function transactionActionTitle(t){
       project:"专项支出",
       saving:"储蓄取用"
     };
-    return `${labels[t.bucket]||"支出"}${t.note?" · "+t.note:""}`;
+    return `${t.projectBorrow?"日常支出 · 挪用专项":(labels[t.bucket]||"支出")}${t.note?" · "+t.note:""}`;
   }
 
   return "流水";
@@ -7851,7 +7852,7 @@ function renderShortAccounts(){
     <div><div class="name">${esc(p.name)}</div><div class="meta">待补回 ${M(projectRepayPending(p.id))}</div></div>
     <button class="secondary" type="button" onclick="openProjectRepay('${p.id}')">补回</button>
   </div>`).join(""):'<div class="note">临时挪用专项后，这里将显示待补回金额。</div>';
-  projectBorrowSection.style.display=(S.projects||[]).length?"":"none";
+  projectBorrowSection.style.display=pending.length?"":"none";
 }
 function openBankFromShort(id){
   const a=S.shortAccounts.find(x=>x.id===id);
@@ -8058,7 +8059,8 @@ function spendingBreakdownForRange(start="",end=""){
     }
 
     if(t.bucket==="project"){
-      project+=amount;
+      if(t.projectBorrow)daily+=amount;
+      else project+=amount;
       return;
     }
 
@@ -9691,11 +9693,11 @@ function projectBalanceBeforeEdit(projectId,targetId,targetDate){
       continue;
     }
 
-    if(x.type==="pocket_to_project"&&x.projectId===projectId){
+    if((x.type==="pocket_to_project"||x.type==="saving_to_project")&&x.projectId===projectId){
       amount+=N(x.amount);
       continue;
     }
-if(x.type==="project_settlement"&&x.projectId===projectId){
+    if(x.type==="project_settlement"&&x.projectId===projectId){
       amount-=Math.min(Math.max(0,amount),N(x.amount));
       continue;
     }
