@@ -2189,7 +2189,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <button class="secondary" type="button" onclick="openExtraSaving('short')">合并余额转入</button>
           <button class="ghost" type="button" onclick="openShortTransfer('','interest')">登记收益</button>
         </div>
-        <div class="small" style="margin-top:9px">上周期结转的储蓄转入小荷包，只改变存放位置，总储蓄不增加。转入后默认锁定，不自动补贴零花钱。</div>
+        <div class="small" style="margin-top:9px">支持按任意日期补记转入或转出。过去日期会重算账目，未来日期记为待生效计划，到日期才影响余额。资金转入后锁定，不参与零花钱兜底。</div>
       </div>
       <div class="card bankReminderWithinSaving">
         <div class="name" style="margin-bottom:5px">累计转存目标</div>
@@ -7302,9 +7302,10 @@ function savingChangeEvents(){
   S.tx.forEach(t=>{
     const date=t.date||"";
     if(date>td()&&["short_transfer","pocket_to_short","extra_saving","short_interest","short_spend"].includes(t.type)){
+      const destination=t.shortAccountId?` · ${shortSavingsAccountLabel(t.shortAccountId)}`:"";
       events.push({
         id:t.id,date,
-        name:`待生效 · ${t.type==="extra_saving"?"储蓄存入":t.type==="short_spend"?"短期储蓄取用":t.type==="short_interest"?"短期储蓄收益":"短期储蓄转账"} · ${shortSavingsAccountLabel(t.shortAccountId)}`,
+        name:`待生效 · ${t.type==="extra_saving"?"储蓄存入":t.type==="short_spend"?"短期储蓄取用":t.type==="short_interest"?"短期储蓄收益":"短期储蓄转账"}${destination}`,
         meta:"已安排的未来记录，尚未影响实际资产",
         amount:N(t.amount),impact:0,mode:"move"
       });
@@ -7884,14 +7885,18 @@ function openBankDepositFromReminder(){
 function renderShortAccounts(){
   const accounts=S.shortAccounts||[];
   shortSavedTotal.textContent=M(shortBalanceTotal());
-  shortAccountList.innerHTML=accounts.length?accounts.map(a=>`<div class="shortAccountLine">
+  shortAccountList.innerHTML=accounts.length?accounts.map(a=>{
+    const futureCount=S.tx.filter(t=>t.shortAccountId===a.id&&t.date>td()).length
+      +S.deposits.filter(d=>d.source==="short"&&d.shortAccountId===a.id&&d.startDate>td()).length;
+    return `<div class="shortAccountLine">
     <div class="shortAccountLineTop"><div class="name">${esc(a.name)}</div><strong>${M(shortAccountBalance(a.id))}</strong></div>
-    <div class="shortAccountLineSub"><span class="small">默认锁定</span><span>
+    <div class="shortAccountLineSub"><span class="small">默认锁定${futureCount?` · ${futureCount} 笔待生效`:""}</span><span>
       <button type="button" onclick="openExtraSaving('short','${a.id}')">转入</button>
       <button type="button" onclick="openShortTransfer('${a.id}','out')">取出</button>
       <button type="button" onclick="openBankFromShort('${a.id}')">转存</button>
       <button type="button" onclick="openShortAccount('${a.id}')">修改</button>
-    </span></div></div>`).join(""):'<div class="shortAccountEmpty"><div class="note">在「记额外储蓄」里选择锁定账户，首次记录时可直接创建小荷包。</div><button class="secondary" type="button" onclick="openExtraSaving(&quot;short&quot;)">开始存入</button></div>';
+    </span></div></div>`;
+  }).join(""):'<div class="shortAccountEmpty"><div class="note">在「记额外储蓄」里选择锁定账户，首次记录时可直接创建小荷包。</div><button class="secondary" type="button" onclick="openExtraSaving(&quot;short&quot;)">开始存入</button></div>';
 
 }
 function openBankFromShort(id){
