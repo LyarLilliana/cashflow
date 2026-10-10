@@ -3569,7 +3569,8 @@ function projectRepayPending(projectId){
     +sm(S.tx.filter(t=>t.type==="income"),t=>sm((t.alloc?.projects||[]).filter(x=>x.projectId===projectId&&x.repayment),x=>N(x.amount)));
   return Math.max(0,borrowed-repaid);
 }
-function accounting(){
+function accounting(asOf=td()){
+  // Historical and future-dated wallet movements affect balances only from their effective date.
   const raw={safe:0,bills:0};
   const dailyLivingCover=dailyExpenseLivingCoverMap();
   const lightReserveUsage=lightPlanReserveUsageMap();
@@ -3599,7 +3600,7 @@ function accounting(){
     return repaid;
   };
 
-  const depositLocks=startedBankDeposits()
+  const depositLocks=startedBankDeposits(asOf)
     .filter(d=>d.source==="existing")
     .map(d=>({
       id:`bdlock_${d.id}`,
@@ -3641,6 +3642,7 @@ function accounting(){
   };
 
   const ordered=[...S.tx,...depositLocks,...cycleClosures,...fallbackLivingEvents]
+    .filter(t=>!t.date||t.date<=asOf)
     .sort((a,b)=>{
       if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
 
@@ -9224,13 +9226,14 @@ saveLivingBatch.onclick=()=>{
 };
 
 /* Extra savings */
-function combinedSavingsAvailable(){
-  const b=bal();
-  const saving=Math.max(0,Math.round(N(b.saving)*100)/100);
-  const pocket=Math.max(0,Math.round(N(b.safe)*100)/100);
+function combinedSavingsAvailable(asOf=td()){
+  const a=accounting(asOf);
+  const saving=Math.max(0,Math.round(N(a.saving)*100)/100);
+  const spendable=asOf===td()?currentPocketBalance(a,currentCycleStats()):N(a.raw.safe);
+  const pocket=Math.max(0,Math.round(spendable*100)/100);
   return {saving,pocket,total:Math.round((saving+pocket)*100)/100};
 }
-function combinedSavingSplit(amount,available=combinedSavingsAvailable()){
+function combinedSavingSplit(amount,available=combinedSavingsAvailable(extraSavingDate.value||td())){
   const cents=Math.max(0,Math.round(N(amount)*100));
   const fromSaving=Math.min(cents,Math.round(available.saving*100));
   const fromPocket=cents-fromSaving;
@@ -9243,7 +9246,7 @@ function refreshExtraSavingCombinedPreview(){
   const funding=extraSavingFunding.value;
   el.style.display=locked&&funding!=="new"?"block":"none";
   if(!locked||funding==="new")return;
-  const f=combinedSavingsAvailable();
+  const f=combinedSavingsAvailable(extraSavingDate.value||td());
   const amount=Math.round(N(extraSavingAmount.value)*100)/100;
   if(funding==="combined"){
     const split=combinedSavingSplit(amount,f);
@@ -9281,7 +9284,7 @@ function refreshExtraSavingDestination(){
 }
 function openExtraSaving(destination="ordinary",accountId=""){
   extraSavingDate.value=td();
-  extraSavingDate.max=td();
+  extraSavingDate.removeAttribute("max");
   extraSavingAmount.value="";
   extraSavingNote.value="";
   extraSavingDestination.value=destination==="short"?"short":"ordinary";
@@ -9303,6 +9306,7 @@ extraSavingDestination.addEventListener("change",()=>{
 extraSavingAccount.addEventListener("change",refreshExtraSavingDestination);
 extraSavingFunding.addEventListener("change",refreshExtraSavingDestination);
 extraSavingAmount.addEventListener("input",refreshExtraSavingCombinedPreview);
+extraSavingDate.addEventListener("change",refreshExtraSavingCombinedPreview);
 
 saveExtraSaving.onclick=()=>{
   const date=extraSavingDate.value||td();
