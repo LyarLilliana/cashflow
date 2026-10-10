@@ -9812,42 +9812,117 @@ function txIncomeProjectRows(t){
   `).join("");
 }
 
-function refreshIncomeEditFields(t){
-  const select=document.getElementById("editIncomePlan");
-  if(!select)return;
 
-  let plan=null;
-  let recurring=false;
-  let isExtra=false;
-
-  if(select.value==="__extra__"){
-    isExtra=true;
-  }else if(select.value==="__original__"){
-    recurring=t.planFreqAtRecord!=="none";
+function txIncomeLightRows(t){
+  const amounts=new Map();
+  (t.alloc?.lightPlans||[]).forEach(x=>{
+    amounts.set(x.lightPlanId,(amounts.get(x.lightPlanId)||0)+N(x.amount));
+  });
+  const plans=(S.plannedExpenses||[]).filter(x=>
+    x.status==="planned" || (x.status==="bought" && amounts.has(x.id))
+  );
+  if(!plans.length)return "";
+  return '<div class="small" style="margin:12px 0 2px;font-weight:700">准备购买</div>'
+    +plans.map(x=>{
+      const own=amounts.get(x.id)||0;
+      const remaining=lightPlanReservedRemaining(x.id);
+      const gap=Math.max(0,N(x.amount)-Math.max(0,remaining-own));
+      return `<div class="formGrid" style="margin-top:8px">
+        <div>
+          <div class="name">${esc(x.name)}</div>
+          <div class="meta">${x.status==="bought"?"已购买 · ":""}预计 ${M(N(x.amount))} · 当前可预留 ${M(gap)} · 已在本次预留 ${M(own)}</div>
+        </div>
+        <div><input class="editIncomeLightAmount" data-id="${x.id}" inputmode="decimal" type="number" min="0" step="0.01" value="${own}"></div>
+      </div>`;
+    }).join("");
+}
+function txIncomeEditSelection(t){
+  const selected=document.getElementById("editIncomePlan")?.value||"__extra__";
+  const plan=selected==="__extra__"||selected==="__original__"
+    ?null:S.incomePlans.find(p=>p.id===selected)||null;
+  const recurring=selected==="__original__"
+    ?t.planFreqAtRecord!=="none"
+    :!!(plan&&isRecurringPlan(plan));
+  return {selected,plan,recurring,isExtra:selected==="__extra__"};
+}
+function editedIncomeLivingPreview(t,recurring,next){
+  if(!recurring)return {amount:0,days:[],totalDays:0,skippedDays:0,start:"",end:"",extra:true};
+  const start=t.date;
+  const all=dateRange(start,next);
+  // 与实际账本的“先到账收入先覆盖生活日”规则相同，排除本条原有预留。
+  const map=livingReservationMap();
+  const covered=new Set();
+  S.tx.filter(x=>x.type==="income"&&x.id!==t.id&&txPrecedesIncome(x,t))
+    .forEach(x=>(map[x.id]?.days||[]).forEach(date=>covered.add(date)));
+  const days=all.filter(date=>!covered.has(date));
+  return {amount:sm(days,d=>livingRateForDate(d)),
+    days,totalDays:all.length,skippedDays:all.length-days.length,
+    start,end:next,breakdown:livingRateBreakdownForDays(days),extra:false};
+}
+function incomeEditDraft(t){
+  const {recurring}=txIncomeEditSelection(t);
+  const next=document.getElementById("editIncomeNext")?.value||"";
+  const amount=Math.max(0,N(document.getElementById("editIncomeAmount")?.value));
+  const saving=Math.max(0,N(document.getElementById("editIncomeSaving")?.value));
+  const livingInfo=editedIncomeLivingPreview(t,recurring,next);
+  const billItems=recurring&&next?editedIncomeBillItems(t,t.date,next):[];
+  const bills=sm(billItems,x=>N(x.amount));
+  const projects=[...editTxFields.querySelectorAll(".editIncomeProjectAmount")]
+    .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value))})).filter(x=>x.amount>0);
+  const repayments=[...editTxFields.querySelectorAll(".editIncomeRepayAmount")]
+    .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value)),repayment:true})).filter(x=>x.amount>0);
+  const lightPlans=[...editTxFields.querySelectorAll(".editIncomeLightAmount")]
+    .map(x=>({lightPlanId:x.dataset.id,amount:Math.max(0,N(x.value))})).filter(x=>x.amount>0);
+  const projectTotal=sm([...projects,...repayments,...lightPlans],x=>N(x.amount));
+  const free=amount-saving-N(livingInfo.amount)-bills-projectTotal;
+  return {amount,saving,livingInfo,billItems,bills,projects,repayments,lightPlans,projectTotal,free,recurring,next};
+}
+function recalcIncomeEditSummary(t){
+  if(!document.getElementById("editSumIncome"))return;
+  const s=incomeEditDraft(t);
+  const livingMeta=document.getElementById("editIncLivingMeta");
+  if(!s.recurring){
+    livingMeta.textContent="单次收入沿用现有生活周期，本次基础生活扣除为 ¥0。";
+  }else if(!s.next || s.next<=t.date){
+    livingMeta.textContent="请选择晚于这笔收入到账日的下一次周期收入日期。";
+  }else if(s.livingInfo.skippedDays>0){
+    livingMeta.textContent=`从 ${t.date} 到 ${s.next} 共 ${s.livingInfo.totalDays} 天，其中 ${s.livingInfo.skippedDays} 天由其他收入覆盖，本次预留 ${s.livingInfo.days.length} 天。`;
   }else{
-    plan=S.incomePlans.find(x=>x.id===select.value);
-    recurring=!!(plan&&isRecurringPlan(plan));
+    livingMeta.textContent=`从 ${t.date} 到下一次周期收入 ${s.next}，本次预留 ${s.livingInfo.days.length} 天基础生活。`;
   }
-
+  document.getElementById("editIncLivingGuide").textContent=M(s.livingInfo.amount);
+  document.getElementById("editIncBills").textContent=M(s.bills);
+  document.getElementById("editSumIncome").textContent=M(s.amount);
+  document.getElementById("editSumSaving").textContent=M(s.saving);
+  document.getElementById("editSumLiving").textContent=M(s.livingInfo.amount);
+  document.getElementById("editSumBills").textContent=M(s.bills);
+  document.getElementById("editSumProjects").textContent=M(s.projectTotal);
+  const free=document.getElementById("editSumSafe");
+  free.textContent=M(s.free);
+  free.style.color=s.free<0?"var(--danger)":"var(--accent)";
+  const warning=document.getElementById("editIncomeWarning");
+  warning.textContent=s.free< -0.005
+    ?`本次预留合计超过到账金额 ${M(Math.abs(s.free))}，请调整后保存。`:"";
+  saveTxEdit.disabled=s.free< -0.005;
+}
+function refreshIncomeEditFields(t){
+  const {selected,recurring,isExtra}=txIncomeEditSelection(t);
   const dateRow=document.getElementById("editIncomeDateRow");
   const nextRow=document.getElementById("editIncomeNextRow");
   const noteRow=document.getElementById("editIncomeNoteRow");
-
-  // 单次额外收入可以修改实际到账日期；
-  // 周期收入日期继续保持原记录，因为它定义收入周期边界。
   dateRow.style.display=isExtra?"":"none";
   nextRow.style.display=recurring?"":"none";
   noteRow.style.display=isExtra?"":"none";
-
   if(recurring){
     const next=document.getElementById("editIncomeNext");
     if(!next.value){
+      const plan=S.incomePlans.find(x=>x.id===selected);
       const freq=plan?.freq||t.planFreqAtRecord||"weekly";
       next.value=nextAfter(t.date,freq);
     }
   }
-
   syncDateDisplays();
+  recalcIncomeEditSummary(t);
 }
 
 function billReservedByOtherIncome(ignoreIncomeId,bid,dueDate){
@@ -10031,44 +10106,66 @@ function openTxEdit(id){
   editTxId.value=t.id;
 
   if(t.type==="income"){
-    editTxTitle.textContent="修改收入流水";
+    editTxTitle.textContent="修改这笔收入";
     editTxFields.innerHTML=`
       <div class="formGrid">
-        <div>
-          <label>对应收入计划</label>
-          <select id="editIncomePlan">${txIncomePlanOptions(t)}</select>
-        </div>
-        <div>
-          <label>到账金额</label>
-          <input id="editIncomeAmount" inputmode="decimal" type="number" min="0" value="${N(t.amount)}">
-        </div>
-        <div id="editIncomeDateRow">
-          <label>到账日期</label>
-          <input id="editIncomeDate" type="date" max="${td()}" value="${esc(t.date||td())}">
-        </div>
-        <div id="editIncomeNextRow">
-          <label>下一次周期收入日期</label>
-          <input id="editIncomeNext" type="date" value="${esc(t.nextIncomeDate||"")}">
-        </div>
-        <div>
-          <label>本次优先储蓄</label>
-          <input id="editIncomeSaving" inputmode="decimal" type="number" min="0" value="${N(t.alloc?.saving)}">
-        </div>
+        <div><label>对应收入计划</label><select id="editIncomePlan">${txIncomePlanOptions(t)}</select></div>
+        <div><label>到账金额</label><input id="editIncomeAmount" inputmode="decimal" type="number" min="0.01" step="0.01" value="${N(t.amount)}"></div>
+        <div id="editIncomeDateRow"><label>到账日期</label>
+          <input id="editIncomeDate" type="date" max="${td()}" value="${esc(t.date||td())}"></div>
+        <div id="editIncomeNextRow"><label>下一次周期收入日期</label>
+          <input id="editIncomeNext" type="date" value="${esc(t.nextIncomeDate||"")}"></div>
+        <div><label>本次优先储蓄</label>
+          <input id="editIncomeSaving" inputmode="decimal" type="number" min="0" step="0.01" value="${N(t.alloc?.saving)}"></div>
         <div id="editIncomeNoteRow" style="grid-column:1/-1">
-          <label>单次收入备注</label>
-          <input id="editIncomeNote" value="${esc(t.incomeNote||"")}">
+          <label>单次收入备注</label><input id="editIncomeNote" value="${esc(t.incomeNote||"")}">
         </div>
       </div>
-
-      <div class="txEditGroup">
-        <div class="txEditGroupTitle">专项预留</div>
-        ${txIncomeProjectRows(t)}
+      <div class="subCard">
+        <div class="name">本次基础生活扣除</div>
+        <div class="meta" id="editIncLivingMeta"></div>
+        <div style="margin-top:8px;font-weight:750" id="editIncLivingGuide">¥0</div>
       </div>
+      <div class="subCard">
+        <div class="name">近期固定账单</div>
+        <div class="meta">重新核对这笔收入周期内的固定账单预留和核销情况。</div>
+        <div style="margin-top:8px;font-weight:750" id="editIncBills">¥0</div>
+      </div>
+      <div class="subCard">
+        <div class="name">专项 / 近期计划预留</div>
+        <div class="meta">保留这笔收入原有分配，修改金额后同步计算可支配余额。</div>
+        <div style="margin-top:8px">
+          ${txIncomeProjectRows(t)}
+          ${txIncomeLightRows(t)}
+        </div>
+      </div>
+      <div class="explain">
+        <div class="explainRow"><span>到账</span><strong id="editSumIncome">¥0</strong></div>
+        <div class="explainRow"><span>储蓄</span><strong id="editSumSaving">¥0</strong></div>
+        <div class="explainRow"><span>基础生活</span><strong id="editSumLiving">¥0</strong></div>
+        <div class="explainRow"><span>固定账单</span><strong id="editSumBills">¥0</strong></div>
+        <div class="explainRow"><span>专项 / 近期计划</span><strong id="editSumProjects">¥0</strong></div>
+        <div class="explainRow total"><span>零花钱 / 真正可以自由花</span><strong id="editSumSafe">¥0</strong></div>
+      </div>
+      <div class="note" id="editIncomeWarning" style="margin-top:8px"></div>
     `;
+    editTxHint.textContent="修改后会重新计算相应日期的收入分配及关联余额。";
 
-    editTxHint.textContent="单次额外收入还可以修改实际到账日期；收入计划、到账金额、下一次周期收入日期、优先储蓄、备注和专项预留也会按原输入完整还原。";
-
-    document.getElementById("editIncomePlan").addEventListener("change",()=>refreshIncomeEditFields(t));
+    document.getElementById("editIncomePlan").addEventListener("change",()=>{
+      const {plan,recurring}=txIncomeEditSelection(t);
+      if(plan){
+        document.getElementById("editIncomeAmount").value=N(plan.amount);
+        document.getElementById("editIncomeSaving").value=planSavings(plan,N(plan.amount));
+        document.getElementById("editIncomeNext").value=recurring?nextAfter(t.date,plan.freq):"";
+      }
+      refreshIncomeEditFields(t);
+    });
+    ["editIncomeAmount","editIncomeSaving","editIncomeNext"].forEach(id=>{
+      document.getElementById(id).addEventListener("input",()=>recalcIncomeEditSummary(t));
+      document.getElementById(id).addEventListener("change",()=>recalcIncomeEditSummary(t));
+    });
+    editTxFields.querySelectorAll(".editIncomeProjectAmount,.editIncomeRepayAmount,.editIncomeLightAmount")
+      .forEach(el=>el.addEventListener("input",()=>recalcIncomeEditSummary(t)));
     refreshIncomeEditFields(t);
   }else if(t.type==="expense"&&(t.settledBillId||t.billHandledDirect)){
     const billId=t.settledBillId||t.refId||"";
@@ -10406,72 +10503,38 @@ saveTxEdit.onclick=()=>{
   if(!t||!transactionEditable(t))return;
 
   if(t.type==="income"){
-    const selected=document.getElementById("editIncomePlan").value;
-    const amount=Math.max(0,N(document.getElementById("editIncomeAmount").value));
-    const saving=Math.max(0,N(document.getElementById("editIncomeSaving").value));
-
+    const {selected,plan,recurring,isExtra}=txIncomeEditSelection(t);
+    const draft=incomeEditDraft(t);
+    const {amount,saving,next,billItems,bills,projects,repayments,lightPlans}=draft;
     if(amount<=0)return msg("请输入到账金额");
+    if(draft.free< -0.005)return msg("本次收入分配超过到账金额，请减少预留金额");
+    if(recurring&&(!next||next<=t.date))return msg("下一次周期收入日期需要晚于这笔收入日期");
+    if(repayments.some(x=>{
+      const own=sm((t.alloc?.projects||[]).filter(v=>v.projectId===x.projectId&&v.repayment),v=>N(v.amount));
+      return x.amount>projectRepayPending(x.projectId)+own+0.005;
+    }))return msg("专项补回金额超过待补回余额");
 
-    let plan=null;
-    let recurring=false;
-    let isExtra=false;
     let planId=t.planId||"";
     let planNameAtRecord=t.planNameAtRecord||"";
     let planFreqAtRecord=t.planFreqAtRecord||"none";
     let incomeKind=t.incomeKind||"extra";
-
-    if(selected==="__extra__"){
-      isExtra=true;
+    if(isExtra){
       planId="";
       planNameAtRecord="";
       planFreqAtRecord="none";
       incomeKind="extra";
-    }else if(selected==="__original__"){
-      recurring=t.planFreqAtRecord!=="none";
-    }else{
-      plan=S.incomePlans.find(x=>x.id===selected);
-      if(!plan)return msg("选择的收入计划已经不存在");
-
+    }else if(selected!=="__original__"){
+      if(!plan)return msg("选择的收入计划已失效");
       planId=plan.id;
       planNameAtRecord=plan.name||"";
       planFreqAtRecord=plan.freq||"none";
-      recurring=isRecurringPlan(plan);
       incomeKind=recurring?"recurring":"planned_extra";
     }
 
     const editedIncomeDate=isExtra
       ?(document.getElementById("editIncomeDate").value||t.date||td())
-      :(t.date||td());
-
-    if(isExtra&&editedIncomeDate>td()){
-      return msg("单次额外收入到账日期不能晚于今天");
-    }
-
-    const next=recurring
-      ?document.getElementById("editIncomeNext").value
-      :"";
-
-    if(recurring&&(!next||next<=t.date)){
-      return msg("下一次周期收入日期需要晚于这笔收入日期");
-    }
-
-    const projects=[...document.querySelectorAll(".editIncomeProjectAmount")]
-      .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value))}))
-      .filter(x=>x.amount>0);
-
-    const repayments=[...document.querySelectorAll(".editIncomeRepayAmount")]
-      .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value)),repayment:true}))
-      .filter(x=>x.amount>0);
-    if(repayments.some(x=>{
-      const own=sm((t.alloc?.projects||[]).filter(v=>v.projectId===x.projectId&&v.repayment),v=>N(v.amount));
-      return x.amount>projectRepayPending(x.projectId)+own+0.005;
-    }))return msg("专项补回金额超过该专项的待补回余额");
-
-    const billItems=recurring
-      ?editedIncomeBillItems(t,t.date,next)
-      :[];
-
-    const bills=sm(billItems,x=>N(x.amount));
+      :t.date;
+    if(editedIncomeDate>td())return msg("到账日期不能晚于今天");
 
     t.planId=planId;
     t.planNameAtRecord=planNameAtRecord;
@@ -10479,21 +10542,18 @@ saveTxEdit.onclick=()=>{
     t.incomeKind=incomeKind;
     t.incomeNote=isExtra?document.getElementById("editIncomeNote").value.trim():"";
     t.amount=amount;
-    t.nextIncomeDate=next;
-
-    if(isExtra){
-      t.date=editedIncomeDate;
-    }
+    t.nextIncomeDate=recurring?next:"";
+    t.date=editedIncomeDate;
 
     if(recurring){
       t.cycleIncomeId="";
       t.livingCoverageStart=t.date;
       t.livingCoverageEnd=next;
       if(t.livingRateAtRecord===undefined||t.livingRateAtRecord===null){
-        t.livingRateAtRecord=N(S.settings.dailyLiving);
+        t.livingRateAtRecord=livingRateForDate(t.date);
       }
     }else{
-      t.cycleIncomeId="";
+      t.cycleIncomeId=cycleIncomeIdForDate(t.date);
       t.livingCoverageStart="";
       t.livingCoverageEnd="";
       t.livingRateAtRecord=0;
@@ -10505,18 +10565,14 @@ saveTxEdit.onclick=()=>{
       bills,
       billItems,
       projects:[...projects,...repayments],
+      lightPlans,
       living:0,
       safe:0
     };
-
-    if(!recurring){
-      t.cycleIncomeId=cycleIncomeIdForDate(t.date);
-    }
-
-    const ea=effectiveIncomeAllocation(t);
-    t.alloc.living=N(ea.living);
-    t.alloc.bills=N(ea.bills);
-    t.alloc.safe=N(ea.safe);
+    const effective=effectiveIncomeAllocation(t);
+    t.alloc.living=N(effective.living);
+    t.alloc.bills=N(effective.bills);
+    t.alloc.safe=N(effective.safe);
   }else if(t.type==="expense"&&(t.settledBillId||t.billHandledDirect)){
     const billId=document.getElementById("editDirectBillRef").value;
     const amount=Math.max(0,N(document.getElementById("editDirectBillAmount").value));
