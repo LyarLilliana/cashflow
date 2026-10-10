@@ -3391,7 +3391,7 @@ function cyclePocketSnapshot(incomeTx){
 
   const expenses=cycleTx.filter(t=>t.type==="expense");
   const settlements=cycleTx.filter(t=>t.type==="living_settlement");
-  const savingTransfers=cycleTx.filter(t=>t.type==="pocket_to_saving");
+  const savingTransfers=cycleTx.filter(t=>t.type==="pocket_to_saving"||t.type==="pocket_to_short");
   const projectTransfers=cycleTx.filter(t=>t.type==="pocket_to_project");
   const extraIncomes=cycleTx.filter(t=>t.type==="income"&&!isCycleIncomeTx(t));
 
@@ -3530,6 +3530,8 @@ function shortAccountBalance(id,asOf=td(),excludeBankId=""){
     if(t.shortAccountId!==id||!t.date||t.date>asOf)return;
     const a=N(t.amount);
     if(t.type==="short_transfer")n+=t.direction==="in"?a:-a;
+    if(t.type==="pocket_to_short")n+=a;
+    if(t.type==="extra_saving"&&t.shortAccountId)n+=a;
     if(t.type==="short_interest")n+=a;
     if(t.type==="short_spend")n-=a;
   });
@@ -3541,13 +3543,14 @@ function shortAccountBalance(id,asOf=td(),excludeBankId=""){
 function shortBalanceTotal(){return sm(S.shortAccounts||[],a=>shortAccountBalance(a.id));}
 function shortFlowForRange(start="",end=""){
   const tx=S.tx.filter(t=>t.date&&t.date<=td()&&(!start||t.date>=start)&&(!end||t.date<=end));
-  const incoming=sm(tx.filter(t=>t.type==="short_transfer"&&t.direction==="in"),t=>N(t.amount));
+  const incoming=sm(tx.filter(t=>(t.type==="short_transfer"&&t.direction==="in")||t.type==="pocket_to_short"),t=>N(t.amount));
+  const extraLocked=sm(tx.filter(t=>t.type==="extra_saving"&&!!t.shortAccountId),t=>N(t.amount));
   const outgoing=sm(tx.filter(t=>t.type==="short_transfer"&&t.direction==="out"),t=>N(t.amount));
   const interest=sm(tx.filter(t=>t.type==="short_interest"),t=>N(t.amount));
   const used=sm(tx.filter(t=>t.type==="short_spend"),t=>N(t.amount));
   const bank=sm(startedBankDeposits().filter(d=>d.source==="short"&&(!start||d.startDate>=start)&&(!end||d.startDate<=end)),d=>N(d.principal));
   const projectRepay=sm(tx.filter(t=>t.type==="saving_to_project"),t=>N(t.amount));
-  return {incoming,outgoing,interest,used,bank,projectRepay,delta:incoming-outgoing+interest-used-bank};
+  return {incoming,extraLocked,outgoing,interest,used,bank,projectRepay,delta:incoming+extraLocked-outgoing+interest-used-bank};
 }
 function shortLedgerValid(id){
   const dates=new Set([td()]);
@@ -3811,8 +3814,13 @@ function accounting(){
     }
 
     if(t.type==="extra_saving"){
-      saving+=N(t.amount);
-      effects[t.id]={extraSaving:N(t.amount)};
+      if(!t.shortAccountId)saving+=N(t.amount);
+      effects[t.id]={extraSaving:N(t.amount),shortLocked:!!t.shortAccountId};
+      return;
+    }
+    if(t.type==="pocket_to_short"){
+      raw.safe-=N(t.amount);
+      effects[t.id]={pocketToShort:N(t.amount)};
       return;
     }
 
@@ -6596,7 +6604,7 @@ function periodSavableForRange(start="",end=""){
     }
 
     // 零花 → 储蓄只是同一个“可存池”内部换位置，总可存不变。
-    if(t.type==="pocket_to_saving")return;
+    if(t.type==="pocket_to_saving"||t.type==="pocket_to_short")return;
 
     if(t.type!=="expense")return;
 
@@ -7070,7 +7078,7 @@ function savingStatsForRange(start="",end=""){
   // Keep the legacy aggregate for calculations elsewhere.
   const planned=recurringIncomeSaving+oneOffIncomeSaving;
 
-  const savingTransfers=S.tx.filter(t=>t.type==="pocket_to_saving"&&inRange(t.date));
+  const savingTransfers=S.tx.filter(t=>(t.type==="pocket_to_saving"||t.type==="pocket_to_short")&&inRange(t.date));
   const transfers=sm(savingTransfers,t=>N(t.amount));
 
   const projectTransfers=S.tx.filter(t=>t.type==="pocket_to_project"&&inRange(t.date));
@@ -7487,7 +7495,7 @@ function selectedSavingRangeSummary(){
   const bankExisting=N(s.bankExisting);
   const dailyBeforeBank=dailyBase+dailySecondary;
   const short=shortFlowForRange(range.start,range.end);
-  const dailyAfterBank=dailyBeforeBank-bankExisting-short.incoming+short.outgoing-short.projectRepay;
+  const dailyAfterBank=dailyBeforeBank-bankExisting-short.incoming-short.extraLocked+short.outgoing-short.projectRepay;
   const shortTotal=short.delta;
   const bankTotal=bankPrincipal+interestGrowth;
   const expected=dailyAfterBank+shortTotal+bankTotal;
@@ -7519,7 +7527,8 @@ function renderSavingAssetSummary(){
   savingFreePrincipal.style.color=s.dailyAfterBank<0?"var(--danger)":"var(--text)";
   savingShortChange.textContent=M(s.shortTotal);
   savingShortChange.style.color=s.shortTotal<0?"var(--danger)":"var(--text)";
-  savingShortInboundDetail.textContent=s.short.incoming>0?`-${M(s.short.incoming)}`:M(0);
+  const lockedIn=s.short.incoming+s.short.extraLocked;
+  savingShortInboundDetail.textContent=lockedIn>0?`-${M(lockedIn)}`:M(0);
   savingShortOutboundDetail.textContent=M(s.short.outgoing);
 
   if(s.cycleMode&&cycle.income){
