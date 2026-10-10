@@ -9203,33 +9203,111 @@ saveLivingBatch.onclick=()=>{
 };
 
 /* Extra savings */
-function openExtraSaving(){
+function refreshExtraSavingDestination(){
+  const locked=extraSavingDestination.value==="short";
+  extraSavingShortFields.style.display=locked?"block":"none";
+  if(locked){
+    const selected=extraSavingAccount.value;
+    extraSavingAccount.innerHTML=(S.shortAccounts||[])
+      .map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("")
+      +'<option value="__new__">＋ 新建一个锁定储蓄账户</option>';
+    if(selected&&[...extraSavingAccount.options].some(o=>o.value===selected)){
+      extraSavingAccount.value=selected;
+    }else if(!(S.shortAccounts||[]).length){
+      extraSavingAccount.value="__new__";
+    }
+  }
+  extraSavingNewAccountRow.style.display=locked&&extraSavingAccount.value==="__new__"?"block":"none";
+  const source=extraSavingFunding.value;
+  extraSavingDestinationHint.textContent=!locked
+    ?"额外存下的资金进入日常储蓄，仍按现有规则参与超支兜底；已计入的资金不要重复记为新增。"
+    :source==="saving"
+      ?"从已记账的日常储蓄转入，储蓄总额不变；转入后会锁定，不再自动补贴零花钱。"
+      :source==="pocket"
+        ?"从现有零花钱转入，日常可花余额减少，锁定储蓄增加；之后不会自动用于消费。"
+        :"额外新存入的钱直接进入锁定储蓄。若这笔钱之前已经在 SafeSpend 计为储蓄或零花钱，请更换来源，避免重复记账。";
+}
+function openExtraSaving(destination="ordinary",accountId=""){
   extraSavingDate.value=td();
+  extraSavingDate.max=td();
   extraSavingAmount.value="";
   extraSavingNote.value="";
+  extraSavingDestination.value=destination==="short"?"short":"ordinary";
+  extraSavingAccount.value=accountId||"";
+  extraSavingNewAccount.value="";
+  extraSavingFunding.value="new";
+  refreshExtraSavingDestination();
+  if(accountId&&[...extraSavingAccount.options].some(x=>x.value===accountId)){
+    extraSavingAccount.value=accountId;
+    refreshExtraSavingDestination();
+  }
   syncDateDisplays();
   extraSavingSheet.classList.add("show");
 }
+extraSavingDestination.addEventListener("change",refreshExtraSavingDestination);
+extraSavingAccount.addEventListener("change",refreshExtraSavingDestination);
+extraSavingFunding.addEventListener("change",refreshExtraSavingDestination);
 
 saveExtraSaving.onclick=()=>{
   const date=extraSavingDate.value||td();
-  const amount=Math.max(0,N(extraSavingAmount.value));
+  const amount=Math.round(N(extraSavingAmount.value)*100)/100;
   const note=extraSavingNote.value.trim();
+  const locked=extraSavingDestination.value==="short";
+  const source=locked?extraSavingFunding.value:"new";
 
-  if(amount<=0)return msg("请输入额外储蓄金额");
+  if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效的额外储蓄金额");
+  if(date>td())return msg("只能记录已经存入的资金");
 
-  S.tx.push({
-    id:"xs"+Date.now(),
+  let accountId="",newAccount=null;
+  if(locked){
+    accountId=extraSavingAccount.value;
+    if(accountId==="__new__"){
+      const name=extraSavingNewAccount.value.trim();
+      if(!name)return msg("请输入小荷包等锁定储蓄账户名称");
+      if(S.shortAccounts.some(a=>a.name.trim()===name)){
+        return msg("已有同名账户，请直接选择已有账户");
+      }
+      newAccount={id:"sa"+Date.now(),name};
+      accountId=newAccount.id;
+    }
+    if(!newAccount&&!S.shortAccounts.some(a=>a.id===accountId)){
+      return msg("请选择一个短期储蓄账户");
+    }
+    // 现有资金内部划转仅在今天登记，避免补记时覆盖历史预算余额。
+    if(source!=="new"&&date!==td()){
+      return msg("从现有资金池划转请使用今天日期");
+    }
+    if(source==="saving"&&amount>Math.max(0,N(accounting().saving))+0.005){
+      return msg(`日常储蓄当前可转入 ${M(Math.max(0,N(accounting().saving)))}`);
+    }
+    if(source==="pocket"&&amount>Math.max(0,N(bal().safe))+0.005){
+      return msg(`当前日常支出可转入 ${M(Math.max(0,N(bal().safe)))}`);
+    }
+  }
+
+  const tx={
+    id:"xs"+Date.now()+"_"+Math.random().toString(36).slice(2,6),
     date,
-    type:"extra_saving",
-    amount,
-    note
-  });
+    type:locked&&source==="saving"?"short_transfer":locked&&source==="pocket"?"pocket_to_short":"extra_saving",
+    amount,note
+  };
+  if(locked)tx.shortAccountId=accountId;
+  if(tx.type==="short_transfer")tx.direction="in";
+  if(newAccount)S.shortAccounts.push(newAccount);
+  S.tx.push(tx);
+
+  if(locked&&!shortLedgerValid(accountId)){
+    S.tx=S.tx.filter(t=>t.id!==tx.id);
+    if(newAccount)S.shortAccounts=S.shortAccounts.filter(a=>a.id!==newAccount.id);
+    return msg("资金登记后账户历史余额异常，请检查存入日期");
+  }
 
   save();
   closeSheet("extraSavingSheet");
   render();
-  msg(`${M(amount)} 已记入额外储蓄`);
+  msg(locked
+    ?`${M(amount)} 已存入「${shortSavingsAccountLabel(accountId)}」并锁定`
+    :`${M(amount)} 已记入日常储蓄`);
 };
 
 
