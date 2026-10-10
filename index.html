@@ -6000,7 +6000,11 @@ function txHtml(t,del=false,edit=false){
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title} · ${esc(account)}</div><div class="meta">${t.date}${t.note?" · "+esc(t.note):""}</div></div><div class="txRight"><div class="txAmount ${positive?"pos":spend?"neg":"txMuted"}">${positive?"+":spend?"-":"→ "}${M(t.amount)}</div>${t.type==="saving_to_project"?"":`<button class="txTinyBtn" type="button" onclick="deleteShortRecord('${t.id}')">撤销</button>`}</div></div></div>`;
   }
   if(t.type==="extra_saving"){
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">额外储蓄${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date} · 直接记入储蓄</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+    const location=t.shortAccountId?`锁定于 ${esc(shortSavingsAccountLabel(t.shortAccountId))}`:"计入日常储蓄";
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">额外储蓄${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date} · ${location}</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+  }
+  if(t.type==="pocket_to_short"){
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">零花钱存入锁定储蓄 · ${esc(shortSavingsAccountLabel(t.shortAccountId))}</div><div class="meta">${t.date}${t.note?" · "+esc(t.note):""} · 锁定中</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} → 锁定</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
   if(t.type==="pocket_to_saving"){
@@ -6079,7 +6083,8 @@ function transactionActionTitle(t){
         ?"基础生活标准调整"
         :"基础生活标准新增";
   }
-  if(t.type==="extra_saving")return "额外储蓄";
+  if(t.type==="extra_saving")return t.shortAccountId?`额外锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`:"额外储蓄";
+  if(t.type==="pocket_to_short")return `零花钱存入锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`;
   if(t.type==="pocket_to_saving")return "零花钱转储蓄";
   if(t.type==="pocket_to_project"){
     const p=S.projects.find(x=>x.id===t.projectId);
@@ -6439,6 +6444,8 @@ function transactionSearchText(t){
   if(t.type==="living_batch")parts.push("多日 基础生活 买菜 分摊 预付");
   if(t.type==="extra_saving")parts.push("额外储蓄");
   if(t.type==="pocket_to_saving")parts.push("零花钱转储蓄");
+  if(t.type==="pocket_to_short")parts.push("小荷包 锁定储蓄 零花钱转存");
+  if(t.shortAccountId)parts.push(shortSavingsAccountLabel(t.shortAccountId));
   if(t.type==="pocket_to_project")parts.push("零花钱转专项");
   if(t.type==="project_settlement")parts.push("专项结余转储蓄");
   if(t.type==="project_archive")parts.push("专项归档");
@@ -7385,11 +7392,20 @@ function savingChangeEvents(){
         meta:"储蓄转为专项准备金",amount:N(t.amount),impact:-N(t.amount),mode:"neg"});
       return;
     }
+    if(t.type==="pocket_to_short"){
+      events.push({
+        id:t.id,date,
+        name:`零花钱存入锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`,
+        meta:t.note||"从日常支出余额划入，自动锁定",
+        amount:N(t.amount),impact:N(t.amount),mode:"pos"
+      });
+      return;
+    }
     if(t.type==="extra_saving"){
       events.push({
         id:t.id,date,
-        name:t.note?`手动额外储蓄 · ${t.note}`:"手动额外储蓄",
-        meta:"通过“记额外储蓄”直接增加日常储蓄",
+        name:t.shortAccountId?`额外锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`:(t.note?`手动额外储蓄 · ${t.note}`:"手动额外储蓄"),
+        meta:t.shortAccountId?"直接存入锁定储蓄，不参与日常消费兜底":"通过“记额外储蓄”增加日常储蓄",
         amount:N(t.amount),
         impact:N(t.amount),
         mode:"pos"
