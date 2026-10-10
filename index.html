@@ -6001,7 +6001,8 @@ function txHtml(t,del=false,edit=false){
     const title=t.type==="saving_to_project"?"日常储蓄补回专项":
       move?(t.direction==="in"?"转入短期储蓄":"取回日常储蓄"):positive?"短期储蓄到账收益":"短期储蓄取用";
     const account=t.type==="saving_to_project"?(S.projects.find(p=>p.id===t.projectId)?.name||"专项"):shortSavingsAccountLabel(t.shortAccountId);
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title} · ${esc(account)}</div><div class="meta">${t.date}${t.note?" · "+esc(t.note):""}</div></div><div class="txRight"><div class="txAmount ${positive?"pos":spend?"neg":"txMuted"}">${positive?"+":spend?"-":"→ "}${M(t.amount)}</div>${t.type==="saving_to_project"?"":`<button class="txTinyBtn" type="button" onclick="deleteShortRecord('${t.id}')">撤销</button>`}</div></div></div>`;
+    const fundingMeta=move&&N(t.pocketPortion)>0?` · 现有储蓄 ${M(N(t.amount)-N(t.pocketPortion))} + 日常支出 ${M(t.pocketPortion)}`:"";
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${fundingMeta?"合并资金转入 · ": ""}${title} · ${esc(account)}</div><div class="meta">${t.date}${fundingMeta}${t.note?" · "+esc(t.note):""}</div></div><div class="txRight"><div class="txAmount ${positive?"pos":spend?"neg":"txMuted"}">${positive?"+":spend?"-":"→ "}${M(t.amount)}</div>${t.type==="saving_to_project"?"":`<button class="txTinyBtn" type="button" onclick="deleteShortRecord('${t.id}')">撤销</button>`}</div></div></div>`;
   }
   if(t.type==="extra_saving"){
     const location=t.shortAccountId?`锁定于 ${esc(shortSavingsAccountLabel(t.shortAccountId))}`:"计入日常储蓄";
