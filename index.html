@@ -2975,9 +2975,14 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 <div class="sheet" id="shortAccountSheet"><div class="sheetCard">
   <h2 class="sheetTitle" id="shortAccountSheetTitle">新增短期储蓄账户</h2>
   <input id="shortAccountId" type="hidden">
-  <label for="shortAccountName">账户名称</label>
-  <input id="shortAccountName" maxlength="40" placeholder="例如 支付宝小荷包">
-  <p class="note">建立账户后，再使用转入功能逐笔锁定储蓄资金。</p>
+  <div class="formGrid one">
+    <div><label for="shortAccountName">账户名称</label>
+      <input id="shortAccountName" maxlength="40" placeholder="例如 支付宝小荷包"></div>
+    <div><label for="shortAccountRate">参考年化收益率（%，选填）</label>
+      <input id="shortAccountRate" type="number" min="0" max="100" step="0.001" inputmode="decimal" placeholder="例如 1.20"></div>
+  </div>
+  <p class="note" id="shortAccountRatePreview" style="margin-top:9px">收益按当前本金与参考年化率估算，实际到账收益通过账户流水登记。</p>
+  <p class="note">账户余额默认锁定于短期储蓄。年化利率仅用于收益预估，实际收益以到账流水为准。</p>
   <div class="actions"><button class="ghost" type="button" onclick="closeSheet('shortAccountSheet')">取消</button><button class="primary" id="saveShortAccount" type="button">保存账户</button></div>
 </div></div>
 <div class="sheet" id="shortTransferSheet"><div class="sheetCard">
@@ -3001,8 +3006,13 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   <p class="note" id="projectRepayHint"></p>
   <div class="formGrid one">
     <div><label for="projectRepayAmount">补回金额</label><input id="projectRepayAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></div>
-    <div><label for="projectRepaySource">资金来源</label><select id="projectRepaySource"><option value="safe">日常支出余额</option><option value="saving">日常储蓄</option></select></div>
+    <div><label for="projectRepaySource">资金来源</label><select id="projectRepaySource">
+      <option value="income">新增到账收入</option>
+      <option value="saving">日常储蓄</option>
+      <option value="safe">日常支出余额</option>
+    </select></div>
   </div>
+  <p class="note" id="projectRepaySourceHint" style="margin-top:10px"></p>
   <div class="actions"><button class="ghost" type="button" onclick="closeSheet('projectRepaySheet')">取消</button><button class="primary" id="saveProjectRepay" type="button">确认补回</button></div>
 </div></div>
 
@@ -3081,7 +3091,12 @@ function normalize(d){
     ...p,
     plannedExpenses:Array.isArray(p.plannedExpenses)?p.plannedExpenses:[]
   }));
-  s.shortAccounts=Array.isArray(d.shortAccounts)?d.shortAccounts.filter(x=>x?.id).map(x=>({...x,name:String(x.name||"短期储蓄")})):[];
+  s.shortAccounts=Array.isArray(d.shortAccounts)?d.shortAccounts.filter(x=>x?.id).map(x=>({
+    ...x,
+    name:String(x.name||"短期储蓄"),
+    annualRate:x.annualRate===undefined||x.annualRate===null||x.annualRate===""
+      ?null:(Number.isFinite(Number(x.annualRate))?Math.max(0,Number(x.annualRate)):null)
+  })):[];
   s.deposits=Array.isArray(d.deposits)?d.deposits:[];
   s.deposits=s.deposits.map(dep=>{
     const x={...dep};
@@ -7868,15 +7883,28 @@ function openBankDepositFromReminder(){
 }
 
 
+function shortRateEstimate(account,days=30){
+  const rate=Number(account?.annualRate);
+  if(account?.annualRate===null||account?.annualRate===undefined||!Number.isFinite(rate)||rate<0)return null;
+  const balance=Math.max(0,N(shortAccountBalance(account.id)));
+  // 按当前余额静态测算未来 30 天的参考单利，与实际入账收益区分。
+  return balance*rate/100*days/365;
+}
+function shortRateLabel(rate){
+  return Number(rate).toFixed(3).replace(/0+$/,"").replace(/\\.$/,"")+"%";
+}
 function renderShortAccounts(){
   const accounts=S.shortAccounts||[];
   shortSavedTotal.textContent=M(shortBalanceTotal());
   shortAccountList.innerHTML=accounts.length?accounts.map(a=>{
     const futureCount=S.tx.filter(t=>t.shortAccountId===a.id&&t.date>td()).length
       +S.deposits.filter(d=>d.source==="short"&&d.shortAccountId===a.id&&d.startDate>td()).length;
+    const estimated=shortRateEstimate(a);
+    const rateMeta=estimated===null?" · 年化待填写":
+      ` · 参考年化 ${shortRateLabel(a.annualRate)} · 预计30日收益 ${M(estimated)}`;
     return `<div class="shortAccountLine">
     <div class="shortAccountLineTop"><div class="name">${esc(a.name)}</div><strong>${M(shortAccountBalance(a.id))}</strong></div>
-    <div class="shortAccountLineSub"><span class="small">默认锁定${futureCount?` · ${futureCount} 笔待生效`:""}</span><span>
+    <div class="shortAccountLineSub"><span class="small">默认锁定${futureCount?` · ${futureCount} 笔待生效`:""}${rateMeta}</span><span>
       <button type="button" onclick="openExtraSaving('short','${a.id}')">转入</button>
       <button type="button" onclick="openShortTransfer('${a.id}','out')">取出</button>
       <button type="button" onclick="openBankFromShort('${a.id}')">转存</button>
@@ -7898,20 +7926,43 @@ function openBankFromShort(id){
   bankDepositName.value=a.name+" 转存";
   refreshBankDepositForm();
 }
+function refreshShortAccountRatePreview(){
+  const id=shortAccountId.value;
+  const raw=shortAccountRate.value.trim();
+  const target=document.getElementById("shortAccountRatePreview");
+  if(raw===""){
+    target.textContent="年化利率选填。实际到账收益仍可独立记录。";
+    return;
+  }
+  const rate=Number(raw);
+  if(!Number.isFinite(rate)||rate<0||rate>100){
+    target.textContent="请输入 0 至 100 之间的年化百分比。";
+    return;
+  }
+  const balance=id?Math.max(0,shortAccountBalance(id)):0;
+  const estimate=balance*rate/100*30/365;
+  target.textContent=`当前余额 ${M(balance)}，参考年化 ${shortRateLabel(rate)}，按当前余额估算未来30日收益 ${M(estimate)}。该预估仅供参考。`;
+}
 function openShortAccount(id=""){
   const a=(S.shortAccounts||[]).find(x=>x.id===id);
   shortAccountId.value=id;
   document.getElementById("shortAccountName").value=a?.name||"";
+  shortAccountRate.value=a?.annualRate===null||a?.annualRate===undefined?"":a.annualRate;
   shortAccountSheetTitle.textContent=a?"修改短期储蓄账户":"新增短期储蓄账户";
+  refreshShortAccountRatePreview();
   shortAccountSheet.classList.add("show");
 }
+shortAccountRate.addEventListener("input",refreshShortAccountRatePreview);
 saveShortAccount.onclick=()=>{
   const id=shortAccountId.value;
   const name=document.getElementById("shortAccountName").value.trim();
+  const raw=shortAccountRate.value.trim();
+  const rate=raw===""?null:Number(raw);
   if(!name)return msg("请输入账户名称");
-  if(id){const a=S.shortAccounts.find(x=>x.id===id);if(!a)return;a.name=name;}
-  else S.shortAccounts.push({id:"sa"+Date.now(),name});
-  save();closeSheet("shortAccountSheet");render();msg("账户已保存");
+  if(rate!==null&&(!Number.isFinite(rate)||rate<0||rate>100))return msg("参考年化收益率请输入 0 至 100 之间的数字");
+  if(id){const a=S.shortAccounts.find(x=>x.id===id);if(!a)return;a.name=name;a.annualRate=rate;}
+  else S.shortAccounts.push({id:"sa"+Date.now(),name,annualRate:rate});
+  save();closeSheet("shortAccountSheet");render();msg("短期储蓄账户已保存");
 };
 function openShortTransfer(id="",action="out"){
   if(!(S.shortAccounts||[]).length){openShortAccount();return;}
@@ -7965,23 +8016,68 @@ function deleteShortRecord(id,alreadyConfirmed=false){
   }
   save();render();msg("记录已删除，相关余额已重新计算");
 }
+function refreshProjectRepaySourceHint(){
+  const source=projectRepaySource.value;
+  const hint=document.getElementById("projectRepaySourceHint");
+  if(source==="income"){
+    hint.textContent="新增到账收入会登记为一笔单次收入，金额直接用于补回专项。已有到账收入可在对应收入流水中调整专项补回预留，避免重复记入收入。";
+  }else if(source==="saving"){
+    hint.textContent=`当前可用日常储蓄 ${M(Math.max(0,N(accounting().saving)))}。补回属于储蓄转入专项，储蓄资产同步减少。`;
+  }else{
+    hint.textContent=`当前日常支出余额 ${M(Math.max(0,N(bal().safe)))}。补回属于日常余额转入专项。`;
+  }
+}
 function openProjectRepay(id){
   const p=S.projects.find(x=>x.id===id);if(!p)return;
   projectRepayAccount.value=id;projectRepayAmount.value=projectRepayPending(id).toFixed(2);
   projectRepayHint.textContent=`${p.name} · 待补回 ${M(projectRepayPending(id))}`;
-  projectRepaySource.value="safe";projectRepaySheet.classList.add("show");
+  projectRepaySource.value="income";
+  refreshProjectRepaySourceHint();
+  projectRepaySheet.classList.add("show");
 }
+projectRepaySource.addEventListener("change",refreshProjectRepaySourceHint);
 saveProjectRepay.onclick=()=>{
   const id=projectRepayAccount.value,amount=Math.round(N(projectRepayAmount.value)*100)/100;
   const source=projectRepaySource.value;
+  const p=S.projects.find(x=>x.id===id);
+  if(!p)return msg("专项已被删除或归档，请重新选择");
   if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效金额");
   if(amount>projectRepayPending(id)+0.005)return msg("金额超过待补回余额");
-  if(source==="safe"&&amount>Math.max(0,N(bal().safe))+0.005)return msg("日常可用余额不足");
+  if(source==="safe"&&amount>Math.max(0,N(bal().safe))+0.005)return msg("日常支出余额不足");
   if(source==="saving"&&amount>Math.max(0,N(accounting().saving))+0.005)return msg("日常储蓄余额不足");
-  S.tx.push({id:"pr"+Date.now(),date:td(),amount,projectId:id,repaymentOf:id,
-    type:source==="safe"?"pocket_to_project":"saving_to_project",
-    note:"补回专项 · "+(S.projects.find(p=>p.id===id)?.name||"专项")});
-  save();closeSheet("projectRepaySheet");render();msg("专项已补回");
+  if(source==="income"){
+    const today=td();
+    S.tx.push({
+      id:"pri"+Date.now(),
+      date:today,
+      type:"income",
+      planId:"",
+      planNameAtRecord:"",
+      incomeKind:"extra",
+      planFreqAtRecord:"none",
+      incomeNote:"补回专项 · "+p.name,
+      amount,
+      nextIncomeDate:"",
+      cycleIncomeId:cycleIncomeIdForDate(today),
+      livingCoverageStart:"",
+      livingCoverageEnd:"",
+      livingRateAtRecord:0,
+      alloc:{
+        saving:0,living:0,bills:0,billItems:[],
+        projects:[{projectId:id,amount,repayment:true}],
+        lightPlans:[],safe:0
+      }
+    });
+  }else{
+    S.tx.push({id:"pr"+Date.now(),date:td(),amount,projectId:id,repaymentOf:id,
+      type:source==="safe"?"pocket_to_project":"saving_to_project",
+      cycleIncomeId:cycleIncomeIdForDate(td()),
+      note:"补回专项 · "+p.name});
+  }
+  save();closeSheet("projectRepaySheet");render();
+  msg(source==="income"
+    ?`单次收入 ${M(amount)} 已记账并全部补回「${p.name}」`
+    :`已从${source==="saving"?"日常储蓄":"日常支出余额"}补回「${p.name}」 ${M(amount)}`);
 };
 
 function renderSavings(){
