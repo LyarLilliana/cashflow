@@ -9311,6 +9311,7 @@ saveExtraSaving.onclick=()=>{
   if(date>td())return msg("只能记录已经存入的资金");
 
   let accountId="",newAccount=null;
+  const combined=locked&&source==="combined"?combinedSavingSplit(amount):null;
   if(locked){
     accountId=extraSavingAccount.value;
     if(accountId==="__new__"){
@@ -9329,6 +9330,7 @@ saveExtraSaving.onclick=()=>{
     if(source!=="new"&&date!==td()){
       return msg("从现有资金池划转请使用今天日期");
     }
+    if(combined&&!combined.valid)return msg(`合并可转入 ${M(combinedSavingsAvailable().total)}，不足以转入 ${M(amount)}`);
     if(source==="saving"&&amount>Math.max(0,N(accounting().saving))+0.005){
       return msg(`日常储蓄当前可转入 ${M(Math.max(0,N(accounting().saving)))}`);
     }
@@ -9340,11 +9342,12 @@ saveExtraSaving.onclick=()=>{
   const tx={
     id:"xs"+Date.now()+"_"+Math.random().toString(36).slice(2,6),
     date,
-    type:locked&&source==="saving"?"short_transfer":locked&&source==="pocket"?"pocket_to_short":"extra_saving",
+    type:locked&&(source==="saving"||source==="combined")?"short_transfer":locked&&source==="pocket"?"pocket_to_short":"extra_saving",
     amount,note
   };
   if(locked)tx.shortAccountId=accountId;
   if(tx.type==="short_transfer")tx.direction="in";
+  if(combined){tx.pocketPortion=combined.pocket;tx.savingPortion=combined.saving;tx.fundingMode="combined";}
   if(newAccount)S.shortAccounts.push(newAccount);
   S.tx.push(tx);
 
