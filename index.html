@@ -9221,6 +9221,34 @@ saveLivingBatch.onclick=()=>{
 };
 
 /* Extra savings */
+function combinedSavingsAvailable(){
+  const b=bal();
+  const saving=Math.max(0,Math.round(N(b.saving)*100)/100);
+  const pocket=Math.max(0,Math.round(N(b.safe)*100)/100);
+  return {saving,pocket,total:Math.round((saving+pocket)*100)/100};
+}
+function combinedSavingSplit(amount,available=combinedSavingsAvailable()){
+  const cents=Math.max(0,Math.round(N(amount)*100));
+  const fromSaving=Math.min(cents,Math.round(available.saving*100));
+  const fromPocket=cents-fromSaving;
+  return {saving:fromSaving/100,pocket:fromPocket/100,valid:fromPocket<=Math.round(available.pocket*100)};
+}
+function refreshExtraSavingCombinedPreview(){
+  const el=document.getElementById("extraSavingCombinedPreview");
+  if(!el)return;
+  const locked=extraSavingDestination.value==="short";
+  const funding=extraSavingFunding.value;
+  el.style.display=locked&&funding!=="new"?"block":"none";
+  if(!locked||funding==="new")return;
+  const f=combinedSavingsAvailable();
+  const amount=Math.round(N(extraSavingAmount.value)*100)/100;
+  if(funding==="combined"){
+    const split=combinedSavingSplit(amount,f);
+    el.textContent=`合并可用 ${M(f.total)}（已有储蓄 ${M(f.saving)} + 日常支出剩余 ${M(f.pocket)}）。`+(amount>0?` 本次先转储蓄 ${M(split.saving)}，再转日常支出 ${M(split.pocket)}。`:" 将优先使用已有储蓄，不足部分使用日常支出余额。")+(split.valid?"":" 金额超过可合并余额。");
+  }else{
+    el.textContent=funding==="saving"?`已有储蓄可转 ${M(f.saving)}`:`日常支出可转 ${M(f.pocket)}`;
+  }
+}
 function refreshExtraSavingDestination(){
   const locked=extraSavingDestination.value==="short";
   extraSavingShortFields.style.display=locked?"block":"none";
