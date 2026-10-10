@@ -2244,16 +2244,6 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     <div class="section">
       <div class="sectionHeader"><div class="sectionTitle">银行存款</div><button class="sectionToggle" type="button" onclick="openBankDeposit()">新增存款</button></div>
 
-      <div class="card bankReminderAlertCard" id="bankReminderAlertCard" style="display:none">
-        <div class="bankReminderAlertRow">
-          <div style="min-width:0">
-            <div class="name" id="bankReminderAlertTitle">已经达到银行转存额度</div>
-            <div class="meta" id="bankReminderAlertMeta">可以考虑把这部分日常储蓄存入银行。</div>
-          </div>
-          <button class="primary" id="bankReminderAlertBtn">新增银行存款</button>
-        </div>
-      </div>
-
       <div class="card" id="bankDepositList" style="margin-top:10px"></div>
     </div>
 
@@ -7731,7 +7721,6 @@ bankReminderEditBtn.onclick=()=>{
 
 bankReminderDepositBtn.onclick=openBankDepositFromReminder;
 bankReminderNowBtn.onclick=openBankDepositFromReminder;
-bankReminderAlertBtn.onclick=openBankDepositFromReminder;
 
 
 
@@ -7839,7 +7828,6 @@ function renderBankDepositReminder(){
   }
 
   bankReminderNowCard.style.display=r.ready?"":"none";
-  bankReminderAlertCard.style.display=r.ready?"":"none";
 
   if(r.ready){
     if(r.actualReady){
@@ -7847,17 +7835,11 @@ function renderBankDepositReminder(){
       bankReminderNowMeta.textContent=`当前实际可转存 ${M(r.actual)}，设定额度为 ${M(r.threshold)}。`;
       bankReminderNowBtn.style.display="";
 
-      bankReminderAlertTitle.textContent="储蓄已达到银行转存额度";
-      bankReminderAlertMeta.textContent=`当前实际可转存 ${M(r.actual)}，可以进入新增银行存款录入。`;
-      bankReminderAlertBtn.style.display="";
     }else{
       bankReminderNowTitle.textContent="累计预计储蓄达到银行转存额度";
       bankReminderNowMeta.textContent=`累计已沉淀 ${M(r.actual)}，当前周期预计结余 ${M(r.pending)}。`;
       bankReminderNowBtn.style.display="none";
 
-      bankReminderAlertTitle.textContent="累计预计储蓄达到银行转存额度";
-      bankReminderAlertMeta.textContent=`累计预计可转存 ${M(r.current)}，当前实际可转存 ${M(r.actual)}。`;
-      bankReminderAlertBtn.style.display="none";
     }
   }
 }
