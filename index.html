@@ -2306,8 +2306,8 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="sectionTitle">新增储蓄录入</div>
       <div class="card savingAddCard">
         <button class="ghost savingAddAction" onclick="openExtraSaving()">
-          <span class="savingAddActionTitle">记额外储蓄</span>
-          <span class="savingAddActionMeta">存入日常储蓄或小荷包等锁定账户</span>
+          <span class="savingAddActionTitle">储蓄存入 / 转存</span>
+          <span class="savingAddActionMeta">上周期结余转小荷包，或新增额外储蓄</span>
         </button>
         <button class="ghost savingAddAction" onclick="openBankDeposit()">
           <span class="savingAddActionTitle">新增银行存款</span>
@@ -2850,7 +2850,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
 <div class="sheet" id="extraSavingSheet">
   <div class="sheetCard">
-    <div class="sheetTitle">记录额外储蓄</div>
+    <div class="sheetTitle" id="extraSavingSheetTitle">记录储蓄</div>
     <div class="formGrid">
       <div>
         <label>日期</label>
@@ -2877,11 +2877,11 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <input id="extraSavingNewAccount" maxlength="40" placeholder="例如 支付宝小荷包">
         </div>
         <div style="margin-top:9px">
-          <label for="extraSavingFunding">这笔钱原来在哪里</label>
+          <label for="extraSavingFunding">资金来源（防止重复计算）</label>
           <select id="extraSavingFunding">
-            <option value="new">额外新存入（此前未记过账）</option>
-            <option value="saving">已有日常储蓄</option>
-            <option value="pocket">日常支出剩余（零花钱）</option>
+            <option value="saving">已有日常储蓄（含上周期结转）</option>
+            <option value="pocket">本周期日常支出余额</option>
+            <option value="new">真正新增的额外资金（尚未记账）</option>
           </select>
         </div>
       </div>
@@ -9251,7 +9251,7 @@ function openExtraSaving(destination="ordinary",accountId=""){
   extraSavingDestination.value=destination==="short"?"short":"ordinary";
   extraSavingAccount.value=accountId||"";
   extraSavingNewAccount.value="";
-  extraSavingFunding.value="new";
+  extraSavingFunding.value=destination==="short"?"saving":"new";
   refreshExtraSavingDestination();
   if(accountId&&[...extraSavingAccount.options].some(x=>x.value===accountId)){
     extraSavingAccount.value=accountId;
