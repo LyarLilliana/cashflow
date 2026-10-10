@@ -1866,6 +1866,12 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .shortAccountEmpty{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;flex-wrap:wrap}
 .shortAccountEmpty .note{flex:1;min-width:160px}
 .shortAccountEmpty button{min-height:38px;font-size:11px;padding:8px 11px}
+.bankReminderWithinSaving{margin-top:12px}
+.savingsChangesOuter>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:7px 1px 12px}
+.savingsChangesOuter>summary::-webkit-details-marker{display:none}
+.savingsChangesOuter>summary .small{margin-left:auto}
+.savingsChangesOuter>summary .disclosureState{font-size:13px;color:var(--muted)}
+.savingsChangesOuter[open]>summary .disclosureState{transform:rotate(180deg)}
 </style>
 </head>
 <body class="booting">
@@ -2110,7 +2116,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
     <!-- 1. SAVINGS OVERVIEW -->
     <div class="section">
-      <div class="sectionTitle">储蓄概览</div>
+      <div class="sectionHeader"><div class="sectionTitle">储蓄概览</div><button class="sectionToggle" type="button" onclick="openExtraSaving()">补录额外储蓄</button></div>
       <div class="resultRangeBar">
         <span class="resultRangeLabel">统计范围</span>
         <button class="resultRangeToggle" id="savingRangeToggle" type="button" aria-controls="savingRangePanel" aria-expanded="false">
@@ -2182,30 +2188,9 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         </div>
         <div class="small" style="margin-top:9px">上周期结转的储蓄转入小荷包，只改变存放位置，总储蓄不增加。转入后默认锁定，不自动补贴零花钱。</div>
       </div>
-    </div>
-    <!-- 2. BANK DEPOSITS -->
-    <div class="section">
-      <div class="sectionTitle">银行存款</div>
-
-      <div class="card bankReminderAlertCard" id="bankReminderAlertCard" style="display:none">
-        <div class="bankReminderAlertRow">
-          <div style="min-width:0">
-            <div class="name" id="bankReminderAlertTitle">已经达到银行转存额度</div>
-            <div class="meta" id="bankReminderAlertMeta">可以考虑把这部分日常储蓄存入银行。</div>
-          </div>
-          <button class="primary" id="bankReminderAlertBtn">新增银行存款</button>
-        </div>
-      </div>
-
-      <div class="card" id="bankDepositList" style="margin-top:10px"></div>
-    </div>
-
-    <!-- 5. BANK TRANSFER REMINDER SETTINGS -->
-    <div class="section bankReminderSettingsSection">
-      <div class="sectionTitle">银行转存提醒</div>
-
-      <div class="card">
-        <div class="meta">实际可转存额包括日常储蓄与短期储蓄，按全部日期累计。当前周期尚未结算的预计结余单独纳入预估进度。</div>
+      <div class="card bankReminderWithinSaving">
+        <div class="name" style="margin-bottom:5px">累计转存目标</div>
+        <div class="meta">日常储蓄与小荷包合并累计，当前周期预计结余单独预测。达到额度时提醒办理银行转存。</div>
 
         <div class="divider"></div>
 
@@ -2252,12 +2237,27 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="note" id="bankReminderHint" style="margin-top:10px"></div>
       </div>
     </div>
+    <!-- 2. BANK DEPOSITS -->
+    <div class="section">
+      <div class="sectionHeader"><div class="sectionTitle">银行存款</div><button class="sectionToggle" type="button" onclick="openBankDeposit()">新增存款</button></div>
+
+      <div class="card bankReminderAlertCard" id="bankReminderAlertCard" style="display:none">
+        <div class="bankReminderAlertRow">
+          <div style="min-width:0">
+            <div class="name" id="bankReminderAlertTitle">已经达到银行转存额度</div>
+            <div class="meta" id="bankReminderAlertMeta">可以考虑把这部分日常储蓄存入银行。</div>
+          </div>
+          <button class="primary" id="bankReminderAlertBtn">新增银行存款</button>
+        </div>
+      </div>
+
+      <div class="card" id="bankDepositList" style="margin-top:10px"></div>
+    </div>
+
     <!-- 3. SAVINGS CHANGES -->
     <div class="section">
-      <div class="sectionHeader">
-        <div class="sectionTitle">储蓄变化</div>
-        <span class="small" id="savingChangeCount">0 条变化</span>
-      </div>
+      <details class="savingsChangesOuter">
+        <summary class="savingsChangesOuterHead"><span class="sectionTitle">储蓄变化</span><span class="small" id="savingChangeCount">0 条变化</span><span aria-hidden="true" class="disclosureState">⌄</span></summary>
       <div class="card summaryLedgerCard">
         <details class="savingsChangeDisclosure">
           <summary>查看储蓄变化构成<span aria-hidden="true">⌄</span></summary>
@@ -2292,28 +2292,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       </div>
 
       <div class="card savingChangeList" id="savingChangeList"></div>
-    </div>
-
-    <div class="section" id="projectBorrowSection">
-      <div class="sectionHeader">
-        <div class="sectionTitle">专项待补回</div>
-      </div>
-      <div class="card shortAccountCard" id="projectBorrowList"></div>
-    </div>
-
-    <!-- 4. LOW-FREQUENCY SAVINGS ENTRY -->
-    <div class="section savingAddSection">
-      <div class="sectionTitle">新增储蓄录入</div>
-      <div class="card savingAddCard">
-        <button class="ghost savingAddAction" onclick="openExtraSaving()">
-          <span class="savingAddActionTitle">储蓄存入 / 转存</span>
-          <span class="savingAddActionMeta">上周期结余转小荷包，或新增额外储蓄</span>
-        </button>
-        <button class="ghost savingAddAction" onclick="openBankDeposit()">
-          <span class="savingAddActionTitle">新增银行存款</span>
-          <span class="savingAddActionMeta">登记活期或定期银行资产</span>
-        </button>
-      </div>
+      </details>
     </div>
 
   </section>
