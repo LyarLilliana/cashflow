@@ -3418,7 +3418,7 @@ function cyclePocketSnapshot(incomeTx){
 
   const expenses=cycleTx.filter(t=>t.type==="expense");
   const settlements=cycleTx.filter(t=>t.type==="living_settlement");
-  const savingTransfers=cycleTx.filter(t=>t.type==="pocket_to_saving"||t.type==="pocket_to_short");
+  const savingTransfers=cycleTx.filter(t=>t.type==="pocket_to_saving"||t.type==="pocket_to_short"||(t.type==="short_transfer"&&t.direction==="in"&&N(t.pocketPortion)>0));
   const projectTransfers=cycleTx.filter(t=>t.type==="pocket_to_project");
   const extraIncomes=cycleTx.filter(t=>t.type==="income"&&!isCycleIncomeTx(t));
 
@@ -3502,7 +3502,7 @@ function cyclePocketSnapshot(incomeTx){
     );
     return grossRelease-dailyDraw;
   });
-  const pocketToSaving=sm(savingTransfers,t=>N(t.amount));
+  const pocketToSaving=sm(savingTransfers,t=>t.type==="short_transfer"?N(t.pocketPortion):N(t.amount));
   const pocketToProject=sm(projectTransfers,t=>N(t.amount));
   const projectSettlementSaving=sm(
     cycleTx.filter(t=>t.type==="project_settlement"),
@@ -7114,8 +7114,8 @@ function savingStatsForRange(start="",end=""){
   // Keep the legacy aggregate for calculations elsewhere.
   const planned=recurringIncomeSaving+oneOffIncomeSaving;
 
-  const savingTransfers=S.tx.filter(t=>(t.type==="pocket_to_saving"||t.type==="pocket_to_short")&&inRange(t.date));
-  const transfers=sm(savingTransfers,t=>N(t.amount));
+  const savingTransfers=S.tx.filter(t=>(t.type==="pocket_to_saving"||t.type==="pocket_to_short"||(t.type==="short_transfer"&&t.direction==="in"&&N(t.pocketPortion)>0))&&inRange(t.date));
+  const transfers=sm(savingTransfers,t=>t.type==="short_transfer"?N(t.pocketPortion):N(t.amount));
 
   const projectTransfers=S.tx.filter(t=>t.type==="pocket_to_project"&&inRange(t.date));
   const pocketToProject=sm(projectTransfers,t=>N(t.amount));
