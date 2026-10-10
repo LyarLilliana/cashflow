@@ -3496,6 +3496,44 @@ function virtualCycleCloseEvents(){
   });
 }
 
+// 储蓄存放位置：账户转移只改变持有位置，短期账户不参与消费自动兜底。
+function shortAccountName(id){return (S.shortAccounts||[]).find(x=>x.id===id)?.name||"短期储蓄";}
+function shortAccountBalance(id,asOf=td(),excludeBankId=""){
+  let n=0;
+  S.tx.forEach(t=>{
+    if(t.shortAccountId!==id||!t.date||t.date>asOf)return;
+    const a=N(t.amount);
+    if(t.type==="short_transfer")n+=t.direction==="in"?a:-a;
+    if(t.type==="short_interest")n+=a;
+    if(t.type==="short_spend")n-=a;
+  });
+  startedBankDeposits(asOf).forEach(d=>{
+    if(d.source==="short"&&d.shortAccountId===id&&d.id!==excludeBankId)n-=N(d.principal);
+  });
+  return n;
+}
+function shortBalanceTotal(){return sm(S.shortAccounts||[],a=>shortAccountBalance(a.id));}
+function shortFlowForRange(start="",end=""){
+  const tx=S.tx.filter(t=>t.date&&t.date<=td()&&(!start||t.date>=start)&&(!end||t.date<=end));
+  const incoming=sm(tx.filter(t=>t.type==="short_transfer"&&t.direction==="in"),t=>N(t.amount));
+  const outgoing=sm(tx.filter(t=>t.type==="short_transfer"&&t.direction==="out"),t=>N(t.amount));
+  const interest=sm(tx.filter(t=>t.type==="short_interest"),t=>N(t.amount));
+  const used=sm(tx.filter(t=>t.type==="short_spend"),t=>N(t.amount));
+  const bank=sm(startedBankDeposits().filter(d=>d.source==="short"&&(!start||d.startDate>=start)&&(!end||d.startDate<=end)),d=>N(d.principal));
+  const projectRepay=sm(tx.filter(t=>t.type==="saving_to_project"),t=>N(t.amount));
+  return {incoming,outgoing,interest,used,bank,projectRepay,delta:incoming-outgoing+interest-used-bank};
+}
+function shortLedgerValid(id){
+  const dates=new Set([td()]);
+  S.tx.filter(t=>t.shortAccountId===id).forEach(t=>dates.add(t.date));
+  S.deposits.filter(d=>d.source==="short"&&d.shortAccountId===id).forEach(d=>dates.add(d.startDate));
+  return [...dates].every(date=>shortAccountBalance(id,date)>=-0.005);
+}
+function projectRepayPending(projectId){
+  const borrowed=sm(S.tx.filter(t=>t.type==="expense"&&t.refId===projectId&&t.projectBorrowTemporary),t=>N(t.amount));
+  const repaid=sm(S.tx.filter(t=>t.repaymentOf===projectId),t=>N(t.amount));
+  return Math.max(0,borrowed-repaid);
+}
 function accounting(){
   const raw={safe:0,bills:0};
   const dailyLivingCover=dailyExpenseLivingCoverMap();
@@ -3687,6 +3725,21 @@ function accounting(){
     if(t.type==="bank_deposit_lock"){
       saving-=N(t.amount);
       effects[t.id]={bankDepositLock:N(t.amount)};
+      return;
+    }
+    if(t.type==="short_transfer"){
+      saving+=t.direction==="in"?-N(t.amount):N(t.amount);
+      effects[t.id]={internalShortTransfer:true};
+      return;
+    }
+    if(t.type==="short_interest"||t.type==="short_spend"){
+      effects[t.id]={lockedShortAsset:true};
+      return;
+    }
+    if(t.type==="saving_to_project"){
+      saving-=N(t.amount);
+      projects[t.projectId]=(projects[t.projectId]||0)+N(t.amount);
+      effects[t.id]={savingToProject:N(t.amount)};
       return;
     }
 
@@ -7242,6 +7295,27 @@ function savingChangeEvents(){
       return;
     }
 
+    if(t.type==="short_transfer"){
+      events.push({id:t.id,date,name:`${t.direction==="in"?"日常储蓄转入":"短期储蓄取回"} · ${shortAccountName(t.shortAccountId)}`,
+        meta:t.note||"储蓄资金内部调动",amount:N(t.amount),impact:0,mode:"move"});
+      return;
+    }
+    if(t.type==="short_interest"){
+      events.push({id:t.id,date,name:`短期储蓄收益 · ${shortAccountName(t.shortAccountId)}`,
+        meta:t.note||"实际到账收益",amount:N(t.amount),impact:N(t.amount),mode:"pos"});
+      return;
+    }
+    if(t.type==="short_spend"){
+      events.push({id:t.id,date,name:`短期储蓄取用 · ${shortAccountName(t.shortAccountId)}`,
+        meta:t.note||"主动动用锁定储蓄",amount:N(t.amount),impact:-N(t.amount),mode:"neg"});
+      return;
+    }
+    if(t.type==="saving_to_project"){
+      const p=S.projects.find(x=>x.id===t.projectId);
+      events.push({id:t.id,date,name:`储蓄补回专项 · ${p?.name||"专项"}`,
+        meta:"储蓄转为专项准备金",amount:N(t.amount),impact:-N(t.amount),mode:"neg"});
+      return;
+    }
     if(t.type==="extra_saving"){
       events.push({
         id:t.id,date,
@@ -7304,6 +7378,9 @@ function savingChangeEvents(){
         impact:0,
         mode:"move"
       });
+    }else if(d.source==="short"){
+      events.push({id:`bankShort_${d.id}`,date:d.startDate||"",name:`短期储蓄转银行 · ${d.name||"银行存款"}`,
+        meta:shortAccountName(d.shortAccountId),amount:N(d.principal),impact:0,mode:"move"});
     }else if(d.source==="external"){
       events.push({
         id:`bankExternal_${d.id}`,
@@ -7373,9 +7450,11 @@ function selectedSavingRangeSummary(){
 
   const bankExisting=N(s.bankExisting);
   const dailyBeforeBank=dailyBase+dailySecondary;
-  const dailyAfterBank=dailyBeforeBank-bankExisting;
+  const short=shortFlowForRange(range.start,range.end);
+  const dailyAfterBank=dailyBeforeBank-bankExisting-short.incoming+short.outgoing-short.projectRepay;
+  const shortTotal=short.delta;
   const bankTotal=bankPrincipal+interestGrowth;
-  const expected=dailyAfterBank+bankTotal;
+  const expected=dailyAfterBank+shortTotal+bankTotal;
 
   return {
     ...s,
@@ -7386,6 +7465,8 @@ function selectedSavingRangeSummary(){
     dailySecondary,
     dailyBeforeBank,
     dailyAfterBank,
+    short,
+    shortTotal,
     bankPrincipal,
     bankTotal,
     expected
@@ -7400,6 +7481,10 @@ function renderSavingAssetSummary(){
 
   savingFreePrincipal.textContent=M(s.dailyAfterBank);
   savingFreePrincipal.style.color=s.dailyAfterBank<0?"var(--danger)":"var(--text)";
+  savingShortChange.textContent=M(s.shortTotal);
+  savingShortChange.style.color=s.shortTotal<0?"var(--danger)":"var(--text)";
+  savingShortInboundDetail.textContent=s.short.incoming>0?`-${M(s.short.incoming)}`:M(0);
+  savingShortOutboundDetail.textContent=M(s.short.outgoing);
 
   if(s.cycleMode&&cycle.income){
     savingCyclePlannedLabel.textContent="本周期储蓄净变化";
@@ -7463,6 +7548,9 @@ function renderSavingStats(){
   savingInterestGrowthPart.textContent=M(s.interestGrowth);
   savingInterestGrowthPart.style.color=s.interestGrowth>0?"var(--accent)":"inherit";
 
+  savingShortInterestPart.textContent=M(s.short.interest);
+  savingShortUsePart.textContent=s.short.used>0?`-${M(s.short.used)}`:M(0);
+  savingProjectRepayPart.textContent=s.short.projectRepay>0?`-${M(s.short.projectRepay)}`:M(0);
   savingGrowthTotal.textContent=M(s.expected);
   savingGrowthTotal.style.color=s.expected<0?"var(--danger)":"var(--accent)";
 
@@ -7475,7 +7563,7 @@ function renderSavingStats(){
   savingUseLabel.textContent=cycleMode?"储蓄兜底 / 直接取用（参考）":"储蓄取用 / 超支扣减";
   savingGrowthTotalLabel.textContent="预计储蓄增长总和";
   savingGrowthNote.textContent=cycleMode
-    ?`日常储蓄变化 ${M(s.dailyAfterBank)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}；其中本周期储蓄净变化为 ${M(N(s.cycleProjected))}。`
+    ?`日常储蓄变化 ${M(s.dailyAfterBank)} + 短期储蓄变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。`
     :"“当前周期预计结余”会随继续消费变化，所选范围内的银行本金与利息同步进入同一总和。";
 
   savingChangeList.innerHTML=events.length
@@ -7567,7 +7655,7 @@ function bankReminderState(){
   // 银行转存提醒使用“全部日期累计”口径。
   // ordinarySavingsAvailable() 是当前真实仍留在日常储蓄里的余额，
   // 已经转入银行的 existing 存款会在 accounting() 中扣除，因此不会重复累计。
-  const available=Math.max(0,ordinarySavingsAvailable());
+  const available=Math.max(0,ordinarySavingsAvailable())+Math.max(0,shortBalanceTotal());
 
   // 当前周期尚未结束的正结余可以提前进入“预计可转存”进度。
   // 负结余已经通过实际消费和储蓄兜底反映在 accounting() 中，避免再次重复扣减。
@@ -7748,7 +7836,7 @@ function actualSpendingDate(t){
 
 function actualSpendingAmount(t){
   if(!t)return 0;
-  if(t.type==="expense")return Math.max(0,N(t.amount));
+  if(t.type==="expense"||t.type==="short_spend")return Math.max(0,N(t.amount));
   if(t.type==="living_batch")return Math.max(0,N(t.amount));
   if(t.type==="living_settlement")return livingSettlementManualActual(t);
   return 0;
@@ -7785,7 +7873,7 @@ function spendingBreakdownForRange(start="",end=""){
       return;
     }
 
-    if(t.bucket==="saving"){
+    if(t.bucket==="saving"||t.type==="short_spend"){
       saving+=amount;
       return;
     }
