@@ -7301,6 +7301,15 @@ function savingChangeEvents(){
 
   S.tx.forEach(t=>{
     const date=t.date||"";
+    if(date>td()&&["short_transfer","pocket_to_short","extra_saving","short_interest","short_spend"].includes(t.type)){
+      events.push({
+        id:t.id,date,
+        name:`待生效 · ${t.type==="extra_saving"?"储蓄存入":t.type==="short_spend"?"短期储蓄取用":t.type==="short_interest"?"短期储蓄收益":"短期储蓄转账"} · ${shortSavingsAccountLabel(t.shortAccountId)}`,
+        meta:"已安排的未来记录，尚未影响实际资产",
+        amount:N(t.amount),impact:0,mode:"move"
+      });
+      return;
+    }
 
     if(t.type==="income"){
       const repaid=N(effects[t.id]?.pocketSavingRepaid);
@@ -7923,11 +7932,13 @@ function openShortTransfer(id="",action="out"){
   shortTransferSheet.classList.add("show");
 }
 function updateShortTransferHint(){
-  const balance=shortAccountBalance(shortTransferAccount.value),action=shortTransferAction.value;
+  const date=shortTransferDate.value||td();
+  const balance=shortAccountBalance(shortTransferAccount.value,date),action=shortTransferAction.value;
   const note=action==="in"?"转入后锁定，退出日常储蓄兜底池":action==="out"?"转回日常储蓄，解锁后可再次调配":action==="interest"?"仅登记实际到账的收益":"属于主动储蓄取用，同时记录消费";
-  shortTransferHint.textContent=`账户余额 ${M(balance)}。 ${note}。`;
+  shortTransferHint.textContent=`${date} 账面余额 ${M(balance)}。 ${note}。`+(date>td()?" 未来日期按待生效计划保存，届时才调整实际余额。":"");
 }
 shortTransferAccount.addEventListener("change",updateShortTransferHint);
+shortTransferDate.addEventListener("change",updateShortTransferHint);
 shortTransferAction.addEventListener("change",updateShortTransferHint);
 saveShortTransfer.onclick=()=>{
   const accountId=shortTransferAccount.value,action=shortTransferAction.value;
@@ -9314,6 +9325,7 @@ function refreshExtraSavingDestination(){
       :source==="pocket"
         ?"从现有零花钱转入，日常可花余额减少，锁定储蓄增加；之后不会自动用于消费。"
         :"额外新存入的钱直接进入锁定储蓄。若这笔钱之前已经在 SafeSpend 计为储蓄或零花钱，请更换来源，避免重复记账。";
+  if(extraSavingDate.value>td())extraSavingDestinationHint.textContent+=" 未来日期按待生效计划保存，不会提前改变现在的余额。";
 }
 function openExtraSaving(destination="ordinary",accountId=""){
   extraSavingDate.value=td();
@@ -9339,7 +9351,7 @@ extraSavingDestination.addEventListener("change",()=>{
 extraSavingAccount.addEventListener("change",refreshExtraSavingDestination);
 extraSavingFunding.addEventListener("change",refreshExtraSavingDestination);
 extraSavingAmount.addEventListener("input",refreshExtraSavingCombinedPreview);
-extraSavingDate.addEventListener("change",refreshExtraSavingCombinedPreview);
+extraSavingDate.addEventListener("change",refreshExtraSavingDestination);
 
 saveExtraSaving.onclick=()=>{
   const date=extraSavingDate.value||td();
