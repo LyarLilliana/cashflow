@@ -7377,8 +7377,12 @@ function savingChangeEvents(){
     }
 
     if(t.type==="short_transfer"){
-      events.push({id:t.id,date,name:`${t.direction==="in"?"日常储蓄转入":"短期储蓄取回"} · ${shortSavingsAccountLabel(t.shortAccountId)}`,
-        meta:t.note||"储蓄资金内部调动",amount:N(t.amount),impact:0,mode:"move"});
+      const pocket=N(t.pocketPortion);
+      const saving=t.direction==="in"?Math.max(0,N(t.amount)-pocket):0;
+      const label=pocket>0?"合并可用资金转入":"日常储蓄转入";
+      const detail=pocket>0?`已有储蓄 ${M(saving)} + 日常支出剩余 ${M(pocket)}`:"储蓄资产内部调动";
+      events.push({id:t.id,date,name:`${t.direction==="in"?label:"短期储蓄取回"} · ${shortSavingsAccountLabel(t.shortAccountId)}`,
+        meta:[detail,t.note].filter(Boolean).join(" · "),amount:N(t.amount),impact:pocket,mode:"move"});
       return;
     }
     if(t.type==="short_interest"){
