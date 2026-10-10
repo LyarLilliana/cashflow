@@ -9243,7 +9243,15 @@ saveLivingBatch.onclick=()=>{
 // Backdated transfers may move money that later paid an expense or bank lock.
 // Compare dated ledgers before/after recording, so historical funding never silently goes negative.
 function walletFundingCheckDates(fromDate){
-  const end=td();
+  // Include known future-dated wallet commitments as well as prior real spending.
+  // An old transfer must not silently consume money already allocated in a later entry.
+  let end=td()>fromDate?td():fromDate;
+  S.tx.forEach(t=>{
+    if(t.date>end)end=t.date;
+  });
+  (S.deposits||[]).forEach(d=>{
+    if(d.source==="existing"&&d.startDate>end)end=d.startDate;
+  });
   const dates=new Set([fromDate,end]);
   S.tx.forEach(t=>{
     if(t.date&&t.date>=fromDate&&t.date<=end)dates.add(t.date);
@@ -9399,7 +9407,7 @@ saveExtraSaving.onclick=()=>{
   if(locked)tx.shortAccountId=accountId;
   if(tx.type==="short_transfer")tx.direction="in";
   if(combined){tx.pocketPortion=combined.pocket;tx.savingPortion=combined.saving;tx.fundingMode="combined";}
-  const auditing=locked&&source!=="new"&&date<=td();
+  const auditing=locked&&source!=="new";
   const checkpoints=auditing?walletFundingCheckDates(date):[];
   const historyBefore=auditing?walletFundingSnapshots(checkpoints):[];
   if(newAccount)S.shortAccounts.push(newAccount);
