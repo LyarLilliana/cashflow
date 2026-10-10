@@ -6011,7 +6011,7 @@ function txHtml(t,del=false,edit=false){
       move?(t.direction==="in"?"转入短期储蓄":"取回日常储蓄"):positive?"短期储蓄到账收益":"短期储蓄取用";
     const account=t.type==="saving_to_project"?(S.projects.find(p=>p.id===t.projectId)?.name||"专项"):shortSavingsAccountLabel(t.shortAccountId);
     const fundingMeta=move&&N(t.pocketPortion)>0?` · 现有储蓄 ${M(N(t.amount)-N(t.pocketPortion))} + 日常支出 ${M(t.pocketPortion)}`:"";
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${fundingMeta?"合并资金转入 · ": ""}${title} · ${esc(account)}</div><div class="meta">${t.date}${fundingMeta}${t.note?" · "+esc(t.note):""}</div></div><div class="txRight"><div class="txAmount ${positive?"pos":spend?"neg":"txMuted"}">${positive?"+":spend?"-":"→ "}${M(t.amount)}</div>${t.type==="saving_to_project"?"":`<button class="txTinyBtn" type="button" onclick="deleteShortRecord('${t.id}')">撤销</button>`}</div></div></div>`;
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${fundingMeta?"合并资金转入 · ": ""}${title} · ${esc(account)}</div><div class="meta">${t.date}${fundingMeta}${t.note?" · "+esc(t.note):""}</div></div><div class="txRight"><div class="txAmount ${positive?"pos":spend?"neg":"txMuted"}">${positive?"+":spend?"-":"→ "}${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   if(t.type==="extra_saving"){
     const location=t.shortAccountId?`锁定于 ${esc(shortSavingsAccountLabel(t.shortAccountId))}`:"计入日常储蓄";
@@ -6064,7 +6064,11 @@ function transactionEditable(t){
     "living_batch",
     "extra_saving",
     "pocket_to_saving",
-    "pocket_to_project"
+    "pocket_to_project",
+    "short_transfer",
+    "short_interest",
+    "short_spend",
+    "pocket_to_short"
   ].includes(t.type);
 }
 
@@ -6104,6 +6108,11 @@ function transactionActionTitle(t){
     const p=S.projects.find(x=>x.id===t.projectId);
     return `零花钱转专项${p?" · "+p.name:""}`;
   }
+  if(t.type==="short_transfer")return (t.direction==="in"?"转入短期储蓄":"取回日常储蓄")+" · "+shortSavingsAccountLabel(t.shortAccountId);
+  if(t.type==="short_interest")return "短期储蓄到账收益 · "+shortSavingsAccountLabel(t.shortAccountId);
+  if(t.type==="short_spend")return "短期储蓄取用 · "+shortSavingsAccountLabel(t.shortAccountId);
+  if(t.type==="pocket_to_short")return "日常支出转入短期储蓄 · "+shortSavingsAccountLabel(t.shortAccountId);
+  if(t.type==="saving_to_project")return "日常储蓄补回专项";
   if(t.type==="project_settlement")return "专项结余转储蓄";
   if(t.type==="project_archive")return "专项归档";
   if(t.type==="project_restore")return "专项恢复";
@@ -6178,6 +6187,8 @@ txActionDeleteBtn.onclick=()=>{
 
   if(["project_settlement","project_archive","project_restore"].includes(t.type)){
     removeProjectTimelineTx(id);
+  }else if(["short_transfer","short_interest","short_spend"].includes(t.type)){
+    deleteShortRecord(id,true);
   }else{
     removeTx(id);
   }
@@ -7940,16 +7951,19 @@ saveShortTransfer.onclick=()=>{
   }
   save();closeSheet("shortTransferSheet");render();msg("短期储蓄记录已保存");
 };
-function deleteShortRecord(id){
+function deleteShortRecord(id,alreadyConfirmed=false){
   const t=S.tx.find(x=>x.id===id);
   if(!t||!["short_transfer","short_interest","short_spend"].includes(t.type))return;
-  if(!confirm("撤销这笔短期储蓄记录？"))return;
-  const dailyBefore=N(accounting().saving);
+  if(!alreadyConfirmed&&!confirm("删除这笔短期储蓄记录？"))return;
+  const checkpoints=walletFundingCheckDates(t.date||td());
+  const before=walletFundingSnapshots(checkpoints);
+  const original=S.tx;
   S.tx=S.tx.filter(x=>x.id!==id);
-  if(!shortLedgerValid(t.shortAccountId)||N(accounting().saving)<Math.min(0,dailyBefore)-0.005){
-    S.tx.push(t);return msg("撤销后其他余额不足，请先核对后续资金调动");
+  if(!shortLedgerValid(t.shortAccountId)||!walletFundingRemainsCovered(before,walletFundingSnapshots(checkpoints))){
+    S.tx=original;
+    return msg("删除后其他余额或后续转存资金不足，请先核对后续资金调动");
   }
-  save();render();msg("记录已撤销");
+  save();render();msg("记录已删除，相关余额已重新计算");
 }
 function openProjectRepay(id){
   const p=S.projects.find(x=>x.id===id);if(!p)return;
@@ -10293,6 +10307,41 @@ function openTxEdit(id){
     eStart.addEventListener("change",editFromStart);
     eEnd.addEventListener("change",editFromEnd);
     editTxHint.textContent="开始日期、结束日期和覆盖天数三者联动；每日分摊会同步重新计算。";
+  }else if(["short_transfer","short_interest","short_spend","pocket_to_short"].includes(t.type)){
+    const inTransfer=t.type==="short_transfer"&&t.direction==="in";
+    const pocketAmount=inTransfer?Math.max(0,N(t.pocketPortion)):0;
+    const shortLabels={
+      short_transfer:t.direction==="in"?"修改短期储蓄转入":"修改短期储蓄取回",
+      short_interest:"修改短期储蓄到账收益",
+      short_spend:"修改短期储蓄取用",
+      pocket_to_short:"修改日常支出转入短期储蓄"
+    };
+    editTxTitle.textContent=shortLabels[t.type];
+    editTxFields.innerHTML=`
+      <div class="formGrid one">
+        <div>
+          <label>短期储蓄账户</label>
+          <select id="editShortAccount">${(S.shortAccounts||[]).map(a=>`<option value="${esc(a.id)}" ${a.id===t.shortAccountId?"selected":""}>${esc(a.name)}</option>`).join("")}</select>
+        </div>
+        <div>
+          <label>日期</label>
+          <input id="editShortDate" type="date" value="${esc(t.date||td())}">
+        </div>
+        <div>
+          <label>金额</label>
+          <input id="editShortAmount" type="number" min="0.01" step="0.01" inputmode="decimal" value="${N(t.amount)}">
+        </div>
+        ${inTransfer?`<div><label>其中由日常支出余额转入</label>
+          <input id="editShortPocket" type="number" min="0" step="0.01" inputmode="decimal" value="${pocketAmount}">
+          <div class="note">其余金额由已有日常储蓄转入；两部分合计为本次转入金额。</div>
+        </div>`:""}
+        <div>
+          <label>备注</label>
+          <input id="editShortNote" maxlength="80" value="${esc(t.note||"")}">
+        </div>
+      </div>
+    `;
+    editTxHint.textContent="可修改日期、金额、账户和备注。保存时核对受影响日期的日常资金及短期账户余额，确保后续转存记录继续有效。";
   }else if(t.type==="extra_saving"){
     editTxTitle.textContent="修改额外储蓄";
     editTxFields.innerHTML=`
@@ -10601,6 +10650,37 @@ saveTxEdit.onclick=()=>{
     t.endDate=endDate;
     t.note=note;
     syncLivingSettlementTotals();
+  }else if(["short_transfer","short_interest","short_spend","pocket_to_short"].includes(t.type)){
+    const accountId=document.getElementById("editShortAccount").value;
+    const date=document.getElementById("editShortDate").value;
+    const amount=Math.round(Number(document.getElementById("editShortAmount").value)*100)/100;
+    const inTransfer=t.type==="short_transfer"&&t.direction==="in";
+    const pocketValue=inTransfer?Number(document.getElementById("editShortPocket").value):0;
+    const pocketAmount=Math.round(pocketValue*100)/100;
+
+    if(!(S.shortAccounts||[]).some(a=>a.id===accountId))return msg("请选择有效的短期储蓄账户");
+    if(!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date))return msg("请选择有效的记录日期");
+    if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效的金额");
+    if(!Number.isFinite(pocketAmount)||pocketAmount<0||pocketAmount>amount)return msg("日常支出转入金额需要介于 0 与总金额之间");
+
+    const previous={...t};
+    const checkpoints=walletFundingCheckDates(date<previous.date?date:previous.date);
+    const before=walletFundingSnapshots(checkpoints);
+    t.shortAccountId=accountId;
+    t.date=date;
+    t.amount=amount;
+    t.note=document.getElementById("editShortNote").value.trim();
+    if(inTransfer){
+      t.pocketPortion=pocketAmount;
+      t.savingPortion=Math.round((amount-pocketAmount)*100)/100;
+      t.fundingMode=pocketAmount>0?"combined":"saving";
+    }
+    const validAccounts=[...new Set([previous.shortAccountId,accountId])]
+      .filter(Boolean).every(id=>shortLedgerValid(id));
+    if(!validAccounts||!walletFundingRemainsCovered(before,walletFundingSnapshots(checkpoints))){
+      Object.assign(t,previous);
+      return msg("修改会影响已有资金或后续转存，请调整金额、账户或日期");
+    }
   }else if(t.type==="extra_saving"){
     const date=document.getElementById("editExtraSavingDate").value||t.date||td();
     const amount=Math.round(N(document.getElementById("editExtraSavingAmount").value)*100)/100;
