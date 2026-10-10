@@ -1857,6 +1857,12 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .savingOverviewCurrent small{display:block;font-size:9px;color:var(--muted);margin-top:3px}
 .savingOverviewCurrent strong{font-size:17px;white-space:nowrap;color:var(--text)}
 .shortAccountLineSub>span:last-child{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+/* 次级计算按需查看 */
+.savingsChangeDisclosure>summary{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:11px;font-weight:700;min-height:28px;cursor:pointer;list-style:none}
+.savingsChangeDisclosure>summary::-webkit-details-marker{display:none}
+.savingsChangeDisclosure>summary span{font-size:14px}
+.savingsChangeDisclosure[open]>summary span{transform:rotate(180deg)}
+.savingsChangeDisclosure[open]>.name{margin-top:8px}
 </style>
 </head>
 <body class="booting">
@@ -2174,14 +2180,6 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="small" style="margin-top:9px">短期储蓄默认锁定，转入后退出日常消费兜底池。每笔主动取用和银行转存均保留记录。</div>
       </div>
     </div>
-    <div class="section" id="projectBorrowSection">
-      <div class="sectionHeader">
-        <div class="sectionTitle">专项资金挪用</div>
-        <button class="sectionToggle" type="button" onclick="openProjectBorrow()">记录挪用</button>
-      </div>
-      <div class="card shortAccountCard" id="projectBorrowList"></div>
-    </div>
-
     <!-- 2. BANK DEPOSITS -->
     <div class="section">
       <div class="sectionTitle">银行存款</div>
@@ -2197,60 +2195,6 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       </div>
 
       <div class="card" id="bankDepositList" style="margin-top:10px"></div>
-    </div>
-
-    <!-- 3. SAVINGS CHANGES -->
-    <div class="section">
-      <div class="sectionHeader">
-        <div class="sectionTitle">储蓄变化</div>
-        <span class="small" id="savingChangeCount">0 条变化</span>
-      </div>
-      <div class="card summaryLedgerCard">
-        <div class="name" id="savingGrowthTitle">储蓄增长构成</div>
-        <div class="meta" id="savingGrowthMeta">只展示这个统计范围内形成或减少储蓄的项目；日常储蓄转银行只改变资金位置，不重复计入增长。</div>
-
-        <div class="summaryGroup">
-          <div class="summaryGroupTitle" id="savingIncreaseTitle">增加</div>
-          <div class="summaryRow"><span>周期收入储蓄</span><strong id="savingRecurringIncomePart">¥0</strong></div>
-          <div class="summaryRow"><span>单次额外收入储蓄</span><strong id="savingOneOffIncomePart">¥0</strong></div>
-          <div class="summaryRow"><span>周期结束结余</span><strong id="savingCycleClosePart">¥0</strong></div>
-          <div class="summaryRow"><span>当前周期预计结余</span><strong id="savingPendingPart">¥0</strong></div>
-          <div class="summaryRow"><span>零花钱转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
-          <div class="summaryRow"><span>专项结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
-          <div class="summaryRow"><span>额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
-          <div class="summaryRow"><span>外部存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
-          <div class="summaryRow"><span>银行预估利息</span><strong id="savingInterestGrowthPart">¥0</strong></div>
-          <div class="summaryRow"><span>短期储蓄到账收益</span><strong id="savingShortInterestPart">¥0</strong></div>
-        </div>
-
-        <div class="summaryGroup">
-          <div class="summaryGroupTitle" id="savingAdjustTitle">调整</div>
-          <div class="summaryRow"><span id="savingUseLabel">储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
-          <div class="summaryRow"><span>日常储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
-          <div class="summaryRow"><span>短期储蓄取用</span><strong id="savingShortUsePart">¥0</strong></div>
-          <div class="summaryRow"><span>储蓄补回专项</span><strong id="savingProjectRepayPart">¥0</strong></div>
-          <div class="summaryRow summaryTotal"><span id="savingGrowthTotalLabel">预计储蓄增长总和</span><strong id="savingGrowthTotal">¥0</strong></div>
-        </div>
-
-        <div class="summaryNote" id="savingGrowthNote">“当前周期预计结余”会随继续消费变化；周期结束后才正式沉淀为储蓄。</div>
-      </div>
-
-      <div class="card savingChangeList" id="savingChangeList"></div>
-    </div>
-
-    <!-- 4. LOW-FREQUENCY SAVINGS ENTRY -->
-    <div class="section savingAddSection">
-      <div class="sectionTitle">新增储蓄录入</div>
-      <div class="card savingAddCard">
-        <button class="ghost savingAddAction" onclick="openExtraSaving()">
-          <span class="savingAddActionTitle">记额外储蓄</span>
-          <span class="savingAddActionMeta">把额外存下来的钱加入日常储蓄</span>
-        </button>
-        <button class="ghost savingAddAction" onclick="openBankDeposit()">
-          <span class="savingAddActionTitle">新增银行存款</span>
-          <span class="savingAddActionMeta">登记活期或定期银行资产</span>
-        </button>
-      </div>
     </div>
 
     <!-- 5. BANK TRANSFER REMINDER SETTINGS -->
@@ -2305,6 +2249,71 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="note" id="bankReminderHint" style="margin-top:10px"></div>
       </div>
     </div>
+    <!-- 3. SAVINGS CHANGES -->
+    <div class="section">
+      <div class="sectionHeader">
+        <div class="sectionTitle">储蓄变化</div>
+        <span class="small" id="savingChangeCount">0 条变化</span>
+      </div>
+      <div class="card summaryLedgerCard">
+        <details class="savingsChangeDisclosure">
+          <summary>查看储蓄变化构成<span aria-hidden="true">⌄</span></summary>
+        <div class="name" id="savingGrowthTitle">储蓄增长构成</div>
+        <div class="meta" id="savingGrowthMeta">只展示这个统计范围内形成或减少储蓄的项目；日常储蓄转银行只改变资金位置，不重复计入增长。</div>
+
+        <div class="summaryGroup">
+          <div class="summaryGroupTitle" id="savingIncreaseTitle">增加</div>
+          <div class="summaryRow"><span>周期收入储蓄</span><strong id="savingRecurringIncomePart">¥0</strong></div>
+          <div class="summaryRow"><span>单次额外收入储蓄</span><strong id="savingOneOffIncomePart">¥0</strong></div>
+          <div class="summaryRow"><span>周期结束结余</span><strong id="savingCycleClosePart">¥0</strong></div>
+          <div class="summaryRow"><span>当前周期预计结余</span><strong id="savingPendingPart">¥0</strong></div>
+          <div class="summaryRow"><span>零花钱转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
+          <div class="summaryRow"><span>专项结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
+          <div class="summaryRow"><span>额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
+          <div class="summaryRow"><span>外部存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
+          <div class="summaryRow"><span>银行预估利息</span><strong id="savingInterestGrowthPart">¥0</strong></div>
+          <div class="summaryRow"><span>短期储蓄到账收益</span><strong id="savingShortInterestPart">¥0</strong></div>
+        </div>
+
+        <div class="summaryGroup">
+          <div class="summaryGroupTitle" id="savingAdjustTitle">调整</div>
+          <div class="summaryRow"><span id="savingUseLabel">储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
+          <div class="summaryRow"><span>日常储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
+          <div class="summaryRow"><span>短期储蓄取用</span><strong id="savingShortUsePart">¥0</strong></div>
+          <div class="summaryRow"><span>储蓄补回专项</span><strong id="savingProjectRepayPart">¥0</strong></div>
+          <div class="summaryRow summaryTotal"><span id="savingGrowthTotalLabel">预计储蓄增长总和</span><strong id="savingGrowthTotal">¥0</strong></div>
+        </div>
+
+        <div class="summaryNote" id="savingGrowthNote">“当前周期预计结余”会随继续消费变化；周期结束后才正式沉淀为储蓄。</div>
+        </details>
+      </div>
+
+      <div class="card savingChangeList" id="savingChangeList"></div>
+    </div>
+
+    <div class="section" id="projectBorrowSection">
+      <div class="sectionHeader">
+        <div class="sectionTitle">专项资金挪用</div>
+        <button class="sectionToggle" type="button" onclick="openProjectBorrow()">记录挪用</button>
+      </div>
+      <div class="card shortAccountCard" id="projectBorrowList"></div>
+    </div>
+
+    <!-- 4. LOW-FREQUENCY SAVINGS ENTRY -->
+    <div class="section savingAddSection">
+      <div class="sectionTitle">新增储蓄录入</div>
+      <div class="card savingAddCard">
+        <button class="ghost savingAddAction" onclick="openExtraSaving()">
+          <span class="savingAddActionTitle">记额外储蓄</span>
+          <span class="savingAddActionMeta">把额外存下来的钱加入日常储蓄</span>
+        </button>
+        <button class="ghost savingAddAction" onclick="openBankDeposit()">
+          <span class="savingAddActionTitle">新增银行存款</span>
+          <span class="savingAddActionMeta">登记活期或定期银行资产</span>
+        </button>
+      </div>
+    </div>
+
   </section>
 
   <!-- RESULT -->
