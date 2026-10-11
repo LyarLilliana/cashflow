@@ -1,7 +1,8 @@
-const CACHE = "safespend-v10-72-delay-funding-modes";
+const CACHE = "safespend-v10-73-credit-repayment";
 const ASSETS = [
   "./",
   "./index.html",
+  "./credit.js",
   "./manifest.webmanifest",
   "./apple-touch-icon.png",
   "./icon-192.png",
