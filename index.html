@@ -3086,7 +3086,7 @@ const KEY="safespend_cashflow_v73";
 const OLD_KEYS=["safespend_cashflow_v72","safespend_cashflow_v71","safespend_cashflow_v70","safespend_cashflow_v69","safespend_cashflow_v68","safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
   version:74,
-  settings:{dailyLiving:0,livingRates:[],monthlyGoal:0,bankDepositThreshold:0},
+  settings:{dailyLiving:0,livingRates:[],monthlyGoal:0,bankDepositThreshold:0,creditEnabled:false},
   incomePlans:[],
   bills:[],
   billDeferrals:[],
@@ -3094,6 +3094,7 @@ const defaults={
   projects:[],
   deposits:[],
   shortAccounts:[],
+  creditAccounts:[],
   tx:[]
 };
 let S=load();
@@ -3161,6 +3162,13 @@ function normalize(d){
     name:String(x.name||"短期储蓄"),
     annualRate:x.annualRate===undefined||x.annualRate===null||x.annualRate===""
       ?null:(Number.isFinite(Number(x.annualRate))?Math.max(0,Number(x.annualRate)):null)
+  })):[];
+  s.creditAccounts=Array.isArray(d.creditAccounts)?d.creditAccounts.filter(x=>x?.id).map(x=>({
+    ...x,name:String(x.name||"信用账户"),active:x.active!==false,
+    defaultMode:x.defaultMode==="future"?"future":"reserve",
+    limit:Math.max(0,N(x.limit)),
+    billDay:Math.min(31,Math.max(1,Math.floor(N(x.billDay)||10))),
+    dueDay:Math.min(31,Math.max(1,Math.floor(N(x.dueDay)||20)))
   })):[];
   s.deposits=Array.isArray(d.deposits)?d.deposits:[];
   s.deposits=s.deposits.map(dep=>{
@@ -5758,7 +5766,7 @@ function renderNow(){
   const cycleSavings=cycle.income
     ?savingSummaryForRange(cycleBounds.start,cycleBounds.end,true)
     :{cashflowGrowth:0,pendingPocket:0};
-  const cycleExpectedSaving=N(cycleSavings.cashflowGrowth);
+  const cycleExpectedSaving=currentCycleExpectedSaving();
   const cyclePlanned=N(cycle.plannedSaving);
   const cyclePending=N(cycleSavings.pendingPocket);
   const otherAdjustment=cycleExpectedSaving-cyclePlanned-cyclePending;
@@ -6828,6 +6836,12 @@ function periodSavableForRange(start="",end="",mode=historyMode){
   return {income,expected:N(savings.cashflowGrowth)};
 }
 
+function currentCycleExpectedSaving(){
+  const cycle=currentCycleStats();
+  if(!cycle.income)return 0;
+  const bounds=currentCycleResultBounds();
+  return N(savingSummaryForRange(bounds.start,bounds.end,true).cashflowGrowth);
+}
 function periodOutcomeForRange(start="",end="",mode=historyMode){
   const spend=spendingBreakdownForRange(start,end);
 
@@ -6844,8 +6858,8 @@ function periodOutcomeForRange(start="",end="",mode=historyMode){
     income:N(savable.income),
     spend,
     savable,
-    expected:N(savable.expected),
-    rate:N(savable.income)>0?N(savable.expected)/N(savable.income)*100:null
+    expected:mode==="cycle"?currentCycleExpectedSaving():N(savable.expected),
+    rate:N(savable.income)>0?(mode==="cycle"?currentCycleExpectedSaving():N(savable.expected))/N(savable.income)*100:null
   };
 }
 
@@ -7664,7 +7678,8 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   // Transfers among ordinary, short and bank assets cancel exactly.
   // An existing bank balance newly entered into the app is an asset import,
   // not new savings originating from current income.
-  const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth;
+  const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth
+    +creditSavingAdjustmentForRange(start,end);
   const pocketClosedThisRange=Math.max(0,N(raw.pocketClosed)-priorCycleCarry);
   const grossSaved=
     N(raw.recurringIncomeSaving)+N(raw.oneOffIncomeSaving)
@@ -8345,12 +8360,10 @@ function renderHistory(){
 
   mIncome.textContent=M(rs.income);
   mSpend.textContent=M(rs.spend.total);
-  mExpectedSaving.textContent=M(Math.abs(rs.expected));
+  mExpectedSaving.textContent=M(rs.expected);
 
   const outcomeLabels=periodOutcomeLabels(historyMode);
-  mOutcomeLabel.textContent=rs.expected<-.005
-    ?(historyMode==="cycle"?"本周期预计净动用储蓄":historyMode==="month"?"本月预计净动用储蓄":"期间预计净动用储蓄")
-    :outcomeLabels.outcome;
+  mOutcomeLabel.textContent=outcomeLabels.outcome;
   mExpectedSavingSub.textContent=rs.expected<-.005
     ?`已存入资金与储蓄取用都已计入本期净变化；当前日常可用储蓄余额 ${M(accounting().saving)}`
     :outcomeLabels.sub;
@@ -11516,5 +11529,6 @@ requestAnimationFrame(()=>{
   });
 });
 </script>
+<script src="./credit.js"></script>
 </body>
 </html>
