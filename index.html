@@ -7727,9 +7727,9 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   // Transfers among ordinary, short and bank assets cancel exactly.
   // An existing bank balance newly entered into the app is an asset import,
   // not new savings originating from current income.
-  const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth
-    +(typeof creditSavingAdjustmentForRange==="function"
-       ?creditSavingAdjustmentForRange(start,end):0);
+  const creditImpact=(typeof creditSavingAdjustmentForRange==="function"
+    ?creditSavingAdjustmentForRange(start,end):0);
+  const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth+creditImpact;
   const pocketClosedThisRange=Math.max(0,N(raw.pocketClosed)-priorCycleCarry);
   const grossSaved=
     N(raw.recurringIncomeSaving)+N(raw.oneOffIncomeSaving)
@@ -7751,7 +7751,7 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
     dailyAfterBank,
     short:shortFlowForRange(start,end),
     shortTotal,bankPrincipal,bankTotal,interestGrowth,
-    pendingPocket,expected,cashflowGrowth,grossSaved
+    pendingPocket,expected,cashflowGrowth,creditImpact,grossSaved
   };
 }
 
@@ -7843,9 +7843,16 @@ function renderSavingAssetSummary(){
   savingShortChange.style.color=s.shortTotal<-.005?"var(--muted)":"var(--text)";
   savingBankTotal.textContent=M(s.bankTotal);
   savingBankTotal.style.color=s.bankTotal<-.005?"var(--muted)":"var(--text)";
-  savingAssetMovementHint.hidden=s.bankExternal<=.005;
-  savingAssetMovementHint.textContent=s.bankExternal>.005
-    ?`本期录入的外部银行本金 ${M(s.bankExternal)} 已计入总资产，本期净存入统计已剔除这部分既有资金。`:"";
+  const creditChange=N(s.creditImpact);
+  savingAssetMovementHint.hidden=s.bankExternal<=.005&&Math.abs(creditChange)<=.005;
+  savingAssetMovementHint.textContent=[
+    s.bankExternal>.005
+      ?`本期录入的外部银行本金 ${M(s.bankExternal)} 已计入资产总额，本期净存入已剔除既有本金。`
+      :"",
+    Math.abs(creditChange)>.005
+      ?`信用及借款对期间净储蓄的影响：${M(creditChange)}，已计入上方储蓄净变化。`
+      :""
+  ].filter(Boolean).join(" ");
 
   savingCyclePlannedLabel.textContent="日常可用储蓄实际变动";
   savingCycleRemainderLabel.textContent="预计零花结余";
