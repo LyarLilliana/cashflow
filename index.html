@@ -3535,6 +3535,7 @@ function cyclePocketSnapshot(incomeTx){
     expenses.filter(t=>
       (t.bucket==="safe"||t.bucket==="living")
       &&!t.settledBillId
+      &&t.creditFundMode!=="future"
     ),
     t=>{
       const reserveDraw=Math.max(0,N(lightReserveUsage.byExpense[t.id]));
@@ -3580,12 +3581,23 @@ function cyclePocketSnapshot(incomeTx){
     t=>N(t.amount)
   );
 
+  // Credit future-mode purchases create debt now while leaving today's cash intact.
+  // Cash loans add liquidity; future repayments and earmarks consume it once.
+  const creditLoanCash=sm(cycleTx.filter(t=>t.type==="credit_loan"),t=>N(t.amount));
+  const creditPocketDebit=sm(cycleTx.filter(t=>
+    (t.type==="credit_repayment"||t.type==="credit_fund")&&t.creditSource!=="saving"
+  ),t=>t.type==="credit_fund"
+      ?N(t.amount)
+      :Math.max(0,N(t.amount)-N(t.creditReservedUsed))+N(t.fee));
+
   const pocketBalance=
     pocketInitial
     -pocketSpent
     +livingRelease
     -pocketToSaving
-    -pocketToProject;
+    -pocketToProject
+    +creditLoanCash
+    -creditPocketDebit;
 
   return {
     next,
