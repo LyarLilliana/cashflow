@@ -5775,12 +5775,13 @@ function renderNow(){
         projectRows.push(`<div class="item"><div class="row">
           <div style="min-width:0">
             <div class="name">${esc(p.name)}</div>
-            <div class="meta">${esc(x.name||"计划支出")} · ${x.date} · ${when}</div>
+            <div class="meta">${esc(x.name||"计划支出")} · ${x.date} · ${x.originalDate?"已延期（原定 "+x.originalDate+"）":when}</div>
           </div>
           <div class="upcomingSide">
             <div class="amount">${M(x.amount)}</div>
             <div class="billActions">
               <button class="doneBtn" onclick="event.stopPropagation();payProjectPlannedExpense('${p.id}','${x.id}')">记支出</button>
+              <button class="skipBtn" onclick="event.stopPropagation();openPaymentDelay('project','${p.id}','${x.id}')">延期支付</button>
             </div>
           </div>
         </div></div>`);
@@ -5798,7 +5799,7 @@ function renderNow(){
     lightRows.push(`<div class="item"><div class="row">
       <div style="min-width:0">
         <div class="name">${esc(x.name)}</div>
-        <div class="meta">${lightPlanStatusLabel(x)} · ${when}${reserveMeta}</div>
+        <div class="meta">${lightPlanStatusLabel(x)} · ${x.originalDate?"原定 "+x.originalDate+" · 已延期至 "+x.targetDate:when}${reserveMeta}</div>
       </div>
       <div class="upcomingSide">
         <div class="amount">${amountText}</div>
@@ -5807,6 +5808,7 @@ function renderNow(){
             ?`<button class="doneBtn" onclick="event.stopPropagation();setLightPlanStatus('${x.id}','planned')">准备买</button>`
             :`<button class="doneBtn" onclick="event.stopPropagation();payLightPlan('${x.id}')">记支出</button>`}
           <button class="skipBtn" onclick="event.stopPropagation();setLightPlanStatus('${x.id}','skipped')">不买</button>
+          ${x.targetDate?`<button class="skipBtn" onclick="event.stopPropagation();openPaymentDelay('light','','${x.id}')">延期支付</button>`:""}
           <button class="skipBtn" onclick="event.stopPropagation();editLightPlanFromNow('${x.id}')">修改</button>
         </div>
       </div>
