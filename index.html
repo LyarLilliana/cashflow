@@ -5763,10 +5763,10 @@ function renderNow(){
     </details>`);
   }
 
-  // 储蓄净动用属于期间流量变化，实际未覆盖支出才是需要处理的资金缺口。
-  const cycleGap=Math.max(0,N(a.uncovered));
+  // 只有日常资金池实际出现负余额才提示缺口。储蓄净动用可由既有资产覆盖。
+  const cycleGap=Math.max(0,-N(a.raw.safe));
   const gapHtml=cycleGap>0
-    ?`<div class="upcomingAlert"><div class="item"><div class="row"><div><div class="name">当前资金缺口</div><div class="meta">已发生支出超出可用资金，需要补充资金或核对预算。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div></div>`
+    ?`<div class="upcomingAlert"><div class="item"><div class="row"><div><div class="name">当前日常资金缺口</div><div class="meta">当前零花钱预算出现待覆盖金额，建议调整下一阶段的日常支出安排。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div></div>`
     :"";
 
   upcomingBox.innerHTML=(gapHtml||groups.length)
