@@ -4124,7 +4124,7 @@ function monthlyCycleStats(ym=md()){
   const last=new Date(yy,mm,0,12).getDate();
   const rangeStart=`${yy}-${pad2(mm)}-01`;
   const rangeEnd=`${yy}-${pad2(mm)}-${pad2(last)}`;
-  const savingEvents=savingStatsForRange(rangeStart,rangeEnd);
+  const savingEvents=savingSummaryForRange(rangeStart,rangeEnd);
 
   const current=currentCycleStats();
   const closeDate=current.nextCycleIncome?.date
@@ -4147,9 +4147,9 @@ function monthlyCycleStats(ym=md()){
     projectReserved:sm(cycles,c=>N(c.projectReserved)),
     pocketSpent:sm(cycles,c=>N(c.pocketSpent)),
     pocketToSaving:N(savingEvents.transfers),
-    projectedSaving:N(savingEvents.principalNet),
-    expectedSaving:N(savingEvents.principalNet)+expectedPocketInMonth,
-    expectedPocketInMonth
+    projectedSaving:N(savingEvents.cashflowGrowth)-N(savingEvents.pendingPocket),
+    expectedSaving:N(savingEvents.cashflowGrowth),
+    expectedPocketInMonth:N(savingEvents.pendingPocket)
   };
 }
 function currentCycleStats(){
@@ -7645,7 +7645,7 @@ function renderSavingStats(){
   savingShortUsePart.textContent=s.short.used>0?`-${M(s.short.used)}`:M(0);
   savingProjectRepayPart.textContent=s.short.projectRepay>0?`-${M(s.short.projectRepay)}`:M(0);
   savingGrowthTotal.textContent=M(s.expected);
-  savingGrowthTotal.style.color=s.expected<0?"var(--danger)":"var(--accent)";
+  savingGrowthTotal.style.color=s.expected<0?"var(--warn)":"var(--accent)";
 
   savingGrowthTitle.textContent=cycleMode?"当前周期储蓄资金流水":"期间储蓄资金流水";
   savingGrowthMeta.textContent="本表记录存入、取用与账户间转存。净变化以账户期初、期末资产差额和待结算结余统一计算。";
@@ -9764,10 +9764,12 @@ function recalcPocketTransfer(){
     transferProjectedSaving.style.color="var(--accent)";
     transferPocketNote.textContent="转入专项只是在零花钱与专项之间重新分配，不会被当成已经储蓄。专项以后若有结余，结算时再转入储蓄。";
   }else{
-    transferEffectLabel.textContent="本周期储蓄净变化";
-    transferProjectedSaving.textContent=M(cycle.projectedSaving);
-    transferProjectedSaving.style.color=cycle.projectedSaving<=0?"var(--danger)":"var(--accent)";
-    transferPocketNote.textContent="转入储蓄只会把这笔钱从零花钱移动到“已进入储蓄”；本周期储蓄净变化总额保持一致。";
+    const bounds=currentCycleResultBounds();
+    const cycleSaving=N(savingSummaryForRange(bounds.start,bounds.end,true).cashflowGrowth);
+    transferEffectLabel.textContent=cycleSaving<-.005?"本周期预计净动用储蓄":"本周期预计净增加储蓄";
+    transferProjectedSaving.textContent=M(Math.abs(cycleSaving));
+    transferProjectedSaving.style.color=cycleSaving<-.005?"var(--warn)":"var(--accent)";
+    transferPocketNote.textContent="日常支出余额转入储蓄后，会增加日常储蓄余额，并等额减少可用日常支出。本周期储蓄净变化保持一致。";
   }
 }
 
@@ -11175,6 +11177,8 @@ function summary(){
   const b={safe:a.raw.safe,bills:a.raw.bills};
   const cycle=currentCycleStats();
   const projectTotal=sm(S.projects,p=>N(a.projects[p.id]||0));
+  const bounds=currentCycleResultBounds();
+  const cycleSaving=savingSummaryForRange(bounds.start,bounds.end,true);
   const ips=S.incomePlans.map(p=>`${p.name}：${M(p.amount)}，下次 ${p.nextDate||"无"}，${freqLabel(p.freq)}，储蓄规则 ${saveRuleLabel(p)}`).join("\n");
 
   return `SafeSpend 月度摘要 ${md()}
@@ -11199,10 +11203,12 @@ function summary(){
 
 当前零花钱余额：${M(b.safe)}
 本周期计划储蓄：${M(cycle.plannedSaving)}
-本周期储蓄净变化：${M(cycle.projectedSaving)}
+本周期储蓄资产及结余净变化：${M(cycleSaving.expected)}
+本周期扣除已有外部银行资金与预估利息后的净可存：${M(cycleSaving.cashflowGrowth)}
+本周期已转入储蓄：${M(cycleSaving.grossSaved)}
 本周期账单待支付：${currentCycleBillStatus().complete?"已完成":currentCycleBillStatus().none?"暂无":M(currentCycleBillStatus().outstandingAmount)}
 当前专项余额合计：${M(projectTotal)}
-本周期资金缺口：${M(Math.max(0,-N(cycle.projectedSaving)))}
+当前仍需覆盖的日常资金缺口：${M(Math.max(0,-N(a.raw.safe)))}
 当前日常储蓄可用：${M(ordinarySavingsAvailable())}
 银行转存提醒额度：${bankReminderThresholdValue()>0?M(bankReminderThresholdValue()):"未设置"}
 
