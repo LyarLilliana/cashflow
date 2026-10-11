@@ -1837,6 +1837,37 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .savingOverviewBreakdownBody .explainRow{font-size:11.5px;padding:6px 0}
 .savingOverviewBreakdownBody .explainRow strong{font-variant-numeric:tabular-nums}
 @media(max-width:380px){.savingOverviewCard{padding-left:13px;padding-right:13px}.savingOverviewResult .savingHeroValue{font-size:29px}.savingOverviewAssetRow strong{font-size:15px}}
+/* 储蓄概览：当前资产、账户分布、期间净变化按阅读顺序呈现。 */
+.savingOverviewCard{padding:18px 17px 10px}
+.savingOverviewResult{padding:0 1px 14px}
+.savingOverviewResult .k{font-size:12px;font-weight:700;color:var(--muted)}
+.savingOverviewResult .savingHeroValue{font-size:clamp(29px,8vw,37px);line-height:1.12;margin:7px 0 5px;letter-spacing:-.8px;overflow-wrap:anywhere;color:var(--accent);font-variant-numeric:tabular-nums}
+.savingOverviewCaption{font-size:10.5px;line-height:1.5;color:var(--muted);min-height:15px}
+.savingOverviewAssetTotals{border-top:1px solid var(--line);margin:2px 0 0;padding:6px 0}
+.savingOverviewAssetRow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:35px;padding:7px 1px;border:0;font-size:12px;color:var(--muted)}
+.savingOverviewAssetRow+.savingOverviewAssetRow{border-top:0}
+.savingOverviewAssetRow strong{font-size:15px;line-height:1.4;font-weight:720;color:var(--text);letter-spacing:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+.savingOverviewPeriod{border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 1px 10px;color:var(--text);font-size:12px;font-weight:620}
+.savingOverviewPeriod strong{font-size:15px;color:var(--accent);font-weight:760;white-space:nowrap;font-variant-numeric:tabular-nums}
+.savingOverviewPeriod[data-direction="out"] strong{color:var(--text)}
+.savingOverviewPending{padding:0 1px 10px;font-size:10.5px;line-height:1.55;color:var(--muted)}
+.savingOverviewPending[hidden],.savingOverviewTransferNote[hidden]{display:none}
+.savingOverviewBreakdown{border-top:1px solid var(--line);margin:0;padding:3px 0 0}
+.savingOverviewBreakdown>summary{display:flex;align-items:center;justify-content:center;gap:6px;min-height:33px;color:var(--muted);font-weight:640;font-size:11px}
+.savingOverviewBreakdown>summary .disclosureState,.savingReconcileDetails>summary .disclosureState{transition:transform .15s ease;font-size:13px}
+.savingOverviewBreakdown[open]>summary .disclosureState,.savingReconcileDetails[open]>summary .disclosureState{transform:rotate(180deg)}
+.savingOverviewBreakdownBody{padding:4px 1px 7px}
+.savingOverviewDetailTitle{font-size:10px;padding:7px 0 4px;color:var(--muted)}
+.savingOverviewBreakdownBody .explainRow{font-size:11.5px;padding:7px 0}
+.savingOverviewBreakdownBody .explainRow strong{font-size:12px;font-weight:650}
+.savingOverviewTransferNote{font-size:10.5px;color:var(--muted);line-height:1.6;margin:6px 0 3px}
+.savingReconcileDetails{border-top:1px solid var(--line);margin-top:9px}
+.savingReconcileDetails>summary{display:flex;gap:6px;align-items:center;justify-content:center;list-style:none;cursor:pointer;padding:10px 0;color:var(--muted);font-size:10.5px}
+.savingReconcileDetails>summary::-webkit-details-marker{display:none}
+.savingReconcileInner{padding:0 1px 9px}
+.savingReconcileStatus{margin-top:7px;color:var(--muted);font-size:10.5px;line-height:1.5}
+@media(max-width:380px){.savingOverviewCard{padding-left:14px;padding-right:14px}.savingOverviewResult .savingHeroValue{font-size:29px}.savingOverviewAssetRow strong{font-size:14.5px}}
+
 /* 短期储蓄：紧凑账户卡片 */
 .shortAccountCard{padding:13px 15px}
 .shortAccountHeadline{display:flex;justify-content:space-between;align-items:center;gap:9px;padding-bottom:10px}
@@ -2145,44 +2176,54 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       </div>
       <div class="card savingOverviewCard">
         <div class="savingOverviewResult">
-          <div class="k" id="savingGrandLabel">所选期间期末预计储蓄资产</div>
+          <div class="k" id="savingGrandLabel">当前储蓄总额</div>
           <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
-          <div class="small" id="savingCashflowHint" style="margin-top:3px;color:var(--muted)">其中，本期预计可存 ¥0</div>
+          <div class="savingOverviewCaption" id="savingCashflowHint">银行预估利息已计入总额</div>
         </div>
-        <div class="savingOverviewAssetTotals">
-          <div class="savingOverviewAssetRow"><span>日常储蓄账户变动（含转存）</span><strong id="savingFreePrincipal">¥0</strong></div>
-          <div class="small" style="margin:1px 0 8px;color:var(--muted)">账户之间的转存会改变各账户金额，总储蓄按合并资产计算。</div>
-          <div class="savingOverviewAssetRow"><span>当前日常储蓄余额</span><strong id="savingOrdinaryCurrent">¥0</strong></div>
-          <div class="savingOverviewAssetRow"><span>短期储蓄变化</span><strong id="savingShortChange">¥0</strong></div>
-          <div class="savingOverviewAssetRow"><span>银行资产变化</span><strong id="savingBankTotal">¥0</strong></div>
+        <div class="savingOverviewAssetTotals" aria-label="当前储蓄分布">
+          <div class="savingOverviewAssetRow"><span>日常储蓄</span><strong id="savingOrdinaryCurrent">¥0</strong></div>
+          <div class="savingOverviewAssetRow"><span>短期储蓄</span><strong id="savingCurrentShortAssets">¥0</strong></div>
+          <div class="savingOverviewAssetRow"><span>银行资产</span><strong id="savingCurrentBankAssets">¥0</strong></div>
         </div>
-        <div class="savingOverviewCurrent">
-          <span>当前累计储蓄资产 <small>含银行预估利息</small></span>
-          <strong id="savingCurrentAssets">¥0</strong>
+        <div class="savingOverviewPeriod" aria-live="polite">
+          <span id="savingPeriodNetLabel">本期净存入</span>
+          <strong id="savingPeriodNetValue">¥0</strong>
         </div>
+        <div class="savingOverviewPending" id="savingPendingNotice" hidden></div>
         <details class="savingOverviewBreakdown">
-          <summary>查看金额构成<span aria-hidden="true">⌄</span></summary>
+          <summary>查看本期变化与对账<span aria-hidden="true" class="disclosureState">⌄</span></summary>
           <div class="savingOverviewBreakdownBody">
-            <div class="savingOverviewDetailTitle">日常储蓄构成</div>
-            <div class="explainRow"><span id="savingCyclePlannedLabel">已形成或减少</span><strong id="savingCyclePlanned">¥0</strong></div>
-            <div class="explainRow"><span id="savingCycleRemainderLabel">预计结余</span><strong id="savingCycleRemainder">¥0</strong></div>
-            <div class="explainRow"><span>转入银行</span><strong id="savingDailyBankTransfer">¥0</strong></div>
-            <div class="explainRow"><span>转入短期储蓄</span><strong id="savingShortInboundDetail">¥0</strong></div>
-            <div class="explainRow"><span>短期储蓄转回</span><strong id="savingShortOutboundDetail">¥0</strong></div>
-            <div class="savingOverviewDetailTitle bank">银行资产构成</div>
-            <div class="explainRow"><span>银行本金净变化</span><strong id="savingBankPrincipal">¥0</strong></div>
-            <div class="explainRow"><span>预估利息净变化</span><strong id="savingBankInterest">¥0</strong></div>
-            <div class="savingOverviewDetailTitle bank">储蓄资产对账</div>
-            <div class="explainRow"><span id="savingReconcileOpeningLabel">范围期初资产</span><strong id="savingReconcileOpening">¥0</strong></div>
-            <div class="explainRow"><span>期间实际净变化</span><strong id="savingReconcileBooked">¥0</strong></div>
-            <div class="explainRow"><span>范围期末实际资产</span><strong id="savingReconcileClosing">¥0</strong></div>
-            <div class="explainRow"><span>预计待沉淀结余</span><strong id="savingReconcilePending">¥0</strong></div>
-            <div class="explainRow total"><span>范围期末预计资产</span><strong id="savingReconcileForecast">¥0</strong></div>
-            <div class="small" id="savingReconcileStatus" style="margin-top:5px;color:var(--muted)">期初资产 + 实际净变化 = 期末实际资产。</div>
+            <div class="savingOverviewDetailTitle">账户变动（所选期间）</div>
+            <div class="explainRow"><span>日常储蓄变动</span><strong id="savingFreePrincipal">¥0</strong></div>
+            <div class="explainRow"><span>短期储蓄变动</span><strong id="savingShortChange">¥0</strong></div>
+            <div class="explainRow"><span>银行资产变动</span><strong id="savingBankTotal">¥0</strong></div>
+            <div class="savingOverviewTransferNote" id="savingAssetMovementHint" hidden></div>
+            <details class="savingReconcileDetails">
+              <summary>查看详细计算<span aria-hidden="true" class="disclosureState">⌄</span></summary>
+              <div class="savingReconcileInner">
+                <div class="savingOverviewDetailTitle">日常储蓄</div>
+                <div class="explainRow"><span id="savingCyclePlannedLabel">期间实际变动</span><strong id="savingCyclePlanned">¥0</strong></div>
+                <div class="explainRow"><span id="savingCycleRemainderLabel">预计结余</span><strong id="savingCycleRemainder">¥0</strong></div>
+                <div class="explainRow"><span>转入银行</span><strong id="savingDailyBankTransfer">¥0</strong></div>
+                <div class="explainRow"><span>转入短期储蓄</span><strong id="savingShortInboundDetail">¥0</strong></div>
+                <div class="explainRow"><span>短期储蓄转回</span><strong id="savingShortOutboundDetail">¥0</strong></div>
+                <div class="savingOverviewDetailTitle bank">银行资产</div>
+                <div class="explainRow"><span>银行本金变动</span><strong id="savingBankPrincipal">¥0</strong></div>
+                <div class="explainRow"><span>预估利息变动</span><strong id="savingBankInterest">¥0</strong></div>
+                <div class="savingOverviewDetailTitle bank">资产核对</div>
+                <div class="explainRow"><span id="savingReconcileOpeningLabel">期初资产</span><strong id="savingReconcileOpening">¥0</strong></div>
+                <div class="explainRow"><span>期间实际变动</span><strong id="savingReconcileBooked">¥0</strong></div>
+                <div class="explainRow"><span>期末实际资产</span><strong id="savingReconcileClosing">¥0</strong></div>
+                <div class="explainRow"><span>预计结余</span><strong id="savingReconcilePending">¥0</strong></div>
+                <div class="explainRow total"><span>期末预计资产</span><strong id="savingReconcileForecast">¥0</strong></div>
+                <div class="savingReconcileStatus" id="savingReconcileStatus"></div>
+              </div>
+            </details>
           </div>
         </details>
       </div>
     </div>
+
 
     <!-- LOCKED SHORT-TERM SAVINGS -->
     <div class="section">
@@ -7561,61 +7602,81 @@ function selectedSavingRangeSummary(){
 
 function renderSavingAssetSummary(){
   const s=selectedSavingRangeSummary();
-  const currentAssets=savingsAssetBalanceAt(td());
-  const net=N(s.cashflowGrowth);
+  const current=savingsAssetComponentsAt(td());
   const reconciliation=savingsAssetReconciliationForRange(s.range.start,s.range.end,s);
+  const net=N(s.cashflowGrowth);
 
-  // 概览强调实际拥有的储蓄存量，本期净存入作为独立的增减指标。
-  savingGrandLabel.textContent="所选期间期末预计储蓄资产";
-  savingGrandTotal.textContent=M(reconciliation.forecast);
-  savingGrandTotal.style.color=reconciliation.forecast<-.005?"var(--danger)":"var(--accent)";
-  const flowLabel=net<-.005
-    ?`本期预计使用既有储蓄 ${M(Math.abs(net))}`
-    :net>.005?`本期预计净存入 ${M(net)}`:"本期储蓄预计持平";
-  savingCashflowHint.textContent=`${flowLabel}；本期累计存入 ${M(s.grossSaved)}`;
+  // 顶部只显示当前真实资产。期间筛选负责净变化，不改变当前资产基准。
+  savingGrandLabel.textContent="当前储蓄总额";
+  savingGrandTotal.textContent=M(current.total);
+  savingGrandTotal.style.color=current.total<-.005?"var(--danger)":"var(--accent)";
+  savingCashflowHint.textContent=current.bankInterest>.005
+    ?`银行资产含预估利息 ${M(current.bankInterest)}`
+    :"日常储蓄、短期储蓄与银行资产合计";
+
+  savingOrdinaryCurrent.textContent=M(current.ordinary);
+  savingOrdinaryCurrent.style.color=current.ordinary<-.005?"var(--danger)":"var(--text)";
+  savingCurrentShortAssets.textContent=M(current.short);
+  savingCurrentShortAssets.style.color=current.short<-.005?"var(--danger)":"var(--text)";
+  savingCurrentBankAssets.textContent=M(current.bank);
+  savingCurrentBankAssets.style.color=current.bank<-.005?"var(--danger)":"var(--text)";
+
+  const periodPrefix=savingRangePreset==="month"?"本月"
+    :savingRangePreset==="cycle"?"本周期"
+    :savingRangePreset==="year"?"本年"
+    :savingRangePreset==="all"?"累计":"所选期间";
+  savingPeriodNetLabel.textContent=net<-.005?`${periodPrefix}使用既有储蓄`
+    :net>.005?`${periodPrefix}净存入`:`${periodPrefix}储蓄变化`;
+  savingPeriodNetValue.textContent=net<-.005?M(Math.abs(net))
+    :net>.005?`+${M(net)}`:M(0);
+  savingPeriodNetValue.style.color=net<-.005&&current.total<-.005
+    ?"var(--danger)":net<-.005?"var(--text)":"var(--accent)";
+  savingPeriodNetValue.parentElement.dataset.direction=net<-.005?"out":"in";
+
+  // 未结算的零花结余只显示预计，不提前计入当前真实储蓄余额。
+  savingPendingNotice.hidden=s.pendingPocket<=.005;
+  savingPendingNotice.textContent=s.pendingPocket>.005
+    ?`另有预计待结转 ${M(s.pendingPocket)}，结算后才会进入储蓄余额。`:"";
 
   savingFreePrincipal.textContent=M(s.dailyAfterBank);
-  // Moving money from ordinary savings to a locked account is not a loss.
-  savingFreePrincipal.style.color=s.dailyAfterBank<0?"var(--muted)":"var(--text)";
-  savingOrdinaryCurrent.textContent=M(s.currentOrdinary);
-  savingOrdinaryCurrent.style.color=s.currentOrdinary<0?"var(--danger)":"var(--accent)";
+  savingFreePrincipal.style.color=s.dailyAfterBank<-.005?"var(--muted)":"var(--text)";
   savingShortChange.textContent=M(s.shortTotal);
-  savingShortChange.style.color=s.shortTotal<0?"var(--muted)":"var(--text)";
-  const lockedIn=N(s.short.incoming)+N(s.short.extraLocked);
-  savingShortInboundDetail.textContent=lockedIn>0?`-${M(lockedIn)}`:M(0);
-  savingShortOutboundDetail.textContent=M(s.short.outgoing);
+  savingShortChange.style.color=s.shortTotal<-.005?"var(--muted)":"var(--text)";
+  savingBankTotal.textContent=M(s.bankTotal);
+  savingBankTotal.style.color=s.bankTotal<-.005?"var(--muted)":"var(--text)";
+  savingAssetMovementHint.hidden=s.bankExternal<=.005;
+  savingAssetMovementHint.textContent=s.bankExternal>.005
+    ?`本期录入的外部银行本金 ${M(s.bankExternal)} 已计入总资产，本期净存入统计已剔除这部分既有资金。`:"";
 
-  savingCyclePlannedLabel.textContent="期间日常储蓄实际变动";
-  savingCycleRemainderLabel.textContent="预计待结算零花结余";
+  savingCyclePlannedLabel.textContent="日常储蓄实际变动";
+  savingCycleRemainderLabel.textContent="预计零花结余";
   savingCyclePlanned.textContent=M(s.ordinaryBooked);
   savingCycleRemainder.textContent=M(s.pendingPocket);
-  savingCyclePlanned.style.color=s.ordinaryBooked<0?"var(--muted)":"inherit";
-  savingCycleRemainder.style.color=s.pendingPocket>0?"var(--accent)":"inherit";
-
+  savingCyclePlanned.style.color=s.ordinaryBooked<-.005?"var(--muted)":"var(--text)";
+  savingCycleRemainder.style.color=s.pendingPocket>.005?"var(--accent)":"var(--text)";
   const moved=N(s.bankExisting);
-  savingDailyBankTransfer.textContent=moved>0?`-${M(moved)}`:M(0);
-  savingDailyBankTransfer.style.color=moved>0?"var(--muted)":"inherit";
-
+  savingDailyBankTransfer.textContent=moved>.005?`-${M(moved)}`:M(0);
+  savingDailyBankTransfer.style.color=moved>.005?"var(--muted)":"inherit";
+  const lockedIn=N(s.short.incoming)+N(s.short.extraLocked);
+  savingShortInboundDetail.textContent=lockedIn>.005?`-${M(lockedIn)}`:M(0);
+  savingShortOutboundDetail.textContent=M(s.short.outgoing);
   savingBankPrincipal.textContent=M(s.bankPrincipal);
   savingBankInterest.textContent=M(s.interestGrowth);
-  savingBankTotal.textContent=M(s.bankTotal);
-  savingBankTotal.style.color=s.bankTotal<0?"var(--muted)":"inherit";
 
-  savingReconcileOpeningLabel.textContent=s.cycleMode&&reconciliation.priorCycleCarry>0
-    ?"周期期初资产（含上期结转）":"范围期初资产";
+  savingReconcileOpeningLabel.textContent=s.cycleMode&&reconciliation.priorCycleCarry>.005
+    ?"期初资产（含上期结转）":"期初资产";
   savingReconcileOpening.textContent=M(reconciliation.opening);
   savingReconcileBooked.textContent=M(reconciliation.booked);
   savingReconcileClosing.textContent=M(reconciliation.closing);
   savingReconcilePending.textContent=M(reconciliation.pending);
   savingReconcileForecast.textContent=M(reconciliation.forecast);
-  const reconciliationMismatch=Math.abs(reconciliation.breakdownGap)>0.015;
-  savingReconcileStatus.textContent=reconciliationMismatch
-    ?`对账提醒：账户资金变化与资产流水相差 ${M(reconciliation.breakdownGap)}，请核对历史交易日期。`
-    :"期初储蓄资产 + 期间实际变动 + 预计结余 = 期末预计储蓄资产。账户转存计入相应账户，合计抵消。";
-  savingReconcileStatus.style.color=reconciliationMismatch?"var(--danger)":"var(--muted)";
-  savingCurrentAssets.textContent=M(currentAssets);
-  savingCurrentAssets.style.color=currentAssets<0?"var(--danger)":"var(--text)";
+  const mismatch=Math.abs(reconciliation.breakdownGap)>.015;
+  savingReconcileStatus.textContent=mismatch
+    ?`对账差额 ${M(reconciliation.breakdownGap)}，请检查账户转存与交易日期。`
+    :"期初余额加上期间净变化及预计结余，等于期末预计资产；内部转存相互抵消。";
+  savingReconcileStatus.style.color=mismatch?"var(--danger)":"var(--muted)";
 }
+
 
 function renderSavingStats(){
   const s=selectedSavingRangeSummary();
