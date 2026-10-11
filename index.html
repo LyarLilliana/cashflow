@@ -2074,7 +2074,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div><div class="s">与上方“当前零花钱”完全一致</div></div>
       <div class="card stat"><div class="k">本周期账单</div><div class="v" id="billBal">¥0</div><div class="s" id="billBalSub">本周期尚待支付的固定账单</div></div>
       <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div><div class="s">已为专项准备好的钱</div></div>
-      <div class="card stat"><div class="k">本周期储蓄净变化</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">已进入储蓄 + 当前剩余零花钱；零花钱继续消费时会实时变化</div></div>
+      <div class="card stat"><div class="k" id="savingBalLabel">本周期预计净增加储蓄</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">已进入储蓄 + 当前剩余零花钱；零花钱继续消费时会实时变化</div></div>
     </div>
 
     <div class="card" id="bankReminderNowCard" style="display:none;margin-top:12px">
@@ -2150,7 +2150,9 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <div class="small" id="savingCashflowHint" style="margin-top:3px;color:var(--muted)">其中，本期预计可存 ¥0</div>
         </div>
         <div class="savingOverviewAssetTotals">
-          <div class="savingOverviewAssetRow"><span>日常储蓄变化</span><strong id="savingFreePrincipal">¥0</strong></div>
+          <div class="savingOverviewAssetRow"><span>日常储蓄账户变动（含转存）</span><strong id="savingFreePrincipal">¥0</strong></div>
+          <div class="small" style="margin:1px 0 8px;color:var(--muted)">账户之间的转存会改变各账户金额，总储蓄按合并资产计算。</div>
+          <div class="savingOverviewAssetRow"><span>当前日常储蓄余额</span><strong id="savingOrdinaryCurrent">¥0</strong></div>
           <div class="savingOverviewAssetRow"><span>短期储蓄变化</span><strong id="savingShortChange">¥0</strong></div>
           <div class="savingOverviewAssetRow"><span>银行资产变化</span><strong id="savingBankTotal">¥0</strong></div>
         </div>
@@ -2168,8 +2170,8 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
             <div class="explainRow"><span>转入短期储蓄</span><strong id="savingShortInboundDetail">¥0</strong></div>
             <div class="explainRow"><span>短期储蓄转回</span><strong id="savingShortOutboundDetail">¥0</strong></div>
             <div class="savingOverviewDetailTitle bank">银行资产构成</div>
-            <div class="explainRow"><span>新增本金</span><strong id="savingBankPrincipal">¥0</strong></div>
-            <div class="explainRow"><span>利息变化</span><strong id="savingBankInterest">¥0</strong></div>
+            <div class="explainRow"><span>银行本金净变化</span><strong id="savingBankPrincipal">¥0</strong></div>
+            <div class="explainRow"><span>预估利息净变化</span><strong id="savingBankInterest">¥0</strong></div>
             <div class="savingOverviewDetailTitle bank">储蓄资产对账</div>
             <div class="explainRow"><span id="savingReconcileOpeningLabel">范围期初资产</span><strong id="savingReconcileOpening">¥0</strong></div>
             <div class="explainRow"><span>期间实际净变化</span><strong id="savingReconcileBooked">¥0</strong></div>
@@ -5561,16 +5563,19 @@ function renderNow(){
 
   const cycleConfirmed=N(cycle.lockedSaving);
   const cyclePocket=N(cycle.pocketBalance);
-  const cycleExpectedSaving=N(cycle.projectedSaving);
+  const cycleRangeStart=cycle.income?.date||"";
+  const cycleRangeEnd=cycle.nextCycleIncome?.date
+    ?addDays(cycle.nextCycleIncome.date,-1):"";
+  const cycleSavings=cycleRangeStart
+    ?savingSummaryForRange(cycleRangeStart,cycleRangeEnd,true)
+    :{cashflowGrowth:0,grossSaved:0};
+  const cycleExpectedSaving=N(cycleSavings.cashflowGrowth);
 
-  // 本周期储蓄净变化沿用周期结算值，并单独展示累计日常储蓄余额。
-  // 正值代表本期可沉淀的净增长，负值代表本期净减少。
-  savingBal.textContent=M(cycleExpectedSaving);
-  savingBalSub.textContent=cycleExpectedSaving<0
-    ?`本周期储蓄净减少 ${M(Math.abs(cycleExpectedSaving))}；当前日常储蓄余额 ${M(a.saving)}`
-    :cycleExpectedSaving>0
-      ?`本周期储蓄净增加 ${M(cycleExpectedSaving)}；当前日常储蓄余额 ${M(a.saving)}`
-      :`本周期储蓄净变化 ${M(0)}；当前日常储蓄余额 ${M(a.saving)}`;
+  savingBalLabel.textContent=cycleExpectedSaving<-.005
+    ?"本周期预计净动用储蓄"
+    :cycleExpectedSaving>.005?"本周期预计净增加储蓄":"本周期储蓄预计持平";
+  savingBal.textContent=M(Math.abs(cycleExpectedSaving));
+  savingBalSub.textContent=`本周期已存入 ${M(cycleSavings.grossSaved)}；当前日常储蓄余额 ${M(a.saving)}。储蓄净变化包含实际余额的增减。`;
 
   if(activeProjects().length===0){
     projectBal.textContent="暂无专项";
@@ -5585,7 +5590,7 @@ function renderNow(){
   const paint=(el,v)=>{el.style.color=v<=0?"var(--danger)":"inherit"};
   paint(safeNow,b.safe);
   paint(livingBal,b.safe);
-  paint(savingBal,cycleExpectedSaving);
+  savingBal.style.color=cycleExpectedSaving<-.005?"var(--warn)":"var(--accent)";
 
   const next=nextRecurringIncome();
   const fallbackFunding=a.fallbackLivingFunding?.[td()]||null;
@@ -7453,84 +7458,72 @@ function filteredSavingChangeEvents(start="",end=""){
 function savingSummaryForRange(start="",end="",cycleMode=false){
   const range={start,end};
   const raw=expectedSavingGrowthForRange(start,end,cycleMode);
-  const interestGrowth=N(raw.interestGrowth!==undefined?raw.interestGrowth:raw.interest);
-  const bankPrincipal=N(raw.bankStarted);
+  const closingDate=end&&end<td()?end:td();
+  const openingDate=start?addDays(start,-1):"";
+  const opening=openingDate?savingsAssetComponentsAt(openingDate)
+    :{ordinary:0,short:0,bankPrincipal:0,bankInterest:0,bank:0,total:0};
+  const closing=savingsAssetComponentsAt(closingDate);
 
-  let cycleProjected=null;
-  let dailyBase=N(raw.ordinaryGross);
-  let dailySecondary=N(raw.pendingPocket);
-  let s={...raw,interestGrowth};
-
-  if(cycleMode){
-    const cycle=currentCycleStats();
-    if(cycle.income){
-      const cycleTx=cycleTransactionsForIncome(cycle.income);
-      const extraIncomes=cycleTx.filter(t=>t.type==="income"&&!isCycleIncomeTx(t));
-      const recurringIncomeSaving=N(effectiveIncomeAllocation(cycle.income).saving);
-      const oneOffIncomeSaving=sm(extraIncomes,t=>N(effectiveIncomeAllocation(t).saving));
-
-      cycleProjected=N(cycle.projectedSaving);
-      dailyBase=cycleProjected;
-      dailySecondary=N(raw.projectSurplus)+N(raw.extra);
-
-      s={
-        ...raw,
-        recurringIncomeSaving,
-        oneOffIncomeSaving,
-        pocketClosed:0,
-        pendingPocket:N(cycle.pocketBalance),
-        transfers:N(cycle.pocketToSaving),
-        projectSurplus:N(raw.projectSurplus),
-        extra:N(raw.extra),
-        bankExternal:N(raw.bankExternal),
-        bankExisting:N(raw.bankExisting),
-        interestGrowth
-      };
-    }
-  }
-
-  const bankExisting=N(s.bankExisting);
-  const dailyBeforeBank=dailyBase+dailySecondary;
-  const short=shortFlowForRange(range.start,range.end);
-  const dailyAfterBank=dailyBeforeBank-bankExisting-short.incoming-short.extraLocked+short.outgoing-short.projectRepay;
-  const shortTotal=short.delta;
+  // A previous cycle's pocket is closed before the next income on the same date.
+  // Credit that closeout to the previous cycle when viewing the current cycle.
+  const priorCycleCarry=cycleMode&&start
+    ?sm(virtualCycleCloseEvents().filter(t=>t.date===start),
+      t=>N(accounting().effects[t.id]?.cycleCloseSaving))
+    :0;
+  const ordinaryBooked=closing.ordinary-opening.ordinary-priorCycleCarry;
+  const shortTotal=closing.short-opening.short;
+  const bankPrincipal=closing.bankPrincipal-opening.bankPrincipal;
+  const interestGrowth=closing.bankInterest-opening.bankInterest;
   const bankTotal=bankPrincipal+interestGrowth;
+  const pendingPocket=N(raw.pendingPocket);
+  const dailyAfterBank=ordinaryBooked+pendingPocket;
   const expected=dailyAfterBank+shortTotal+bankTotal;
-  // External bank balances were already owned before being entered in the app.
-  // Bank interest here is an estimate, tracked separately from cash earnings.
-  // Internal movement among ordinary, locked and bank holdings has zero
-  // impact on this cashflow value.
-  const cashflowGrowth=expected-N(s.bankExternal)-interestGrowth;
+
+  // Period change = closing owned assets - opening owned assets + pending pocket.
+  // Transfers among ordinary, short and bank assets cancel exactly.
+  // An existing bank balance newly entered into the app is an asset import,
+  // not new savings originating from current income.
+  const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth;
+  const pocketClosedThisRange=Math.max(0,N(raw.pocketClosed)-priorCycleCarry);
+  const grossSaved=
+    N(raw.recurringIncomeSaving)+N(raw.oneOffIncomeSaving)
+    +N(raw.transfers)+pocketClosedThisRange
+    +N(raw.projectSurplus)+N(raw.extra)+N(raw.automaticSavingRepayment);
+  const cycleProjected=cycleMode&&currentCycleStats().income
+    ?N(currentCycleStats().projectedSaving):null;
 
   return {
-    ...s,
-    range,
-    cycleMode,
-    cycleProjected,
-    dailyBase,
-    dailySecondary,
-    dailyBeforeBank,
+    ...raw,
+    range,cycleMode,cycleProjected,priorCycleCarry,
+    openingAssets:opening.total+priorCycleCarry,
+    closingAssets:closing.total,
+    currentOrdinary:closing.ordinary,
+    ordinaryBooked,
+    dailyBase:ordinaryBooked,
+    dailySecondary:pendingPocket,
+    dailyBeforeBank:ordinaryBooked+pendingPocket+N(raw.bankExisting),
     dailyAfterBank,
-    short,
-    shortTotal,
-    bankPrincipal,
-    bankTotal,
-    expected,
-    cashflowGrowth
+    short:shortFlowForRange(start,end),
+    shortTotal,bankPrincipal,bankTotal,interestGrowth,
+    pendingPocket,expected,cashflowGrowth,grossSaved
   };
 }
 
 // One source of truth for the actual assets held at a given date.
 // Future-dated bank deposits and short transfers are excluded until effective;
 // accrued but unpaid bank interest is displayed as an estimate.
-function savingsAssetBalanceAt(asOf=td()){
+function savingsAssetComponentsAt(asOf=td()){
   const date=!asOf||asOf>td()?td():asOf;
   const ordinary=N(accounting(date).saving);
-  const locked=sm(S.shortAccounts||[],a=>shortAccountBalance(a.id,date));
+  const short=sm(S.shortAccounts||[],a=>shortAccountBalance(a.id,date));
   const deposits=startedBankDeposits(date);
   const bankPrincipal=sm(deposits,d=>N(d.principal));
-  const bankEstimatedInterest=sm(deposits,d=>depositAccruedInterest(d,date));
-  return ordinary+locked+bankPrincipal+bankEstimatedInterest;
+  const bankInterest=sm(deposits,d=>depositAccruedInterest(d,date));
+  const bank=bankPrincipal+bankInterest;
+  return {ordinary,short,bankPrincipal,bankInterest,bank,total:ordinary+short+bank};
+}
+function savingsAssetBalanceAt(asOf=td()){
+  return savingsAssetComponentsAt(asOf).total;
 }
 
 // Booked asset movements reconcile against independent historical snapshots.
@@ -7540,8 +7533,7 @@ function savingsAssetReconciliationForRange(start="",end="",summary=null){
   const closingDate=end&&end<td()?end:td();
   const openingDate=start?addDays(start,-1):"";
   const priorCycleCarry=summary?.cycleMode&&start
-    ?sm(virtualCycleCloseEvents().filter(t=>t.date===start),
-      t=>N(accounting().effects[t.id]?.cycleCloseSaving))
+    ?N(summary.priorCycleCarry)
     :0;
   const opening=(openingDate?savingsAssetBalanceAt(openingDate):0)+priorCycleCarry;
   const closing=savingsAssetBalanceAt(closingDate);
@@ -7563,33 +7555,31 @@ function selectedSavingRangeSummary(){
 
 function renderSavingAssetSummary(){
   const s=selectedSavingRangeSummary();
-  const cycle=currentCycleStats();
+  const currentAssets=savingsAssetBalanceAt(td());
+  const net=N(s.expected);
 
-  savingGrandLabel.textContent="储蓄资产预计净变化";
-  savingCashflowHint.textContent=`其中，本期预计可存 ${M(s.cashflowGrowth)}`;
+  savingGrandLabel.textContent=net<-.005?"本期预计净动用储蓄":net>.005?"本期预计净增加储蓄":"本期储蓄预计持平";
+  savingGrandTotal.textContent=M(Math.abs(net));
+  savingGrandTotal.style.color=net<-.005?"var(--warn)":"var(--accent)";
+  savingCashflowHint.textContent=`本期已存入储蓄 ${M(s.grossSaved)}；当前累计储蓄资产 ${M(currentAssets)}。净变化已合计各储蓄账户及预计结余。`;
 
   savingFreePrincipal.textContent=M(s.dailyAfterBank);
-  savingFreePrincipal.style.color=s.dailyAfterBank<0?"var(--danger)":"var(--text)";
+  // Moving money from ordinary savings to a locked account is not a loss.
+  savingFreePrincipal.style.color=s.dailyAfterBank<0?"var(--muted)":"var(--text)";
+  savingOrdinaryCurrent.textContent=M(s.currentOrdinary);
+  savingOrdinaryCurrent.style.color=s.currentOrdinary<0?"var(--danger)":"var(--accent)";
   savingShortChange.textContent=M(s.shortTotal);
-  savingShortChange.style.color=s.shortTotal<0?"var(--danger)":"var(--text)";
-  const lockedIn=s.short.incoming+s.short.extraLocked;
+  savingShortChange.style.color=s.shortTotal<0?"var(--muted)":"var(--text)";
+  const lockedIn=N(s.short.incoming)+N(s.short.extraLocked);
   savingShortInboundDetail.textContent=lockedIn>0?`-${M(lockedIn)}`:M(0);
   savingShortOutboundDetail.textContent=M(s.short.outgoing);
 
-  if(s.cycleMode&&cycle.income){
-    savingCyclePlannedLabel.textContent="本周期储蓄净变化";
-    savingCycleRemainderLabel.textContent="其他日常储蓄变化";
-    savingCyclePlanned.textContent=M(N(s.cycleProjected));
-    savingCycleRemainder.textContent=M(N(s.dailySecondary));
-  }else{
-    savingCyclePlannedLabel.textContent="范围内已形成 / 减少";
-    savingCycleRemainderLabel.textContent="当前周期预计结余";
-    savingCyclePlanned.textContent=M(N(s.dailyBase));
-    savingCycleRemainder.textContent=M(N(s.dailySecondary));
-  }
-
-  savingCyclePlanned.style.color=N(s.dailyBase)<0?"var(--danger)":"inherit";
-  savingCycleRemainder.style.color=N(s.dailySecondary)<0?"var(--danger)":"inherit";
+  savingCyclePlannedLabel.textContent="期间日常储蓄实际变动";
+  savingCycleRemainderLabel.textContent="预计待结算零花结余";
+  savingCyclePlanned.textContent=M(s.ordinaryBooked);
+  savingCycleRemainder.textContent=M(s.pendingPocket);
+  savingCyclePlanned.style.color=s.ordinaryBooked<0?"var(--muted)":"inherit";
+  savingCycleRemainder.style.color=s.pendingPocket>0?"var(--accent)":"inherit";
 
   const moved=N(s.bankExisting);
   savingDailyBankTransfer.textContent=moved>0?`-${M(moved)}`:M(0);
@@ -7598,9 +7588,8 @@ function renderSavingAssetSummary(){
   savingBankPrincipal.textContent=M(s.bankPrincipal);
   savingBankInterest.textContent=M(s.interestGrowth);
   savingBankTotal.textContent=M(s.bankTotal);
-  savingBankTotal.style.color=s.bankTotal<0?"var(--danger)":"inherit";
+  savingBankTotal.style.color=s.bankTotal<0?"var(--muted)":"inherit";
 
-  const currentAssets=savingsAssetBalanceAt(td());
   const reconciliation=savingsAssetReconciliationForRange(s.range.start,s.range.end,s);
   savingReconcileOpeningLabel.textContent=s.cycleMode&&reconciliation.priorCycleCarry>0
     ?"周期期初资产（含上期结转）":"范围期初资产";
@@ -7611,13 +7600,11 @@ function renderSavingAssetSummary(){
   savingReconcileForecast.textContent=M(reconciliation.forecast);
   const reconciliationMismatch=Math.abs(reconciliation.breakdownGap)>0.015;
   savingReconcileStatus.textContent=reconciliationMismatch
-    ?`对账提醒：分类汇总与资产流水相差 ${M(reconciliation.breakdownGap)}，请核对历史分配及转存记录。`
-    :"期初资产 + 已发生净变化 = 期末实际资产；预计结余正式结算后再计入余额。";
+    ?`对账提醒：账户资金变化与资产流水相差 ${M(reconciliation.breakdownGap)}，请核对历史交易日期。`
+    :"期初储蓄资产 + 期间实际变动 + 预计结余 = 期末预计储蓄资产。账户转存计入相应账户，合计抵消。";
   savingReconcileStatus.style.color=reconciliationMismatch?"var(--danger)":"var(--muted)";
   savingCurrentAssets.textContent=M(currentAssets);
   savingCurrentAssets.style.color=currentAssets<0?"var(--danger)":"var(--text)";
-  savingGrandTotal.textContent=M(s.expected);
-  savingGrandTotal.style.color=s.expected<0?"var(--danger)":"var(--accent)";
 }
 
 function renderSavingStats(){
@@ -7660,17 +7647,13 @@ function renderSavingStats(){
   savingGrowthTotal.textContent=M(s.expected);
   savingGrowthTotal.style.color=s.expected<0?"var(--danger)":"var(--accent)";
 
-  savingGrowthTitle.textContent=cycleMode?"当前周期储蓄变化构成":"储蓄增长构成";
-  savingGrowthMeta.textContent=cycleMode
-    ?"日常周期主值与结果页使用同一周期引擎，银行本金、利息和其他储蓄变化按当前筛选范围同步计入；日常储蓄转银行只改变资金位置。"
-    :"只展示这个统计范围内形成或减少储蓄的项目；日常储蓄转银行只改变资金位置，总储蓄保持单次计入。";
+  savingGrowthTitle.textContent=cycleMode?"当前周期储蓄资金流水":"期间储蓄资金流水";
+  savingGrowthMeta.textContent="本表记录存入、取用与账户间转存。净变化以账户期初、期末资产差额和待结算结余统一计算。";
   savingIncreaseTitle.textContent=cycleMode?"当前周期构成":"增加";
   savingAdjustTitle.textContent=cycleMode?"范围调整":"调整";
   savingUseLabel.textContent=cycleMode?"储蓄兜底 / 直接取用（参考）":"储蓄取用 / 超支扣减";
-  savingGrowthTotalLabel.textContent="储蓄资产预计净变化";
-  savingGrowthNote.textContent=cycleMode
-    ?`日常储蓄变化 ${M(s.dailyAfterBank)} + 短期储蓄变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。`
-    :`日常储蓄变化 ${M(s.dailyAfterBank)} + 短期储蓄变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。资金内部转移只影响存放位置。`;
+  savingGrowthTotalLabel.textContent="期间储蓄资产预计净变化";
+  savingGrowthNote.textContent=`日常储蓄账户变化 ${M(s.dailyAfterBank)} + 短期储蓄账户变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。本期已存入 ${M(s.grossSaved)}，账户转存属于资金位置调整。`;
 
   savingChangeList.innerHTML=events.length
     ?events.slice(0,30).map(ev=>`
@@ -8207,11 +8190,15 @@ function renderHistory(){
 
   mIncome.textContent=M(rs.income);
   mSpend.textContent=M(rs.spend.total);
-  mExpectedSaving.textContent=M(rs.expected);
+  mExpectedSaving.textContent=M(Math.abs(rs.expected));
 
   const outcomeLabels=periodOutcomeLabels(historyMode);
-  mOutcomeLabel.textContent=outcomeLabels.outcome;
-  mExpectedSavingSub.textContent=outcomeLabels.sub;
+  mOutcomeLabel.textContent=rs.expected<-.005
+    ?(historyMode==="cycle"?"本周期预计净动用储蓄":historyMode==="month"?"本月预计净动用储蓄":"期间预计净动用储蓄")
+    :outcomeLabels.outcome;
+  mExpectedSavingSub.textContent=rs.expected<-.005
+    ?`已存入资金与储蓄取用都已计入本期净变化；当前日常储蓄余额 ${M(accounting().saving)}`
+    :outcomeLabels.sub;
   mRateSub.textContent=outcomeLabels.rateSub;
 
   const incomeRateText=rs.rate===null
@@ -8225,7 +8212,7 @@ function renderHistory(){
   mProjectActualSpend.textContent=M(rs.spend.project);
   mSavingActualSpend.textContent=M(rs.spend.saving);
   mSpend.style.color=rs.spend.total>0?"inherit":"var(--muted)";
-  mExpectedSaving.style.color=rs.expected<0?"var(--danger)":"var(--accent)";
+  mExpectedSaving.style.color=rs.expected<0?"var(--warn)":"var(--accent)";
   mRate.style.color=rs.rate!==null&&rs.rate<0?"var(--danger)":"inherit";
 
   renderHistoryTransactions();
