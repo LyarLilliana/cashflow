@@ -178,7 +178,9 @@ el("creditRepaySheetSubmit").onclick=()=>{
  if(amount<=0||amount>r.remaining+.005)return msg("本金超出待还范围");
  if(!date||date>td()||date<r.t.date)return msg("实际还款日期有误");
  if(fee<0)return msg("手续费须大于或等于零");
- const reserved=Math.min(amount,r.reserve),need=round(amount-reserved),source=el("creditRepaySource").value;
+ const datedRow=ledger(date).find(x=>x.id===r.id);
+ if(!datedRow||amount>datedRow.remaining+.005)return msg("还款日期对应的待还本金不足");
+ const reserved=Math.min(amount,datedRow.reserve),need=round(amount-reserved),source=el("creditRepaySource").value;
  if(source==="saving"&&need+fee>Math.max(0,bal().saving)+.005)return msg("日常可用储蓄不足");
  S.tx.push({id:uid(),date,type:"credit_repayment",amount,fee,
   creditChargeId:r.id,creditAccountId:r.t.creditAccountId,creditMode:r.mode,
@@ -335,5 +337,6 @@ removeTx=function(id){
    &&x.creditChargeId===t.creditChargeId&&N(x.creditReservedUsed)>0))return msg("请先撤销这笔债务的还款");
  return oldRemove(id);
 };
+enhanceDateInputs();
 renderCredit();
 })();
