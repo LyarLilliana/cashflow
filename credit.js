@@ -338,5 +338,5 @@ removeTx=function(id){
  return oldRemove(id);
 };
 enhanceDateInputs();
-renderCredit();
+render();
 })();
