@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-71-deferred-payment";
+const CACHE = "safespend-v10-72-delay-funding-modes";
 const ASSETS = [
   "./",
   "./index.html",
