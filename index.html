@@ -3065,7 +3065,15 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   <input type="hidden" id="delayPaymentItem">
   <div class="meta" id="delayPaymentOriginal" style="margin-bottom:12px"></div>
   <label>新的预计支付日期</label><input type="date" id="delayPaymentDate">
-  <p class="note" style="margin-top:10px">当前事项调整日期后，预留资金和原缴纳周期继续保留，实际支付才记支出。</p>
+  <div style="margin-top:10px">
+    <label>延期时的资金状态</label>
+    <select id="delayFundingMode">
+      <option value="reserved">已备好钱，延后支付</option>
+      <option value="spent">预留已花，需要重新准备</option>
+    </select>
+    <div class="note" id="delayFundingHint" style="margin-top:8px"></div>
+  </div>
+  <p class="note" style="margin-top:10px">延期调整预计付款安排。实际消费按流水计算，账单付款时核销一次。</p>
   <div class="actions">
     <button type="button" class="ghost" id="restorePaymentDate">恢复原定</button>
     <button type="button" class="primary" id="savePaymentDelay">保存日期</button>
@@ -3299,6 +3307,7 @@ function lightPlanAllocationItemsForIncome(t){
   return (t?.alloc?.lightPlans||[])
     .map(x=>({...x,amount:Math.max(0,N(x.amount))}))
     .filter(x=>{
+      if(lightAllocationReleased(t.id,x.lightPlanId))return false;
       const plan=valid.get(x.lightPlanId);
       return plan
         &&(plan.status==="planned"||plan.status==="bought")
@@ -4636,7 +4645,7 @@ function effectiveIncomeAllocation(t){
   if(Array.isArray(t.alloc?.billItems)){
     billItems=t.alloc.billItems.map(x=>{
       const b=existingBills.get(x.billId);
-      if(!b||!billCycleIsActive(b,x.dueDate)||billSkipped(x.billId,x.dueDate))return null;
+      if(!b||!billCycleIsActive(b,x.dueDate)||billSkipped(x.billId,x.dueDate)||billAllocationReleased(t.id,x.billId,x.dueDate))return null;
 
       // Only the amount still unpaid when this income was recorded belongs in
       // this income's bill reserve. This prevents an already-paid bill from
@@ -4812,7 +4821,7 @@ function billSettled(bid,dueDate){
 function billReserved(bid,dueDate){
   return S.tx.some(t=>{
     if(t.type!=="income")return false;
-    return (t.alloc?.billItems||[]).some(x=>x.billId===bid&&x.dueDate===dueDate);
+    return (t.alloc?.billItems||[]).some(x=>x.billId===bid&&x.dueDate===dueDate&&!billAllocationReleased(t.id,bid,dueDate));
   });
 }
 function allBillsBetween(start,end){
@@ -5050,6 +5059,41 @@ function projectCycleDatesText(schedule){
   return show.join(" · ");
 }
 
+
+function billAllocationReleased(incomeId,bid,dueDate){
+  return !!(billDelay(bid,dueDate)?.releasedIncomeIds||[]).includes(incomeId);
+}
+function lightAllocationReleased(incomeId,lightId){
+  return !!((S.plannedExpenses||[]).find(x=>x.id===lightId)?.delayReleasedIncomeIds||[]).includes(incomeId);
+}
+function billFundingSnapshot(bid,dueDate){
+  const b=S.bills.find(x=>x.id===bid);
+  const remaining=billCycleRemainingAmount(b,dueDate);
+  const amount=sm(S.tx.filter(t=>t.type==="income"),t=>sm(
+    (effectiveIncomeAllocation(t).billItems||[]).filter(x=>x.billId===bid&&x.dueDate===dueDate),x=>N(x.amount)));
+  const available=Math.max(0,amount-billCyclePaidAmount(bid,dueDate));
+  return {remaining,available,shortfall:Math.max(0,remaining-available)};
+}
+function refreshDelayFundingHint(){
+  const kind=delayPaymentKind.value,id=delayPaymentItem.value,pid=delayPaymentParent.value;
+  const spent=delayFundingMode.value==="spent";
+  if(kind==="bill"){
+    const x=billFundingSnapshot(pid,id);
+    delayFundingHint.textContent=(spent?"原预留改作此前实际消费的预算，后续收入重新准备付款资金。":"原账单预留继续保留。")
+      +` 当前已备 ${M(x.available)}，还需 ${M(x.shortfall)}。`
+      +(spent?" 请确保此前消费已在流水登记。":"");
+  }else if(kind==="light"){
+    const x=(S.plannedExpenses||[]).find(v=>v.id===id);
+    delayFundingHint.textContent=(spent?"将原预留归回日常预算，后续重新准备。":"继续保留原预留。")
+      +` 当前已预留 ${M(lightPlanReservedRemaining(id))}，待备 ${M(lightPlanReserveGap(x))}。`
+      +(spent?" 请确认此前消费已录入流水。":"");
+  }else{
+    delayFundingHint.textContent=spent
+      ?"专项资金统一管理。此前实际支出按专项流水扣除，延期后可再补入资金。"
+      :"专项现有资金继续保留，延期只影响付款时间。";
+  }
+}
+
 function openPaymentDelay(kind,parentId,id){
   let label="",original="",current="";
   if(kind==="bill"){
@@ -5066,37 +5110,75 @@ function openPaymentDelay(kind,parentId,id){
     label=x.name;original=x.originalDate||x.targetDate;current=x.targetDate;
   }else return;
   if(!original)return msg("请先设置原定日期");
+  delayFundingMode.value=kind==="bill"?(billDelay(parentId,id)?.fundingMode||"reserved")
+    :kind==="light"?((S.plannedExpenses||[]).find(x=>x.id===id)?.delayFundingMode||"reserved")
+    :((S.projects.find(x=>x.id===parentId)?.plannedExpenses||[]).find(x=>x.id===id)?.delayFundingMode||"reserved");
   delayPaymentKind.value=kind;delayPaymentParent.value=parentId||"";delayPaymentItem.value=id;
   delayPaymentTitle.textContent="延期支付 · "+label;
   delayPaymentOriginal.textContent="原定 "+original+" · 当前预计 "+current;
   delayPaymentDate.value=current>td()?current:td();
   delayPaymentDate.min=addDays(original,1);
   restorePaymentDate.style.display=current!==original?"":"none";
+  refreshDelayFundingHint();
   delayPaymentSheet.classList.add("show");syncDateDisplays();
 }
+delayFundingMode.onchange=refreshDelayFundingHint;
+
 function applyPaymentDelay(restore=false){
-  const kind=delayPaymentKind.value,parentId=delayPaymentParent.value,id=delayPaymentItem.value;
+  const kind=delayPaymentKind.value,pid=delayPaymentParent.value,id=delayPaymentItem.value;
+  const mode=delayFundingMode.value==="spent"?"spent":"reserved";
   let original="",target="";
   if(kind==="bill"){
-    if(!S.bills.some(x=>x.id===parentId)||billSettled(parentId,id))return msg("当前账单已结清");
+    if(!S.bills.some(x=>x.id===pid)||billSettled(pid,id))return msg("该账单已结清");
     original=id;target=restore?original:delayPaymentDate.value;
-    if(!restore&&(!/^\d{4}-\d{2}-\d{2}$/.test(target)||target<=original))return msg("请选择晚于原定日期的支付日");
-    S.billDeferrals=(S.billDeferrals||[]).filter(x=>!(x.billId===parentId&&x.cycleDueDate===original));
-    if(target!==original)S.billDeferrals.push({billId:parentId,cycleDueDate:original,payDate:target,updatedAt:Date.now()});
-    syncCurrentCycleBillReservation(parentId);
+    if(!restore&&(!target||target.length!==10||target<=original))return msg("请选择晚于原定日期的付款日");
+    const old=billDelay(pid,id),oldMode=old?.fundingMode||"reserved";
+    const reservedIds=S.tx.filter(t=>t.type==="income"&&(t.alloc?.billItems||[])
+      .some(v=>v.billId===pid&&v.dueDate===original)).map(t=>t.id);
+    let released=[];
+    if(mode==="spent"){
+      released=oldMode==="spent"?(old.releasedIncomeIds||[]):reservedIds;
+      if(oldMode!=="spent"&&reservedIds.length&&!confirm(
+        "请确认已经把占用预留款发生的实际消费登记在流水中。此次只调整原预留归属，账单最终付款再记一笔支出。"
+      ))return;
+    }else if(oldMode==="spent"&&reservedIds.some(v=>!(old.releasedIncomeIds||[]).includes(v))){
+      return msg("后续收入已经重新预留，请先调整后续收入记录，再恢复原预留");
+    }
+    S.billDeferrals=(S.billDeferrals||[]).filter(x=>!(x.billId===pid&&x.cycleDueDate===original));
+    if(target!==original||mode==="spent"){
+      S.billDeferrals.push({billId:pid,cycleDueDate:original,payDate:target,
+        fundingMode:mode,releasedIncomeIds:released,updatedAt:Date.now()});
+    }
+    syncCurrentCycleBillReservation(pid);
   }else if(kind==="light"||kind==="project"){
     const x=kind==="light"?(S.plannedExpenses||[]).find(x=>x.id===id):
-      (S.projects.find(p=>p.id===parentId)?.plannedExpenses||[]).find(x=>x.id===id);
-    if(!x)return msg("计划已结束");
-    const field=kind==="light"?"targetDate":"date";
-    original=x.originalDate||x[field];target=restore?original:delayPaymentDate.value;
-    if(!restore&&(!/^\d{4}-\d{2}-\d{2}$/.test(target)||target<=original))return msg("请选择晚于原定日期的支付日");
-    x[field]=target;
-    if(target===original)delete x.originalDate;else x.originalDate=original;
+      (S.projects.find(x=>x.id===pid)?.plannedExpenses||[]).find(x=>x.id===id);
+    if(!x)return msg("计划已经结束");
+    const key=kind==="light"?"targetDate":"date";
+    original=x.originalDate||x[key];target=restore?original:delayPaymentDate.value;
+    if(!restore&&(!target||target.length!==10||target<=original))return msg("请选择晚于原定日期的付款日");
+    if(kind==="light"){
+      const oldMode=x.delayFundingMode||"reserved";
+      const ids=S.tx.filter(t=>t.type==="income"&&(t.alloc?.lightPlans||[]).some(v=>v.lightPlanId===id)).map(t=>t.id);
+      if(mode==="spent"){
+        if(oldMode!=="spent"&&ids.length&&!confirm(
+          "请确认已将占用这笔计划预留的消费登记在支出流水中。本操作调整预算归属，不会新增消费。"
+        ))return;
+        x.delayReleasedIncomeIds=oldMode==="spent"?(x.delayReleasedIncomeIds||[]):ids;
+      }else if(oldMode==="spent"){
+        if(ids.some(v=>!(x.delayReleasedIncomeIds||[]).includes(v)))
+          return msg("后续收入已重新预留，请先调整后续收入记录");
+        x.delayReleasedIncomeIds=[];
+      }
+    }
+    x.delayFundingMode=mode;
+    x[key]=target;
+    if(target===original)delete x.originalDate;
+    else x.originalDate=original;
     x.updatedAt=Date.now();
   }else return;
   save();closeSheet("delayPaymentSheet");render();
-  msg(restore?"已恢复原定日期":"预计支付日期已更新");
+  msg(restore?"已恢复原定日期，资金状态保持同步":"延期安排和资金状态已同步");
 }
 savePaymentDelay.onclick=()=>applyPaymentDelay(false);
 restorePaymentDate.onclick=()=>applyPaymentDelay(true);
@@ -5625,9 +5707,14 @@ function billUpcomingHtml(x){
   const status=delayed
     ?"原定 "+origin+" · 预计 "+date+" · 已延期"+(overdue?"（逾期）":"")
     :date+" · "+(overdue?"已逾期 "+diffDays(date,td())+" 天":date===td()?"今天到期":"待支付");
+  const mode=billDelay(x.id,origin)?.fundingMode||"reserved";
+  const funding=billFundingSnapshot(x.id,origin);
+  const fundingText=mode==="spent"
+    ?(funding.shortfall>.005?" · 待补预留 "+M(funding.shortfall):" · 已重新备好")
+    :(x.reserved?" · 已预留":"");
   return `<div class="item"><div class="row">
     <div style="min-width:0"><div class="name">${esc(x.name)}</div>
-      <div class="meta"><span class="billDue ${overdue?"overdue":""}">${status}</span>${x.reserved?" · 已预留":""}</div></div>
+      <div class="meta"><span class="billDue ${overdue?"overdue":""}">${status}</span>${fundingText}</div></div>
     <div class="upcomingSide"><div class="amount">${M(x.remainingAmount)}</div>
       <div class="billActions">
         <button class="doneBtn" onclick="event.stopPropagation();markBillHandled('${x.id}','${origin}')">已支付</button>
@@ -5674,8 +5761,8 @@ function renderNow(){
     ?` · 其他净调整 ${otherAdjustment<0?"-":"+"}${M(Math.abs(otherAdjustment))}`
     :"";
 
-  savingBalLabel.textContent=cycleExpectedSaving<-.005?"本周期预计使用既有储蓄":"本周期预计可存";
-  savingBal.textContent=M(Math.abs(cycleExpectedSaving));
+  savingBalLabel.textContent="本周期预计可存";
+  savingBal.textContent=M(cycleExpectedSaving);
   savingBalSub.textContent=cycle.income
     ?`计划储蓄 ${M(cyclePlanned)} · 预计零花结余 ${M(cyclePending)}${cycleAdjustHint}`
     :"记录周期收入后开始计算本周期预计可存";
@@ -5693,7 +5780,7 @@ function renderNow(){
   const paint=(el,v)=>{el.style.color=v<=0?"var(--danger)":"inherit"};
   paint(safeNow,b.safe);
   paint(livingBal,b.safe);
-  savingBal.style.color=cycleExpectedSaving<-.005?"var(--text)":"var(--accent)";
+  savingBal.style.color=cycleExpectedSaving<-.005?"var(--muted)":"var(--accent)";
 
   const next=nextRecurringIncome();
   const fallbackFunding=a.fallbackLivingFunding?.[td()]||null;
@@ -5726,7 +5813,7 @@ function renderNow(){
       :b.safe<0
         ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期储蓄净变化”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
         :cycleExpectedSaving<0
-          ?`当前零花钱 ${M(b.safe)} 已计入基础生活结余。本周期预计使用既有储蓄 ${M(Math.abs(cycleExpectedSaving))}，已积累的储蓄余额可在储蓄页查看。下一笔收入预计 ${next.nextDate} 到账 ${M(next.amount)}。`
+          ?`本周期预计可存 ${M(cycleExpectedSaving)}，依据现有收入及实际消费计算。已积累的储蓄余额可在储蓄页查看。下一笔收入预计 ${next.nextDate} 到账 ${M(next.amount)}。`
           :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
     nextIncomeBox.innerHTML=pendingNext
       ?`<div class="row"><div><div class="name">${esc(next.name)} · 待到账</div><div class="meta">原定 ${next.nextDate} · 已记录暂未到账 · 到账后从“记录收入”更新</div></div><div class="amount">${M(next.amount)}</div></div>`
@@ -5799,7 +5886,7 @@ function renderNow(){
     lightRows.push(`<div class="item"><div class="row">
       <div style="min-width:0">
         <div class="name">${esc(x.name)}</div>
-        <div class="meta">${lightPlanStatusLabel(x)} · ${x.originalDate?"原定 "+x.originalDate+" · 已延期至 "+x.targetDate:when}${reserveMeta}</div>
+        <div class="meta">${lightPlanStatusLabel(x)} · ${x.originalDate?"原定 "+x.originalDate+" · 已延期至 "+x.targetDate:when}${x.delayFundingMode==="spent"?" · 待补 "+M(lightPlanReserveGap(x)):reserveMeta}</div>
       </div>
       <div class="upcomingSide">
         <div class="amount">${amountText}</div>
@@ -9829,8 +9916,8 @@ function recalcPocketTransfer(){
   }else{
     const bounds=currentCycleResultBounds();
     const cycleSaving=N(savingSummaryForRange(bounds.start,bounds.end,true).cashflowGrowth);
-    transferEffectLabel.textContent=cycleSaving<-.005?"本周期预计使用既有储蓄":"本周期预计可存";
-    transferProjectedSaving.textContent=M(Math.abs(cycleSaving));
+    transferEffectLabel.textContent="本周期预计可存";
+    transferProjectedSaving.textContent=M(cycleSaving);
     transferProjectedSaving.style.color=cycleSaving<-.005?"var(--warn)":"var(--accent)";
     transferPocketNote.textContent="日常支出余额转入储蓄后，会增加日常可用储蓄余额，并等额减少可用日常支出。本周期储蓄净变化保持一致。";
   }
@@ -10064,7 +10151,7 @@ function billReservedByOtherIncome(ignoreIncomeId,bid,dueDate){
   return S.tx.some(x=>
     x.id!==ignoreIncomeId
     &&x.type==="income"
-    &&(x.alloc?.billItems||[]).some(b=>b.billId===bid&&b.dueDate===dueDate)
+    &&(x.alloc?.billItems||[]).some(b=>b.billId===bid&&b.dueDate===dueDate&&!billAllocationReleased(x.id,bid,dueDate))
   );
 }
 
