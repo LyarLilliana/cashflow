@@ -3184,6 +3184,7 @@ function normalize(d){
   s.tx=Array.isArray(d.tx)?d.tx:[];
   s.tx=s.tx.map(t=>{
     const x={...t};
+    if(x.type==="credit_repayment")x.creditReservedUsed=Math.max(0,N(x.creditReservedUsed));
     if(x.type==="living_settlement"&&x.manualActualSpent===undefined){
       x.manualActualSpent=N(x.actualSpent);
     }
@@ -3948,7 +3949,42 @@ function accounting(asOf=td()){
       return;
     }
 
+    if(t.type==="credit_loan"){
+      creditPocket(N(t.amount));
+      effects[t.id]={creditLoanReceived:N(t.amount)};
+      return;
+    }
+    if(t.type==="credit_fund"||t.type==="credit_repayment"){
+      const amount=t.type==="credit_fund"?N(t.amount)
+        :Math.max(0,N(t.amount)-N(t.creditReservedUsed))+Math.max(0,N(t.fee));
+      if(amount<=0){
+        effects[t.id]={creditReserveSettled:N(t.creditReservedUsed)};
+        return;
+      }
+      if(t.creditSource==="saving"){
+        saving-=amount;
+        manualSavingUsed+=amount;
+      }else{
+        const before=N(raw.safe);
+        const fromPocket=Math.min(amount,Math.max(0,before));
+        const extra=amount-fromPocket;
+        const fromSaving=Math.min(extra,Math.max(0,saving));
+        const gap=Math.max(0,extra-fromSaving);
+        raw.safe=Math.min(0,before)+Math.max(0,before)-fromPocket-gap;
+        saving-=fromSaving;
+        autoSavingUsed+=fromSaving;
+        autoSavingDebt+=fromSaving;
+        uncovered+=gap;
+      }
+      effects[t.id]={creditFunding:t.type==="credit_fund",
+        creditRepayment:t.type==="credit_repayment",creditDebit:amount};
+      return;
+    }
     if(t.type!=="expense")return;
+    if(t.creditAccountId&&t.creditFundMode==="future"){
+      effects[t.id]={creditFutureExpense:true};
+      return;
+    }
     const amount=N(t.amount);
 
     if(t.bucket==="saving"){
@@ -4522,6 +4558,7 @@ function dailyExpenseLivingCoverMap(){
       t.type==="expense"
       &&(t.bucket==="safe"||t.bucket==="living")
       &&!t.settledBillId
+      &&t.creditFundMode!=="future"
     )
     .sort((a,b)=>{
       if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
@@ -7679,7 +7716,8 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   // An existing bank balance newly entered into the app is an asset import,
   // not new savings originating from current income.
   const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth
-    +creditSavingAdjustmentForRange(start,end);
+    +(typeof creditSavingAdjustmentForRange==="function"
+       ?creditSavingAdjustmentForRange(start,end):0);
   const pocketClosedThisRange=Math.max(0,N(raw.pocketClosed)-priorCycleCarry);
   const grossSaved=
     N(raw.recurringIncomeSaving)+N(raw.oneOffIncomeSaving)
@@ -8294,6 +8332,7 @@ function actualSpendingDate(t){
 
 function actualSpendingAmount(t){
   if(!t)return 0;
+  if(t.type==="credit_repayment")return Math.max(0,N(t.fee));
   if(t.type==="expense"||t.type==="short_spend")return Math.max(0,N(t.amount));
   if(t.type==="living_batch")return Math.max(0,N(t.amount));
   if(t.type==="living_settlement")return livingSettlementManualActual(t);
@@ -8316,6 +8355,10 @@ function spendingBreakdownForRange(start="",end=""){
   rows.forEach(t=>{
     const amount=actualSpendingAmount(t);
 
+    if(t.type==="credit_repayment"){
+      saving+=amount;
+      return;
+    }
     if(t.type==="living_settlement"||t.type==="living_batch"){
       living+=amount;
       return;
