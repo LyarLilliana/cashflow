@@ -56,7 +56,11 @@ css.textContent=[
 ".creditPair>div{padding:10px;border-radius:12px;background:#F6F8F5;color:var(--muted);font-size:11px}",
 ".creditPair strong{display:block;color:var(--text);font-size:17px;margin-top:5px}",
 ".creditTip{color:var(--muted);font-size:11px;line-height:1.5;margin-top:5px}",
-".creditDanger{color:var(--danger)}"
+".creditDanger{color:var(--danger)}",
+".creditNowHeading{min-width:0;flex:1}",
+".creditNowHeading .creditTip{margin-top:3px}",
+".creditNowActions{display:flex;gap:6px;align-items:center;flex:none}",
+".creditNowActions .sectionToggle{padding:6px 9px;font-size:10.5px}"
 ].join("");
 document.head.appendChild(css);
 const plan=document.createElement("div");
@@ -73,10 +77,33 @@ plan.innerHTML='<div class="sectionTitle">信用与还款</div><div class="card"
 +'<div id="creditHiddenNotice" class="creditTip" hidden></div></div>';
 el("lightPlanSection").before(plan);
 const now=document.createElement("div");now.className="section";now.id="creditNowSection";now.style.display="none";
-now.innerHTML='<div class="sectionHeader"><div class="sectionTitle">近期还款</div>'
-+'<button id="creditManage" type="button" class="sectionToggle">账户管理</button></div>'
-+'<div class="card" id="creditNowList"></div>';
+now.innerHTML='<div class="sectionHeader"><div class="creditNowHeading">'
++'<div class="sectionTitle">近期还款</div><div id="creditNowSummary" class="creditTip"></div></div>'
++'<div class="creditNowActions"><button id="creditNowToggle" type="button" class="sectionToggle"'
++' aria-controls="creditNowBody" aria-expanded="true">收起</button>'
++'<button id="creditManage" type="button" class="sectionToggle">账户管理</button></div></div>'
++'<div class="sectionBody" id="creditNowBody"><div class="card" id="creditNowList"></div></div>';
 el("upcomingBox").closest(".section").before(now);
+
+// The plan section uses SafeSpend's existing collapsible sections and saved UI preferences.
+// Recent repayments have a separate toggle because their header already contains a management action.
+enhanceCollapsibleSections();
+const CREDIT_NOW_FOLD_KEY="now:credit-repayment";
+function setCreditNowCollapsed(collapsed){
+ now.classList.toggle("collapsed",!!collapsed);
+ el("creditNowBody").hidden=!!collapsed;
+ const toggle=el("creditNowToggle");
+ toggle.textContent=collapsed?"展开":"收起";
+ toggle.setAttribute("aria-expanded",collapsed?"false":"true");
+}
+setCreditNowCollapsed(!!readSectionUI()[CREDIT_NOW_FOLD_KEY]);
+el("creditNowToggle").onclick=()=>{
+ const collapsed=!now.classList.contains("collapsed");
+ setCreditNowCollapsed(collapsed);
+ const state=readSectionUI();
+ state[CREDIT_NOW_FOLD_KEY]=collapsed;
+ writeSectionUI(state);
+};
 const spend=document.createElement("div");spend.id="creditSpendSection";spend.style.display="none";
 spend.innerHTML='<label>支付渠道</label><select id="creditPayment">'
 +'<option value="cash">现有资金支付</option><option value="credit">信用支付</option></select>'
@@ -279,6 +306,11 @@ saveSpend.onclick=e=>{
 function renderCredit(){
  const entries=ledger().filter(x=>x.remaining>.005).sort((a,b)=>a.due.localeCompare(b.due));
  const debt=round(sm(entries,r=>r.remaining)),reserve=round(sm(entries,r=>r.reserve));
+ const overdue=entries.filter(r=>r.due<td()).length;
+ el("creditNowSummary").textContent=entries.length
+  ?"待还 "+M(debt)+" · "+entries.length+" 笔"+(overdue?" · 逾期 "+overdue+" 笔":"")
+  :"全部结清";
+ el("creditNowSummary").classList.toggle("creditDanger",overdue>0);
  const enabled=!!S.settings.creditEnabled;
  el("creditEnabled").checked=enabled;
  el("creditPlanContent").hidden=!enabled;
