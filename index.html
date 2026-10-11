@@ -5759,9 +5759,10 @@ function renderNow(){
     </details>`);
   }
 
-  const cycleGap=Math.max(0,-N(cycleExpectedSaving));
+  // 储蓄净动用属于期间流量变化，实际未覆盖支出才是需要处理的资金缺口。
+  const cycleGap=Math.max(0,N(a.uncovered));
   const gapHtml=cycleGap>0
-    ?`<div class="upcomingAlert"><div class="item"><div class="row"><div><div class="name">本周期资金缺口</div><div class="meta">本周期“预计可存”已经低于 0，代表本周期收入连同原计划储蓄都已被用完。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div></div>`
+    ?`<div class="upcomingAlert"><div class="item"><div class="row"><div><div class="name">当前资金缺口</div><div class="meta">已发生支出超出可用资金，需要补充资金或核对预算。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div></div>`
     :"";
 
   upcomingBox.innerHTML=(gapHtml||groups.length)
