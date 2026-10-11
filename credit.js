@@ -258,6 +258,11 @@ saveSpend.onclick=e=>{
  if(date>td()||!due||due<date)return msg("请核对消费日期和还款日期");
  const owed=sm(ledger(),r=>r.t.creditAccountId===a.id?r.remaining:0);
  if(a.limit>0&&owed+amount>a.limit+.005)return msg("信用额度不足");
+ if(el("creditSpendMode").value==="reserve"){
+  const available=Math.max(0,dailyLivingAvailableForNewExpense(date))
+   +Math.max(0,bal().safe)+Math.max(0,bal().saving);
+  if(amount>available+.005)return msg("现有资金可预留 "+M(available)+"，可切换为未来收入还款");
+ }
  const id="e"+Date.now()+Math.random().toString(36).slice(2,6);
  let snapshot=null;
  if(typeof plannedExpensePayment!=="undefined"&&plannedExpensePayment?.kind==="personal"){
