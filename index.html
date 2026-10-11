@@ -2074,7 +2074,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div><div class="s">与上方“当前零花钱”完全一致</div></div>
       <div class="card stat"><div class="k">本周期账单</div><div class="v" id="billBal">¥0</div><div class="s" id="billBalSub">本周期尚待支付的固定账单</div></div>
       <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div><div class="s">已为专项准备好的钱</div></div>
-      <div class="card stat"><div class="k" id="savingBalLabel">本周期预计净增加储蓄</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">已进入储蓄 + 当前剩余零花钱；零花钱继续消费时会实时变化</div></div>
+      <div class="card stat"><div class="k" id="savingBalLabel">当前累计储蓄资产</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">当前已积累的日常、短期及银行储蓄</div></div>
     </div>
 
     <div class="card" id="bankReminderNowCard" style="display:none;margin-top:12px">
@@ -2145,7 +2145,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       </div>
       <div class="card savingOverviewCard">
         <div class="savingOverviewResult">
-          <div class="k" id="savingGrandLabel">储蓄净变化</div>
+          <div class="k" id="savingGrandLabel">所选期间期末预计储蓄资产</div>
           <div class="savingHeroValue" id="savingGrandTotal">¥0</div>
           <div class="small" id="savingCashflowHint" style="margin-top:3px;color:var(--muted)">其中，本期预计可存 ¥0</div>
         </div>
@@ -5571,11 +5571,15 @@ function renderNow(){
     :{cashflowGrowth:0,grossSaved:0};
   const cycleExpectedSaving=N(cycleSavings.cashflowGrowth);
 
-  savingBalLabel.textContent=cycleExpectedSaving<-.005
-    ?"本周期预计净动用储蓄"
-    :cycleExpectedSaving>.005?"本周期预计净增加储蓄":"本周期储蓄预计持平";
-  savingBal.textContent=M(Math.abs(cycleExpectedSaving));
-  savingBalSub.textContent=`本周期已存入 ${M(cycleSavings.grossSaved)}；当前日常储蓄余额 ${M(a.saving)}。储蓄净变化包含实际余额的增减。`;
+  const currentSaved=savingsAssetBalanceAt();
+  savingBalLabel.textContent="当前累计储蓄资产";
+  savingBal.textContent=M(currentSaved);
+  const cycleDirection=cycleExpectedSaving<-.005
+    ?`本周期预计净使用既有储蓄 ${M(Math.abs(cycleExpectedSaving))}`
+    :cycleExpectedSaving>.005
+      ?`本周期预计净存入 ${M(cycleExpectedSaving)}`
+      :"本周期储蓄预计持平";
+  savingBalSub.textContent=`日常储蓄余额 ${M(a.saving)}；${cycleDirection}`;
 
   if(activeProjects().length===0){
     projectBal.textContent="暂无专项";
@@ -5590,7 +5594,7 @@ function renderNow(){
   const paint=(el,v)=>{el.style.color=v<=0?"var(--danger)":"inherit"};
   paint(safeNow,b.safe);
   paint(livingBal,b.safe);
-  savingBal.style.color=cycleExpectedSaving<-.005?"var(--warn)":"var(--accent)";
+  savingBal.style.color=currentSaved<-.005?"var(--danger)":"var(--accent)";
 
   const next=nextRecurringIncome();
   const fallbackFunding=a.fallbackLivingFunding?.[td()]||null;
@@ -5623,7 +5627,7 @@ function renderNow(){
       :b.safe<0
         ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期储蓄净变化”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
         :cycleExpectedSaving<0
-          ?`当前零花钱 ${M(b.safe)} 已考虑生活费回流和本周期超支。超支已动用此前储蓄，本周期预计净减少储蓄 ${M(Math.abs(cycleExpectedSaving))}。下一笔收入预计 ${next.nextDate} 到账 ${M(next.amount)}。`
+          ?`当前零花钱 ${M(b.safe)} 已计入基础生活结余。本周期预计使用既有储蓄 ${M(Math.abs(cycleExpectedSaving))}，当前累计储蓄资产为 ${M(currentSaved)}。下一笔收入预计 ${next.nextDate} 到账 ${M(next.amount)}。`
           :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
     nextIncomeBox.innerHTML=pendingNext
       ?`<div class="row"><div><div class="name">${esc(next.name)} · 待到账</div><div class="meta">原定 ${next.nextDate} · 已记录暂未到账 · 到账后从“记录收入”更新</div></div><div class="amount">${M(next.amount)}</div></div>`
@@ -7557,12 +7561,17 @@ function selectedSavingRangeSummary(){
 function renderSavingAssetSummary(){
   const s=selectedSavingRangeSummary();
   const currentAssets=savingsAssetBalanceAt(td());
-  const net=N(s.expected);
+  const net=N(s.cashflowGrowth);
+  const reconciliation=savingsAssetReconciliationForRange(s.range.start,s.range.end,s);
 
-  savingGrandLabel.textContent=net<-.005?"本期预计净动用储蓄":net>.005?"本期预计净增加储蓄":"本期储蓄预计持平";
-  savingGrandTotal.textContent=M(Math.abs(net));
-  savingGrandTotal.style.color=net<-.005?"var(--warn)":"var(--accent)";
-  savingCashflowHint.textContent=`本期已存入储蓄 ${M(s.grossSaved)}；当前累计储蓄资产 ${M(currentAssets)}。净变化已合计各储蓄账户及预计结余。`;
+  // 概览强调实际拥有的储蓄存量，本期净存入作为独立的增减指标。
+  savingGrandLabel.textContent="所选期间期末预计储蓄资产";
+  savingGrandTotal.textContent=M(reconciliation.forecast);
+  savingGrandTotal.style.color=reconciliation.forecast<-.005?"var(--danger)":"var(--accent)";
+  const flowLabel=net<-.005
+    ?`本期预计使用既有储蓄 ${M(Math.abs(net))}`
+    :net>.005?`本期预计净存入 ${M(net)}`:"本期储蓄预计持平";
+  savingCashflowHint.textContent=`${flowLabel}；本期累计存入 ${M(s.grossSaved)}`;
 
   savingFreePrincipal.textContent=M(s.dailyAfterBank);
   // Moving money from ordinary savings to a locked account is not a loss.
@@ -7591,7 +7600,6 @@ function renderSavingAssetSummary(){
   savingBankTotal.textContent=M(s.bankTotal);
   savingBankTotal.style.color=s.bankTotal<0?"var(--muted)":"inherit";
 
-  const reconciliation=savingsAssetReconciliationForRange(s.range.start,s.range.end,s);
   savingReconcileOpeningLabel.textContent=s.cycleMode&&reconciliation.priorCycleCarry>0
     ?"周期期初资产（含上期结转）":"范围期初资产";
   savingReconcileOpening.textContent=M(reconciliation.opening);
