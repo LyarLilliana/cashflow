@@ -1751,7 +1751,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 }
 #upcomingBox .billActions{
   display:flex;
-  flex-wrap:nowrap;
+  flex-wrap:wrap;
   justify-content:flex-end;
   gap:4px;
   margin-top:5px;
@@ -3059,6 +3059,18 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   <div class="actions"><button class="ghost" type="button" onclick="closeSheet('projectRepaySheet')">取消</button><button class="primary" id="saveProjectRepay" type="button">确认补回</button></div>
 </div></div>
 
+<div class="sheet" id="delayPaymentSheet"><div class="sheetCard">
+  <div class="sheetTitle" id="delayPaymentTitle">延期支付</div>
+  <input type="hidden" id="delayPaymentKind"><input type="hidden" id="delayPaymentParent">
+  <input type="hidden" id="delayPaymentItem">
+  <div class="meta" id="delayPaymentOriginal" style="margin-bottom:12px"></div>
+  <label>新的预计支付日期</label><input type="date" id="delayPaymentDate">
+  <p class="note" style="margin-top:10px">当前事项调整日期后，预留资金和原缴纳周期继续保留，实际支付才记支出。</p>
+  <div class="actions">
+    <button type="button" class="ghost" id="restorePaymentDate">恢复原定</button>
+    <button type="button" class="primary" id="savePaymentDelay">保存日期</button>
+  </div>
+</div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -3069,6 +3081,7 @@ const defaults={
   settings:{dailyLiving:0,livingRates:[],monthlyGoal:0,bankDepositThreshold:0},
   incomePlans:[],
   bills:[],
+  billDeferrals:[],
   plannedExpenses:[],
   projects:[],
   deposits:[],
@@ -3121,6 +3134,7 @@ function normalize(d){
     .sort((a,b)=>a.startDate.localeCompare(b.startDate));
   s.incomePlans=Array.isArray(d.incomePlans)?d.incomePlans:[];
   s.bills=Array.isArray(d.bills)?d.bills:[];
+  s.billDeferrals=Array.isArray(d.billDeferrals)?d.billDeferrals.filter(x=>x?.billId&&x?.cycleDueDate&&x?.payDate):[];
   s.plannedExpenses=Array.isArray(d.plannedExpenses)?d.plannedExpenses:[];
   s.plannedExpenses=s.plannedExpenses.map(x=>({
     ...x,
@@ -4752,6 +4766,15 @@ function billStartModeForEdit(b){
   return b.startMonth>md(td())?"next":"current";
 }
 
+function billDelay(bid,origin){return (S.billDeferrals||[]).find(x=>x.billId===bid&&x.cycleDueDate===origin)||null}
+function expectedBillDate(bid,origin){return billDelay(bid,origin)?.payDate||origin}
+function billRow(b,due){
+  if(!b||!billCycleIsActive(b,due))return null;
+  const paidAmount=billCyclePaidAmount(b.id,due);
+  const remainingAmount=billCycleRemainingAmount(b,due);
+  return {...b,dueDate:due,payDate:expectedBillDate(b.id,due),reserved:billReserved(b.id,due),
+    paidAmount,remainingAmount,settled:remainingAmount<=.005};
+}
 function billDueDate(b,y,m){
   const day=Math.min(N(b.dueDay),monthLastDay(y,m));
   return `${y}-${String(m).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
@@ -4793,29 +4816,17 @@ function billReserved(bid,dueDate){
   });
 }
 function allBillsBetween(start,end){
-  const s=D(start),e=D(end),months=[];
-  let y=s.getFullYear(),m=s.getMonth()+1;
-  for(let i=0;i<4;i++){
-    months.push([y,m]);
-    if(y===e.getFullYear()&&m===e.getMonth()+1)break;
-    m++;if(m===13){m=1;y++}
+  if(!start||!end||end<start)return [];
+  const from=D(start),until=D(end),months=[];
+  let y=from.getFullYear(),m=from.getMonth()+1;
+  for(let i=0;i<4;i++){months.push([y,m]);if(y===until.getFullYear()&&m===until.getMonth()+1)break;m++;if(m===13){m=1;y++}}
+  const rows=[],seen=new Set();
+  function add(b,due){
+    const k=b.id+"|"+due;if(seen.has(k))return;seen.add(k);
+    const x=billRow(b,due);if(x&&x.payDate>=start&&x.payDate<=end)rows.push(x);
   }
-  const rows=[];
-  S.bills.forEach(b=>months.forEach(([yy,mm])=>{
-    const due=billDueDate(b,yy,mm);
-    if(due>=start&&due<=end&&billCycleIsActive(b,due)){
-      const paidAmount=billCyclePaidAmount(b.id,due);
-      const remainingAmount=billCycleRemainingAmount(b,due);
-      rows.push({
-        ...b,
-        dueDate:due,
-        reserved:billReserved(b.id,due),
-        paidAmount,
-        remainingAmount,
-        settled:remainingAmount<=0.005
-      });
-    }
-  }));
+  S.bills.forEach(b=>months.forEach(([y,m])=>add(b,billDueDate(b,y,m))));
+  (S.billDeferrals||[]).forEach(x=>{const b=S.bills.find(b=>b.id===x.billId);if(b)add(b,x.cycleDueDate)});
   return rows;
 }
 function dueBillsBetween(start,end){
@@ -4823,11 +4834,18 @@ function dueBillsBetween(start,end){
   return allBillsBetween(start,end).filter(x=>!x.reserved&&!x.settled);
 }
 function actionableBillCycle(bid){
-  const start=addDays(td(),-40),end=addDays(td(),65);
-  const rows=allBillsBetween(start,end)
-    .filter(x=>x.id===bid&&!x.settled)
-    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
-  return rows[0]||null;
+  const b=S.bills.find(x=>x.id===bid);if(!b)return null;
+  const rows=allBillsBetween(addDays(td(),-40),addDays(td(),65)).filter(x=>x.id===bid);
+  const seen=new Set(rows.map(x=>x.dueDate));
+  const extras=[
+    ...(S.billDeferrals||[]).filter(x=>x.billId===bid).map(x=>x.cycleDueDate),
+    ...S.tx.filter(t=>t.type==="income").flatMap(t=>(t.alloc?.billItems||[]).filter(x=>x.billId===bid).map(x=>x.dueDate))
+  ];
+  extras.forEach(due=>{
+    if(seen.has(due))return;seen.add(due);
+    const x=billRow(b,due);if(x)rows.push(x);
+  });
+  return rows.filter(x=>!x.settled).sort((a,b)=>a.payDate.localeCompare(b.payDate)||a.dueDate.localeCompare(b.dueDate))[0]||null;
 }
 function openBillCycle(bid,referenceDate=td()){
   // 优先核销“花钱日期”附近已经预留、尚未支付的最近一个周期。
@@ -4864,9 +4882,11 @@ function currentCycleBillStatus(){
 
   // Current cycle follows the same convention as living cost:
   // start date is included, next income date is excluded.
-  const all=allBillsBetween(start,end)
-    .filter(x=>x.dueDate>=start&&x.dueDate<end)
-    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  const listed=allBillsBetween(start,addDays(end,-1));
+  const prev=(income.alloc?.billItems||[]).filter(x=>x.dueDate>=start&&x.dueDate<end)
+    .map(x=>billRow(S.bills.find(b=>b.id===x.billId),x.dueDate)).filter(Boolean);
+  const all=[...new Map([...listed,...prev].map(x=>[x.id+"|"+x.dueDate,x])).values()]
+    .sort((a,b)=>a.payDate.localeCompare(b.payDate));
 
   const outstanding=all.filter(x=>!x.settled);
 
@@ -4886,36 +4906,8 @@ function currentCycleBillReserve(){return currentCycleBillStatus().outstandingAm
 
 function billDueDatesInsideWindow(b,start,end){
   if(!b||!start||!end||end<=start)return [];
-
-  const rows=[];
-  const cursor=D(start);
-  cursor.setDate(1);
-
-  const last=D(addDays(end,-1));
-  last.setDate(1);
-
-  let guard=0;
-  while(cursor<=last&&guard<24){
-    const y=cursor.getFullYear();
-    const m=cursor.getMonth()+1;
-    const due=billDueDate(b,y,m);
-
-    if(
-      due>=start
-      &&due<end
-      &&billCycleIsActive(b,due)
-      &&!billSkipped(b.id,due)
-    ){
-      rows.push(due);
-    }
-
-    cursor.setMonth(cursor.getMonth()+1);
-    guard++;
-  }
-
-  return rows;
+  return allBillsBetween(start,addDays(end,-1)).filter(x=>x.id===b.id&&!billSkipped(b.id,x.dueDate)).map(x=>x.dueDate);
 }
-
 function syncCurrentCycleBillReservation(bid){
   const b=S.bills.find(x=>x.id===bid);
   const cycle=currentCycleStats();
@@ -4930,6 +4922,7 @@ function syncCurrentCycleBillReservation(bid){
   if(!income.alloc)income.alloc={};
   if(!Array.isArray(income.alloc.billItems))income.alloc.billItems=[];
 
+  const existingDueDates=income.alloc.billItems.filter(x=>x.billId===bid).map(x=>x.dueDate);
   const before=JSON.stringify(income.alloc.billItems);
   income.alloc.billItems=income.alloc.billItems.filter(x=>x.billId!==bid);
 
@@ -4944,9 +4937,9 @@ function syncCurrentCycleBillReservation(bid){
       )
       .sort((a,b)=>String(a.cycleDueDate).localeCompare(String(b.cycleDueDate)));
 
-    const dueDates=paidRows.length
-      ?[...new Set(paidRows.map(t=>t.cycleDueDate))]
-      :billDueDatesInsideWindow(b,start,end);
+    const dueDates=[...new Set([
+      ...existingDueDates,...paidRows.map(t=>t.cycleDueDate),...billDueDatesInsideWindow(b,start,end)
+    ])].filter(d=>billCycleIsActive(b,d)&&(existingDueDates.includes(d)||!billReserved(bid,d)));
 
     dueDates.forEach(dueDate=>{
       if(billSkipped(bid,dueDate))return;
@@ -5057,6 +5050,56 @@ function projectCycleDatesText(schedule){
   return show.join(" · ");
 }
 
+function openPaymentDelay(kind,parentId,id){
+  let label="",original="",current="";
+  if(kind==="bill"){
+    const b=S.bills.find(x=>x.id===parentId);
+    if(!b||billSettled(parentId,id))return msg("当前账单已结清");
+    label=b.name;original=id;current=expectedBillDate(parentId,id);
+  }else if(kind==="project"){
+    const p=S.projects.find(x=>x.id===parentId),x=(p?.plannedExpenses||[]).find(x=>x.id===id);
+    if(!x)return msg("专项计划已结束");
+    label=p.name+" · "+x.name;original=x.originalDate||x.date;current=x.date;
+  }else if(kind==="light"){
+    const x=(S.plannedExpenses||[]).find(x=>x.id===id);
+    if(!x||!["considering","planned"].includes(x.status))return msg("短期计划已结束");
+    label=x.name;original=x.originalDate||x.targetDate;current=x.targetDate;
+  }else return;
+  if(!original)return msg("请先设置原定日期");
+  delayPaymentKind.value=kind;delayPaymentParent.value=parentId||"";delayPaymentItem.value=id;
+  delayPaymentTitle.textContent="延期支付 · "+label;
+  delayPaymentOriginal.textContent="原定 "+original+" · 当前预计 "+current;
+  delayPaymentDate.value=current>td()?current:td();
+  delayPaymentDate.min=addDays(original,1);
+  restorePaymentDate.style.display=current!==original?"":"none";
+  delayPaymentSheet.classList.add("show");syncDateDisplays();
+}
+function applyPaymentDelay(restore=false){
+  const kind=delayPaymentKind.value,parentId=delayPaymentParent.value,id=delayPaymentItem.value;
+  let original="",target="";
+  if(kind==="bill"){
+    if(!S.bills.some(x=>x.id===parentId)||billSettled(parentId,id))return msg("当前账单已结清");
+    original=id;target=restore?original:delayPaymentDate.value;
+    if(!restore&&(!/^\d{4}-\d{2}-\d{2}$/.test(target)||target<=original))return msg("请选择晚于原定日期的支付日");
+    S.billDeferrals=(S.billDeferrals||[]).filter(x=>!(x.billId===parentId&&x.cycleDueDate===original));
+    if(target!==original)S.billDeferrals.push({billId:parentId,cycleDueDate:original,payDate:target,updatedAt:Date.now()});
+    syncCurrentCycleBillReservation(parentId);
+  }else if(kind==="light"||kind==="project"){
+    const x=kind==="light"?(S.plannedExpenses||[]).find(x=>x.id===id):
+      (S.projects.find(p=>p.id===parentId)?.plannedExpenses||[]).find(x=>x.id===id);
+    if(!x)return msg("计划已结束");
+    const field=kind==="light"?"targetDate":"date";
+    original=x.originalDate||x[field];target=restore?original:delayPaymentDate.value;
+    if(!restore&&(!/^\d{4}-\d{2}-\d{2}$/.test(target)||target<=original))return msg("请选择晚于原定日期的支付日");
+    x[field]=target;
+    if(target===original)delete x.originalDate;else x.originalDate=original;
+    x.updatedAt=Date.now();
+  }else return;
+  save();closeSheet("delayPaymentSheet");render();
+  msg(restore?"已恢复原定日期":"预计支付日期已更新");
+}
+savePaymentDelay.onclick=()=>applyPaymentDelay(false);
+restorePaymentDate.onclick=()=>applyPaymentDelay(true);
 function markBillHandled(bid,dueDate){
   const b=S.bills.find(x=>x.id===bid);
   if(!b)return msg("这笔固定账单已经不存在");
@@ -5075,7 +5118,7 @@ function markBillHandled(bid,dueDate){
     date:td(),
     type:"expense",
     bucket:reserved?"bill":"safe",
-    amount:N(b.amount),
+    amount:billCycleRemainingAmount(b,dueDate),
     refId:reserved?bid:"",
     note:b.name,
     settledBillId:bid,
@@ -5576,6 +5619,22 @@ function updateDisclosureAllToggles(){
   });
 }
 
+function billUpcomingHtml(x){
+  const origin=x.dueDate,date=x.payDate||origin;
+  const delayed=date!==origin,overdue=date<td();
+  const status=delayed
+    ?"原定 "+origin+" · 预计 "+date+" · 已延期"+(overdue?"（逾期）":"")
+    :date+" · "+(overdue?"已逾期 "+diffDays(date,td())+" 天":date===td()?"今天到期":"待支付");
+  return `<div class="item"><div class="row">
+    <div style="min-width:0"><div class="name">${esc(x.name)}</div>
+      <div class="meta"><span class="billDue ${overdue?"overdue":""}">${status}</span>${x.reserved?" · 已预留":""}</div></div>
+    <div class="upcomingSide"><div class="amount">${M(x.remainingAmount)}</div>
+      <div class="billActions">
+        <button class="doneBtn" onclick="event.stopPropagation();markBillHandled('${x.id}','${origin}')">已支付</button>
+        <button class="skipBtn" onclick="event.stopPropagation();openPaymentDelay('bill','${x.id}','${origin}')">延期支付</button>
+        <button class="skipBtn" onclick="event.stopPropagation();markBillNoNeed('${x.id}','${origin}')">无需支付</button>
+      </div></div></div></div>`;
+}
 function renderNow(){
   const a=accounting(),cycle=currentCycleStats();
   const safe=currentPocketBalance(a,cycle);
@@ -5703,25 +5762,8 @@ function renderNow(){
 
   // “近期必须处理”按来源分组，避免固定账单、专项和短期计划混在同一列表。
   const billRows=S.bills.map(b=>actionableBillCycle(b.id)).filter(Boolean)
-    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
-
-  const fixedRows=billRows.map(x=>{
-    const overdue=x.dueDate<td();
-    const status=overdue?"已到期":(x.dueDate===td()?"今天到期":"待处理");
-    return `<div class="item"><div class="row">
-      <div style="min-width:0">
-        <div class="name">${esc(x.name)}</div>
-        <div class="meta"><span class="billDue ${overdue?"overdue":""}">${x.dueDate} · ${status}</span>${x.reserved?" · 已预留":""}</div>
-      </div>
-      <div class="upcomingSide">
-        <div class="amount">${M(x.amount)}</div>
-        <div class="billActions">
-          <button class="doneBtn" onclick="event.stopPropagation();markBillHandled('${x.id}','${x.dueDate}')">已支付</button>
-          <button class="skipBtn" onclick="event.stopPropagation();markBillNoNeed('${x.id}','${x.dueDate}')">无需支付</button>
-        </div>
-      </div>
-    </div></div>`;
-  });
+    .sort((a,b)=>a.payDate.localeCompare(b.payDate));
+  const fixedRows=billRows.map(billUpcomingHtml);
 
   const projectRows=[];
   activeProjects().forEach(p=>{
