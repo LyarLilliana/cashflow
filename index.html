@@ -2074,7 +2074,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div><div class="s">与上方“当前零花钱”完全一致</div></div>
       <div class="card stat"><div class="k">本周期账单</div><div class="v" id="billBal">¥0</div><div class="s" id="billBalSub">本周期尚待支付的固定账单</div></div>
       <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div><div class="s">已为专项准备好的钱</div></div>
-      <div class="card stat"><div class="k" id="savingBalLabel">当前累计储蓄资产</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">当前已积累的日常、短期及银行储蓄</div></div>
+      <div class="card stat"><div class="k" id="savingBalLabel">当前待转存储蓄</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">已攒储蓄与本周期预计结余，银行资产另行统计</div></div>
     </div>
 
     <div class="card" id="bankReminderNowCard" style="display:none;margin-top:12px">
@@ -5571,15 +5571,16 @@ function renderNow(){
     :{cashflowGrowth:0,grossSaved:0};
   const cycleExpectedSaving=N(cycleSavings.cashflowGrowth);
 
-  const currentSaved=savingsAssetBalanceAt();
-  savingBalLabel.textContent="当前累计储蓄资产";
+  // “现在”只汇总可继续积攒、准备转入银行的资金。
+  // 与银行转存提醒使用相同口径，避免主卡片与转存进度出现不同金额。
+  // 已转入银行的本金和银行利息均不计入这里。
+  const readyToBank=bankReminderState();
+  const currentSaved=N(readyToBank.expected);
+  savingBalLabel.textContent="当前待转存储蓄";
   savingBal.textContent=M(currentSaved);
-  const cycleDirection=cycleExpectedSaving<-.005
-    ?`本周期预计净使用既有储蓄 ${M(Math.abs(cycleExpectedSaving))}`
-    :cycleExpectedSaving>.005
-      ?`本周期预计净存入 ${M(cycleExpectedSaving)}`
-      :"本周期储蓄预计持平";
-  savingBalSub.textContent=`日常储蓄余额 ${M(a.saving)}；${cycleDirection}`;
+  savingBalSub.textContent=readyToBank.pending>0
+    ?`已攒储蓄（未入银行） ${M(readyToBank.actual)}；本周期预计结余 ${M(readyToBank.pending)}`
+    :`已攒储蓄（未入银行） ${M(readyToBank.actual)}；日常储蓄与短期储蓄合计`;
 
   if(activeProjects().length===0){
     projectBal.textContent="暂无专项";
@@ -5627,7 +5628,7 @@ function renderNow(){
       :b.safe<0
         ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期储蓄净变化”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
         :cycleExpectedSaving<0
-          ?`当前零花钱 ${M(b.safe)} 已计入基础生活结余。本周期预计使用既有储蓄 ${M(Math.abs(cycleExpectedSaving))}，当前累计储蓄资产为 ${M(currentSaved)}。下一笔收入预计 ${next.nextDate} 到账 ${M(next.amount)}。`
+          ?`当前零花钱 ${M(b.safe)} 已计入基础生活结余。本周期预计使用既有储蓄 ${M(Math.abs(cycleExpectedSaving))}，当前待转存储蓄为 ${M(currentSaved)}（含本周期预计结余，银行资产单列）。下一笔收入预计 ${next.nextDate} 到账 ${M(next.amount)}。`
           :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
     nextIncomeBox.innerHTML=pendingNext
       ?`<div class="row"><div><div class="name">${esc(next.name)} · 待到账</div><div class="meta">原定 ${next.nextDate} · 已记录暂未到账 · 到账后从“记录收入”更新</div></div><div class="amount">${M(next.amount)}</div></div>`
