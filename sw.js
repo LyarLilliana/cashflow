@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-73-credit-repayment";
+const CACHE = "safespend-v10-74-credit-collapsible";
 const ASSETS = [
   "./",
   "./index.html",
