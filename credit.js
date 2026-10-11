@@ -182,7 +182,7 @@ el("creditRepaySheetSubmit").onclick=()=>{
  if(!datedRow||amount>datedRow.remaining+.005)return msg("还款日期对应的待还本金不足");
  const reserved=Math.min(amount,datedRow.reserve),need=round(amount-reserved),source=el("creditRepaySource").value;
  if(source==="saving"&&need+fee>Math.max(0,bal().saving)+.005)return msg("日常可用储蓄不足");
- S.tx.push({id:uid(),date,type:"credit_repayment",amount,fee,
+ S.tx.push({id:uid(),date,type:"credit_repayment",cycleIncomeId:cycleIncomeIdForDate(date),amount,fee,
   creditChargeId:r.id,creditAccountId:r.t.creditAccountId,creditMode:r.mode,
   creditReservedUsed:reserved,creditSource:source,note:"信用还款本金"});
  save();close("creditRepaySheet");render();msg("还款成功记录，本金只核销债务");
@@ -199,7 +199,7 @@ el("creditFundSheetSubmit").onclick=()=>{
  if(amount<=0||amount>r.gap+.005)return msg("预留金额超出待安排范围");
  const available=source==="saving"?Math.max(0,bal().saving):Math.max(0,bal().safe);
  if(amount>available+.005)return msg("可用资金为 "+M(available));
- S.tx.push({id:uid(),date:td(),type:"credit_fund",amount,creditChargeId:r.id,
+ S.tx.push({id:uid(),date:td(),type:"credit_fund",cycleIncomeId:cycleIncomeIdForDate(td()),amount,creditChargeId:r.id,
   creditAccountId:r.t.creditAccountId,creditSource:source});
  save();close("creditFundSheet");render();msg("还款资金已预留");
 };
@@ -217,7 +217,7 @@ el("creditLoanSheetSubmit").onclick=()=>{
  if(!date||date>td()||!due||due<date)return msg("请核对到账和还款日期");
  const owed=sm(ledger(),r=>r.t.creditAccountId===a.id?r.remaining:0);
  if(a.limit>0&&owed+amount>a.limit+.005)return msg("借款超过信用额度");
- S.tx.push({id:uid(),date,type:"credit_loan",amount,creditAccountId:a.id,creditDueDate:due,note:"现金借款到账"});
+ S.tx.push({id:uid(),date,type:"credit_loan",cycleIncomeId:cycleIncomeIdForDate(date),amount,creditAccountId:a.id,creditDueDate:due,note:"现金借款到账"});
  save();close("creditLoanSheet");render();msg("借款到账与待还债务已登记");
 };
 function creditSpendUI(){
