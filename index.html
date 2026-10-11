@@ -5079,21 +5079,26 @@ function refreshDelayFundingHint(){
   const spent=delayFundingMode.value==="spent";
   if(kind==="bill"){
     const x=billFundingSnapshot(pid,id);
-    delayFundingHint.textContent=(spent?"原预留改作此前实际消费的预算，后续收入重新准备付款资金。":"原账单预留继续保留。")
-      +` 当前已备 ${M(x.available)}，还需 ${M(x.shortfall)}。`
-      +(spent?" 请确保此前消费已在流水登记。":"");
+    const alreadySpent=billDelay(pid,id)?.fundingMode==="spent";
+    const afterAvailable=spent&&!alreadySpent?0:x.available;
+    const afterGap=Math.max(0,x.remaining-afterAvailable);
+    delayFundingHint.textContent=spent
+      ?`保存后，这笔账单的可用预留预计为 ${M(afterAvailable)}，待补 ${M(afterGap)}。此前占用资金的实际消费须已在流水中登记。`
+      :`当前已备 ${M(x.available)}，仍需准备 ${M(x.shortfall)}。原账单预留将继续保留。`;
   }else if(kind==="light"){
     const x=(S.plannedExpenses||[]).find(v=>v.id===id);
-    delayFundingHint.textContent=(spent?"将原预留归回日常预算，后续重新准备。":"继续保留原预留。")
-      +` 当前已预留 ${M(lightPlanReservedRemaining(id))}，待备 ${M(lightPlanReserveGap(x))}。`
-      +(spent?" 请确认此前消费已录入流水。":"");
+    if(!x){delayFundingHint.textContent="";return;}
+    const current=lightPlanReservedRemaining(id);
+    const after=spent&&x.delayFundingMode!=="spent"?0:current;
+    delayFundingHint.textContent=spent
+      ?`保存后，本项待补预留预计为 ${M(Math.max(0,N(x.amount)-after))}。此前实际消费应已记录在流水中。`
+      :`当前已预留 ${M(current)}，仍需准备 ${M(lightPlanReserveGap(x))}。`;
   }else{
     delayFundingHint.textContent=spent
       ?"专项资金统一管理。此前实际支出按专项流水扣除，延期后可再补入资金。"
       :"专项现有资金继续保留，延期只影响付款时间。";
   }
 }
-
 function openPaymentDelay(kind,parentId,id){
   let label="",original="",current="";
   if(kind==="bill"){
