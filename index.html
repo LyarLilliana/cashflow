@@ -3269,7 +3269,10 @@ function projectFunded(p){
     t=>N(t.amount)
   );
   const savingFunded=sm(S.tx.filter(t=>t.type==="saving_to_project"&&t.projectId===p.id),t=>N(t.amount));
-  return N(p.initialFund)+incomeFunded+pocketFunded+savingFunded;
+  // 专项间调拨只重新分配已备资金，不新增收入或支出。
+  const transferIn=sm(S.tx.filter(t=>t.type==="project_transfer"&&t.toProjectId===p.id),t=>N(t.amount));
+  const transferOut=sm(S.tx.filter(t=>t.type==="project_transfer"&&t.fromProjectId===p.id),t=>N(t.amount));
+  return N(p.initialFund)+incomeFunded+pocketFunded+savingFunded+transferIn-transferOut;
 }
 function projectSpent(p){return sm(S.tx.filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id),t=>t.amount)}
 function projectPlannedExpenses(p){
@@ -3922,6 +3925,17 @@ function accounting(asOf=td()){
 
     if(t.type==="project_archive"||t.type==="project_restore"){
       // 状态流水只用于保留专项归档轨迹，不改变任何资金余额。
+      return;
+    }
+
+    if(t.type==="project_transfer"){
+      // 按生效日期和流水先后顺序在两笔专项账上同步过账。
+      const asked=Math.max(0,N(t.amount));
+      const available=Math.max(0,N(projects[t.fromProjectId]||0));
+      const moved=Math.min(asked,available);
+      projects[t.fromProjectId]=N(projects[t.fromProjectId]||0)-moved;
+      projects[t.toProjectId]=N(projects[t.toProjectId]||0)+moved;
+      effects[t.id]={projectTransfer:moved,projectTransferShortfall:Math.max(0,asked-moved)};
       return;
     }
 
@@ -10288,6 +10302,11 @@ function projectBalanceBeforeEdit(projectId,targetId,targetDate){
       amount+=N(x.amount);
       continue;
     }
+    if(x.type==="project_transfer"){
+      if(x.fromProjectId===projectId)amount-=Math.min(Math.max(0,amount),N(x.amount));
+      if(x.toProjectId===projectId)amount+=N(x.amount);
+      continue;
+    }
     if(x.type==="project_settlement"&&x.projectId===projectId){
       amount-=Math.min(Math.max(0,amount),N(x.amount));
       continue;
@@ -11592,5 +11611,6 @@ requestAnimationFrame(()=>{
 });
 </script>
 <script src="./credit.js"></script>
+<script src="./project-transfer.js"></script>
 </body>
 </html>
