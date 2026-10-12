@@ -1,8 +1,9 @@
-const CACHE = "safespend-v10-74-credit-collapsible";
+const CACHE = "safespend-v10-75-project-transfers";
 const ASSETS = [
   "./",
   "./index.html",
   "./credit.js",
+  "./project-transfer.js",
   "./manifest.webmanifest",
   "./apple-touch-icon.png",
   "./icon-192.png",
