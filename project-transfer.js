@@ -210,6 +210,40 @@ transactionSearchText=function(t){
     return normalizeHistorySearch(`专项 资金 调拨 转账 内部转移 ${label(t.fromProjectId)} ${label(t.toProjectId)} ${t.amount} ${t.note||""} ${t.date}`);
   return originalSearch(t);
 };
+// Editing other records may reduce an earlier funding source. Preserve already-booked transfers.
+const originalSaveTx=saveTxEdit.onclick;
+saveTxEdit.onclick=function(e){
+  const snapshot=JSON.stringify(S);
+  const result=originalSaveTx.call(this,e);
+  if(!allTransfersCovered()){
+    S=JSON.parse(snapshot);
+    save();render();
+    msg("修改影响了已登记的专项调拨，请先调整关联调拨记录");
+  }
+  return result;
+};
+const originalSaveProject=saveProjectEdit.onclick;
+saveProjectEdit.onclick=function(e){
+  const snapshot=JSON.stringify(S);
+  const result=originalSaveProject.call(this,e);
+  if(!allTransfersCovered()){
+    S=JSON.parse(snapshot);
+    save();render();
+    msg("修改初始资金会影响既有专项调拨，原设置已恢复");
+  }
+  return result;
+};
+const canRemoveProject=id=>!S.tx.some(t=>t.type==="project_transfer"&&(t.fromProjectId===id||t.toProjectId===id));
+const originalQuickDeleteProject=quickDeleteProject;
+quickDeleteProject=function(id){
+  if(!canRemoveProject(id))return msg("此专项有资金调拨记录，请先处理相关流水");
+  return originalQuickDeleteProject(id);
+};
+const originalDeleteProject=deleteProject.onclick;
+deleteProject.onclick=function(e){
+  if(!canRemoveProject(editProjectId.value))return msg("此专项有资金调拨记录，请先处理相关流水");
+  return originalDeleteProject.call(this,e);
+};
 const originalRemove=removeTx;
 removeTx=function(id){
   const t=S.tx.find(x=>x.id===id);
@@ -273,7 +307,14 @@ const originalRestore=restoreProject;
 restoreProject=function(id){
   const a=[...S.tx].filter(t=>t.type==="project_archive"&&t.projectId===id)
     .sort((x,y)=>txStamp(y)-txStamp(x))[0];
-  if(a)S.tx=S.tx.filter(x=>!(x.type==="project_transfer"&&x.archiveId===a.id));
+  if(a){
+    const before=S.tx;
+    S.tx=before.filter(x=>!(x.type==="project_transfer"&&x.archiveId===a.id));
+    if(!allTransfersCovered()){
+      S.tx=before;
+      return msg("后续专项调拨使用了这笔结余，请先调整后续资金调拨");
+    }
+  }
   return originalRestore(id);
 };
 const originalRemoveProjectTimeline=removeProjectTimelineTx;
@@ -283,7 +324,12 @@ removeProjectTimelineTx=function(id){
     :t?.type==="project_archive"?t.id:t?.archiveId||"";
   const archive=archiveId&&S.tx.find(x=>x.type==="project_archive"&&x.id===archiveId);
   if(archive){
-    S.tx=S.tx.filter(x=>!(x.type==="project_transfer"&&x.archiveId===archiveId));
+    const before=S.tx;
+    S.tx=before.filter(x=>!(x.type==="project_transfer"&&x.archiveId===archiveId));
+    if(!allTransfersCovered()){
+      S.tx=before;
+      return msg("后续专项调拨仍依赖这笔结余，请先调整后续记录");
+    }
     return originalRemoveProjectTimeline(archive.id);
   }
   return originalRemoveProjectTimeline(id);
