@@ -6114,7 +6114,7 @@ function renderNow(){
       </details>`;
     }).join("")+`
       <div class="projectFundingFootnote">
-        * 专项结算并归档时，剩余资金会转入储蓄。
+        * 结算并归档时可将结余转入日常可用储蓄或其他专项；保留结余则继续使用当前专项。
       </div>`;
   }else{
     projectFundingSection.style.display="none";
@@ -10006,7 +10006,7 @@ function recalcPocketTransfer(){
     transferEffectLabel.textContent="转入后专项可用";
     transferProjectedSaving.textContent=M((p?projectAvail(p):0)+validAmount);
     transferProjectedSaving.style.color="var(--accent)";
-    transferPocketNote.textContent="转入专项只是在零花钱与专项之间重新分配，不会被当成已经储蓄。专项以后若有结余，结算时再转入储蓄。";
+    transferPocketNote.textContent="转入专项只是在零花钱与专项之间重新分配，不会被当成已经储蓄。专项以后有结余时，结算可选择储蓄或其他专项。";
   }else{
     const bounds=currentCycleResultBounds();
     const cycleSaving=N(savingSummaryForRange(bounds.start,bounds.end,true).cashflowGrowth);
