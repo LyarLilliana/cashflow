@@ -2749,6 +2749,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="explainRow"><span>今日原始预留</span><strong id="livingSumAllowance">¥0</strong></div>
         <div class="explainRow"><span>多日支出已直接扣除</span><strong id="livingSumBatch">¥0</strong></div>
         <div class="explainRow"><span>扣除后剩余预留</span><strong id="livingSumRemaining">¥0</strong></div>
+        <div class="explainRow"><span>日常支出抵扣</span><strong id="livingSumDaily">¥0</strong></div>
         <div class="explainRow"><span>今天另外支出</span><strong id="livingSumManual">¥0</strong></div>
         <div class="explainRow total"><span id="livingReleaseLabel">结算后转入零花钱</span><strong id="livingReleaseAmount">¥0</strong></div>
       </div>
@@ -3704,6 +3705,7 @@ function accounting(asOf=td()){
   let manualSavingUsed=0;
   let uncovered=0;
   let autoSavingDebt=0;
+  let activeCycleIncomeId="";
   const effects={};
   // Within one income cycle, newly released pocket cash first reimburses
   // savings automatically drawn for earlier pocket overruns in this cycle.
@@ -3847,7 +3849,10 @@ function accounting(asOf=td()){
 
     if(t.type==="income"){
       const ea=effectiveIncomeAllocation(t);
-      if(isCycleIncomeTx(t))autoSavingDebt=0;
+      if(isCycleIncomeTx(t)){
+        autoSavingDebt=0;
+        activeCycleIncomeId=t.id;
+      }
       const repaid=creditPocket(N(ea.safe));
       if(repaid>0)effects[t.id]={pocketSavingRepaid:repaid};
       if((ea.billItems||[]).length){
@@ -4002,7 +4007,7 @@ function accounting(asOf=td()){
         raw.safe=Math.min(0,before)+Math.max(0,before)-fromPocket-gap;
         saving-=fromSaving;
         autoSavingUsed+=fromSaving;
-        autoSavingDebt+=fromSaving;
+        if(!t.cycleIncomeId||t.cycleIncomeId===activeCycleIncomeId)autoSavingDebt+=fromSaving;
         uncovered+=gap;
       }
       effects[t.id]={creditFunding:t.type==="credit_fund",
@@ -4049,7 +4054,7 @@ function accounting(asOf=td()){
         raw.safe=Math.min(0,beforePocket)+spendable-pocketDraw-gap;
         saving-=automaticDraw;
         autoSavingUsed+=automaticDraw;
-        autoSavingDebt+=automaticDraw;
+        if(!t.cycleIncomeId||t.cycleIncomeId===activeCycleIncomeId)autoSavingDebt+=automaticDraw;
         uncovered+=gap;
       }else if(overPlan>0){
         const beforeSaving=saving;
@@ -4117,7 +4122,7 @@ function accounting(asOf=td()){
       raw.safe=Math.min(0,beforeSafe)+pocketAvailable-fromPocket-gap;
       saving-=autoDraw;
       autoSavingUsed+=autoDraw;
-      autoSavingDebt+=autoDraw;
+      if(!t.cycleIncomeId||t.cycleIncomeId===activeCycleIncomeId)autoSavingDebt+=autoDraw;
       uncovered+=gap;
 
       effects[t.id]={
@@ -4152,7 +4157,7 @@ function accounting(asOf=td()){
 
     saving-=autoDraw;
     autoSavingUsed+=autoDraw;
-    autoSavingDebt+=autoDraw;
+    if(!t.cycleIncomeId||t.cycleIncomeId===activeCycleIncomeId)autoSavingDebt+=autoDraw;
     uncovered+=gap;
 
     // 已预留的近期计划资金先核销；剩余部分再按“基础生活 → 零花钱 → 储蓄”继续承担。
@@ -4483,6 +4488,28 @@ function dailyExpenseAmountForDate(date){
     t=>Math.max(0,N(t.amount))
   );
 }
+// Explicit old-cycle expenses must never consume a newly funded day's living budget.
+function dailyExpenseMatchesFundedLivingCycle(t,info){
+  if(!info?.covered)return false;
+  if(info.fallback)return true;
+  return !t.cycleIncomeId||t.cycleIncomeId===info.incomeId;
+}
+function livingSettlementPreviewForDate(date,allowance,manual){
+  const batch=livingBatchShareForDate(date);
+  const gross=N(allowance)-batch-N(manual);
+  const reserveUsage=lightPlanReserveUsageMap().byExpense;
+  const dayInfo=dailyLivingBudgetInfo(date);
+  const eligible=sm(S.tx.filter(t=>
+    t.type==="expense"
+    &&t.date===date
+    &&(t.bucket==="safe"||t.bucket==="living")
+    &&!t.settledBillId
+    &&t.creditFundMode!=="future"
+    &&dailyExpenseMatchesFundedLivingCycle(t,dayInfo)
+  ),t=>Math.max(0,N(t.amount)-Math.max(0,N(reserveUsage[t.id]))));
+  const dailyDraw=Math.min(Math.max(0,gross),eligible);
+  return {batch,dailyDraw,net:gross-dailyDraw};
+}
 function livingSettlementDailyDraw(t){
   if(!t)return 0;
   const date=t.coveredDate||t.date||"";
@@ -4616,6 +4643,10 @@ function dailyExpenseLivingCoverMap(){
       }
     }
 
+    if(!dailyExpenseMatchesFundedLivingCycle(t,dailyLivingBudgetInfo(date))){
+      byTx[t.id]=0;
+      return;
+    }
     const reserveDraw=Math.max(0,N(lightReserveUsage.byExpense[t.id]));
     const livingEligible=Math.max(0,N(t.amount)-reserveDraw);
     const draw=Math.min(livingEligible,remaining);
@@ -6014,9 +6045,9 @@ function renderNow(){
   }
 
   // 只有日常资金池实际出现负余额才提示缺口。储蓄净动用可由既有资产覆盖。
-  const cycleGap=Math.max(0,-N(a.raw.safe));
+  const cycleGap=Math.max(0,-N(cycle.pocketBalance));
   const gapHtml=cycleGap>0
-    ?`<div class="upcomingAlert"><div class="item"><div class="row"><div><div class="name">当前日常资金缺口</div><div class="meta">当前零花钱预算出现待覆盖金额，建议调整下一阶段的日常支出安排。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div></div>`
+    ?`<div class="upcomingAlert"><div class="item"><div class="row"><div><div class="name">本周期日常预算超额</div><div class="meta">本周期收入分配后的日常预算余额为负，基础生活结余回流会自动抵减超额；实际储蓄资产在储蓄页查看。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div></div>`
     :"";
 
   upcomingBox.innerHTML=(gapHtml||groups.length)
@@ -6643,6 +6674,7 @@ function pocketOutflowAmountForTx(t,effects=null){
 
   if(t.bucket==="saving")return 0;
 
+  if(t.bucket==="safe"||t.bucket==="living")return Math.max(0,N(fx?.pocketDraw));
   return Math.max(0,N(t.amount));
 }
 
@@ -6659,15 +6691,12 @@ function txComesAfter(a,b){
 function livingReleaseRemaining(settlement){
   if(!settlement)return 0;
 
-  const release=Math.max(
-    0,
-    N(settlement.allowance)-livingSettlementEffectiveActual(settlement)
-  );
+  const release=Math.max(0,livingSettlementRemaining(settlement));
   if(release<=0)return 0;
 
   const effects=accounting().effects;
   const usedAfter=sm(
-    S.tx.filter(t=>t.id!==settlement.id&&txComesAfter(t,settlement)),
+    S.tx.filter(t=>t.id!==settlement.id&&txComesAfter(t,settlement)&&(!t.cycleIncomeId||t.cycleIncomeId===settlement.sourceIncomeId)),
     t=>pocketOutflowAmountForTx(t,effects)
   );
 
@@ -9255,7 +9284,8 @@ function openLivingSettlement(){
     livingSumBatch.textContent=batch>0?"-"+M(batch):M(0);
     livingSumRemaining.textContent=M(remaining);
     livingSumRemaining.style.color="inherit";
-    livingSumManual.textContent=dailyDraw>0?"-"+M(dailyDraw):M(0);
+    livingSumManual.textContent=M(0);
+     livingSumDaily.textContent=dailyDraw>0?"-"+M(dailyDraw):M(0);
     livingReleaseLabel.textContent="临时资金来源";
     livingReleaseAmount.textContent=`零花 ${M(funding.pocketReserved)} · 已有储蓄 ${M(funding.savingReserved)}`;
     livingReleaseAmount.style.color=funding.uncoveredReserved>0?"var(--danger)":"inherit";
@@ -9297,7 +9327,7 @@ function recalcLivingSettlement(){
   const batch=livingBatchShareForDate(td());
   const remaining=allowance-batch;
   const manual=Math.max(0,N(livingActualSpent.value));
-  const release=remaining-manual;
+  const {dailyDraw,net:release}=livingSettlementPreviewForDate(td(),allowance,manual);
 
   livingAllowance.textContent=M(remaining);
   livingAllowance.style.color=remaining<0?"var(--danger)":"inherit";
@@ -9306,6 +9336,7 @@ function recalcLivingSettlement(){
   livingSumRemaining.textContent=M(remaining);
   livingSumRemaining.style.color=remaining<0?"var(--danger)":"inherit";
   livingSumManual.textContent=manual>0?"-"+M(manual):M(0);
+  livingSumDaily.textContent=dailyDraw>0?"-"+M(dailyDraw):M(0);
 
   if(release>=0){
     livingReleaseLabel.textContent="结算后转入零花钱";
@@ -9328,7 +9359,7 @@ saveLivingSettlement.onclick=()=>{
   const batch=livingBatchShareForDate(td());
   const actual=manual+batch;
   const allowance=N(existing?.allowance||info.allowance);
-  const release=allowance-actual;
+  const release=livingSettlementPreviewForDate(td(),allowance,manual).net;
 
   if(existing){
     existing.manualActualSpent=manual;
@@ -9352,10 +9383,15 @@ saveLivingSettlement.onclick=()=>{
   save();
   render();
 
-  if(existing)msg("今日基础生活结算已更新");
-  else if(release>0)msg(`已把 ${M(release)} 转入零花钱`);
-  else if(release===0)msg("今日基础生活已刚好用完");
-  else msg(`超出今日预留 ${M(Math.abs(release))}，已减少零花钱`);
+  const settled=livingSettlementForDate(td());
+  const effect=accounting().effects[settled?.id]||{};
+  const repaid=Math.max(0,N(effect.pocketSavingRepaid));
+  const credited=Math.max(0,N(effect.livingRelease)-repaid);
+  if(repaid>0.005&&credited>0.005)msg(`回补储蓄 ${M(repaid)}，转入零花钱 ${M(credited)}`);
+  else if(repaid>0.005)msg(`基础生活结余已回补储蓄 ${M(repaid)}`);
+  else if(credited>0.005)msg(`已把 ${M(credited)} 转入零花钱`);
+  else if(release<0)msg(`今日基础生活超支 ${M(Math.abs(release))}`);
+  else msg(existing?"今日基础生活结算已更新":"今日基础生活已结清");
 
   openLivingSettlement();
 };
