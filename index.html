@@ -3266,7 +3266,8 @@ function archivedProjects(){return S.projects.filter(p=>!!p.archived)}
 function projectFunded(p){
   const incomeFunded=sm(
     S.tx.filter(t=>t.type==="income"),
-    t=>sm((t.alloc?.projects||[]).filter(x=>x.projectId===p.id),x=>x.amount)
+    // 偿还临时挪用只恢复专项余额，不作为新增已备资金。
+    t=>sm((t.alloc?.projects||[]).filter(x=>x.projectId===p.id&&!x.repayment),x=>x.amount)
   );
   const pocketFunded=sm(
     S.tx.filter(t=>t.type==="pocket_to_project"&&t.projectId===p.id),
@@ -3278,7 +3279,12 @@ function projectFunded(p){
   const transferOut=sm(S.tx.filter(t=>t.type==="project_transfer"&&t.fromProjectId===p.id),t=>N(t.amount));
   return N(p.initialFund)+incomeFunded+pocketFunded+savingFunded+transferIn-transferOut;
 }
-function projectSpent(p){return sm(S.tx.filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id),t=>t.amount)}
+function projectSpent(p){
+  // 日常支出借用专项资金与专项本身的真实消费分开统计。
+  return sm(S.tx.filter(t=>
+    t.type==="expense"&&t.bucket==="project"&&t.refId===p.id&&!t.projectBorrow
+  ),t=>N(t.amount));
+}
 function projectPlannedExpenses(p){
   return [...(p?.plannedExpenses||[])].sort((a,b)=>{
     const ad=a.date||"9999-12-31";
@@ -3333,6 +3339,8 @@ function lightPlanAllocationItemsForIncome(t){
 function lightPlanReserveUsageMap(){
   const pools={};
   const byExpense={};
+  const releasedByExpense={};
+  const plans=new Map((S.plannedExpenses||[]).map(x=>[x.id,x]));
   const events=S.tx
     .filter(t=>t.type==="income"||(t.type==="expense"&&t.personalPlannedExpenseId))
     .slice()
@@ -3353,11 +3361,18 @@ function lightPlanReserveUsageMap(){
     const pid=t.personalPlannedExpenseId||"";
     const available=Math.max(0,N(pools[pid]));
     const draw=Math.min(Math.max(0,N(t.amount)),available);
-    pools[pid]=available-draw;
     byExpense[t.id]=draw;
+
+    // 完成购买时，将实际付款以外的预留释放到零花钱。
+    // 基于真实付款重新计算，旧备份自动修复，编辑或撤销不会重复释放。
+    const plan=plans.get(pid);
+    const completed=plan?.status==="bought"&&plan.expenseId===t.id;
+    const released=completed?Math.max(0,available-draw):0;
+    if(released>0.005)releasedByExpense[t.id]=released;
+    pools[pid]=completed?0:available-draw;
   });
 
-  return {remaining:pools,byExpense};
+  return {remaining:pools,byExpense,releasedByExpense};
 }
 function lightPlanReservedRemaining(id){
   return Math.max(0,N(lightPlanReserveUsageMap().remaining[id]));
@@ -3583,6 +3598,7 @@ function cyclePocketSnapshot(incomeTx){
   });
   const pocketToSaving=sm(savingTransfers,t=>t.type==="short_transfer"?N(t.pocketPortion):N(t.amount));
   const pocketToProject=sm(projectTransfers,t=>N(t.amount));
+  const lightPlanReleased=sm(expenses,t=>Math.max(0,N(lightReserveUsage.releasedByExpense[t.id])));
   const projectSettlementSaving=sm(
     cycleTx.filter(t=>t.type==="project_settlement"),
     t=>N(t.amount)
@@ -3601,6 +3617,7 @@ function cyclePocketSnapshot(incomeTx){
     pocketInitial
     -pocketSpent
     +livingRelease
+    +lightPlanReleased
     -pocketToSaving
     -pocketToProject
     +creditLoanCash
@@ -3621,6 +3638,7 @@ function cyclePocketSnapshot(incomeTx){
     fallbackLivingCommitted,
     manualSavingUse,
     livingRelease,
+    lightPlanReleased,
     pocketToSaving,
     pocketToProject,
     projectSettlementSaving,
@@ -4166,8 +4184,13 @@ function accounting(asOf=td()){
       +(pocketAvailable-fromPocket)
       -gap;
 
+    // 付款差额即时回流零花钱，优先回补本周期先前垫付的储蓄。
+    const lightPlanReleased=Math.max(0,N(lightReserveUsage.releasedByExpense[t.id]));
+    const lightPlanRepaid=lightPlanReleased>0?creditPocket(lightPlanReleased):0;
     effects[t.id]={
       plannedReserveDraw,
+      lightPlanReleased,
+      pocketSavingRepaid:lightPlanRepaid,
       livingDraw,
       pocketDraw:fromPocket,
       autoDraw,
@@ -5458,7 +5481,9 @@ function projectFinanceDetailHtml(p,a){
   const budget=Math.max(0,N(p.budget));
   const funded=Math.max(0,projectFunded(p));
   const expenses=projectExpenseRows(p);
-  const spent=sm(expenses,t=>N(t.amount));
+  const spent=projectSpent(p);
+  const repayState=projectRepaymentTotals(p.id);
+  const pendingRepay=projectRepayPending(p.id);
   const available=Math.max(0,N(a.projects[p.id]||0));
   const gap=Math.max(0,budget-funded);
   const overBudget=Math.max(0,spent-budget);
@@ -5509,9 +5534,11 @@ function projectFinanceDetailHtml(p,a){
 const expenseHtml=expenses.length
     ?expenses.map(t=>{
       const b=projectExpenseBreakdown(t);
-      const sourceText=b.over>0
-        ?`专项 ${M(b.fromProject)} + ${b.overSource} ${M(b.over)}`
-        :`专项资金 ${M(b.fromProject)}`;
+      const sourceText=t.projectBorrow
+        ?(t.projectBorrowTemporary?"临时挪用 · 单独核算":"专项挪用 · 日常消费")
+        :b.over>0
+          ?`专项 ${M(b.fromProject)} + ${b.overSource} ${M(b.over)}`
+          :`专项资金 ${M(b.fromProject)}`;
       return `<div class="projectLedgerRow">
         <div class="projectLedgerInfo">
           <div class="projectLedgerName">${esc(t.note||"专项支出")}</div>
@@ -5559,6 +5586,8 @@ const expenseHtml=expenses.length
     <div class="projectMoneyWarnings">
       ${settledToSaving>0?`<span>已结算转储蓄 ${M(settledToSaving)}</span>`:""}
       ${plannedCashGap>0?`<span style="color:var(--danger)">规划资金还差 ${M(plannedCashGap)}</span>`:""}
+      ${pendingRepay>0?`<span style="color:var(--warn)">临时挪用待补回 ${M(pendingRepay)}</span>`
+        :repayState.borrowed>0?`<span>临时挪用已补回 ${M(Math.min(repayState.borrowed,repayState.repaid))}</span>`:""}
       ${overBudget>0?`<span style="color:var(--danger)">已超预算 ${M(overBudget)}</span>`:""}
       ${funded>budget&&budget>0?`<span>实际已备比预算多 ${M(funded-budget)}</span>`:""}
     </div>
@@ -6366,6 +6395,8 @@ function txHtml(t,del=false,edit=false){
     const source=t.projectOverrunSource==="safe"?"零花钱":"储蓄";
     extraMeta=` · 超出 ${M(t.projectOverrunAmount)} 由${source}支付`;
   }
+  const lightReleased=Math.max(0,N(t.personalPlannedExpenseId?lightPlanReserveUsageMap().releasedByExpense[t.id]:0));
+  if(lightReleased>0.005)extraMeta+=` · 预留结余 ${M(lightReleased)} 已回流零花钱`;
   const sourceLabel=expenseSourceLabel(t);
   const category=t.projectBorrow?"日常支出 · 挪用":(map[t.bucket]||"支出");
   return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${category}${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date}${sourceLabel?" · "+esc(sourceLabel):""}${extraMeta}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
