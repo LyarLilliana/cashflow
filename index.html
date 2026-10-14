@@ -2419,8 +2419,11 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="sectionTitle">流水记录</div>
       <div class="card">
         <div class="historyFilterMeta" style="margin-top:0">
-          <span id="historyListRangeText">本月流水</span>
-          <span id="historyListCountText">0 条</span>
+          <span id="historyListRangeText">全部流水</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="historyListCountText">0 条</span>
+            <button class="sectionToggle" id="historyScopeBtn" type="button" aria-pressed="false">按统计范围</button>
+          </div>
         </div>
 
         <div class="historySearchWrap">
@@ -6150,16 +6153,14 @@ function renderNow(){
   pocketToSavingBtn.textContent=b.safe>0?`${transferLabel} · 可转 ${M(b.safe)}`:transferLabel;
   pocketToSavingBtn.disabled=b.safe<=0;
 
-  const recentCycleIncome=currentCycleStats().income;
-  const recent=recentCycleIncome
-    ?[recentCycleIncome,...cycleTransactionsForIncome(recentCycleIncome)]
-      .sort(sortHistoryNewestFirst)
-      .slice(0,8)
-    :[];
+  // “最近流水”取全局最新记录，单次额外收入和跨周期资金调拨都要出现。
+  const recent=[...S.tx]
+    .sort(sortHistoryNewestFirst)
+    .slice(0,8);
 
   recentTx.innerHTML=recent.length
     ?recent.map(t=>txHtml(t,false,false)).join("")
-    :'<div class="note">本周期还没有流水。</div>';
+    :'<div class="note">尚无流水记录。</div>';
 }
 function expenseSourceLabel(t){
   if(!t||t.type!=="expense")return "";
@@ -6308,6 +6309,22 @@ function txHtml(t,del=false,edit=false){
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">固定账单 · ${esc(b?.name||t.note||"无需支付")}</div><div class="meta">${t.date}${t.cycleDueDate?" · "+t.cycleDueDate+" 周期无需支付":""}</div></div><div class="txRight"><div class="txAmount txMuted">无需支付</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
+  if(t.type==="project_transfer"){
+    const from=S.projects.find(p=>p.id===t.fromProjectId);
+    const to=S.projects.find(p=>p.id===t.toProjectId);
+    const fromName=esc(from?.name||t.fromProjectName||"原专项");
+    const toName=esc(to?.name||t.toProjectName||"目标专项");
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">专项资金调拨 · ${fromName} → ${toName}</div><div class="meta">${esc(t.date||"")}${t.note?" · "+esc(t.note):""} · 内部调拨</div></div><div class="txRight"><div class="txAmount txMuted">→ ${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+  }
+
+  // 未来新增的交易类型也保留为独立流水，避免被误标成一笔支出。
+  if(t.type!=="expense"){
+    const title=esc(transactionActionTitle(t));
+    const info=[t.date,t.note].filter(Boolean).map(esc).join(" · ");
+    const value=t.amount===undefined?"已记录":M(t.amount);
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${title}</div><div class="meta">${info}</div></div><div class="txRight"><div class="txAmount txMuted">${value}</div>${txButtons(t,del,edit)}</div></div></div>`;
+  }
+
   if(t.settledBillId){
     const b=S.bills.find(x=>x.id===t.settledBillId);
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">固定账单 · ${esc(b?.name||t.note||"已支付")}</div><div class="meta">${t.date} · 固定账单${t.cycleDueDate?" · "+t.cycleDueDate+" 周期已支付":""}${t.bucket==="safe"?" · 零花钱承担":" · 账单预留核销"}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
@@ -6389,6 +6406,11 @@ function transactionActionTitle(t){
   if(t.type==="project_settlement")return "专项结余转储蓄";
   if(t.type==="project_archive")return "专项归档";
   if(t.type==="project_restore")return "专项恢复";
+  if(t.type==="project_transfer"){
+    const from=S.projects.find(p=>p.id===t.fromProjectId)?.name||"原专项";
+    const to=S.projects.find(p=>p.id===t.toProjectId)?.name||"目标专项";
+    return `专项资金调拨 · ${from} → ${to}`;
+  }
   if(t.type==="bill_skip")return "固定账单 · 无需支付";
 
   if(t.type==="expense"){
@@ -6406,7 +6428,7 @@ function transactionActionTitle(t){
     return `${t.projectBorrow?"日常支出 · 挪用专项":(labels[t.bucket]||"支出")}${t.note?" · "+t.note:""}`;
   }
 
-  return "流水";
+  return `资金变动 · ${t.type||"未知类型"}`;
 }
 
 function transactionActionAmountText(t){
@@ -6652,9 +6674,11 @@ function livingReleaseRemaining(settlement){
   return Math.max(0,release-usedAfter);
 }
 
+// 结果页的流水是独立的完整台账；统计范围仅在用户选择后限定流水。
+let historyScopeOnly=false;
 function historyFilteredTx(){
-  const start=historyStartDate.value;
-  const end=historyEndDate.value;
+  const start=historyScopeOnly?historyStartDate.value:"";
+  const end=historyScopeOnly?historyEndDate.value:"";
 
   return [...S.tx]
     .filter(t=>{
@@ -6709,6 +6733,7 @@ function transactionSearchText(t){
     const ea=effectiveIncomeAllocation(t);
     parts.push(
       "收入",
+      isCycleIncomeTx(t)?"周期收入":"单次额外收入",
       p?.name||"",
       ea.safe,
       ea.living,
@@ -6750,6 +6775,11 @@ function transactionSearchText(t){
   if(t.type==="project_archive")parts.push("专项归档");
   if(t.type==="project_restore")parts.push("专项恢复");
   if(t.type==="bill_skip")parts.push("无需支付");
+  if(t.type==="project_transfer"){
+    const from=S.projects.find(p=>p.id===t.fromProjectId);
+    const to=S.projects.find(p=>p.id===t.toProjectId);
+    parts.push("专项资金调拨",from?.name||"",to?.name||"",t.fromProjectId,t.toProjectId);
+  }
 
   return normalizeHistorySearch(parts.filter(v=>v!==undefined&&v!==null).join(" "));
 }
@@ -6939,7 +6969,9 @@ function renderHistoryTransactions(){
 
   historyRangeText.textContent=label;
 
-  historyListRangeText.textContent=`${label}流水`;
+  historyListRangeText.textContent=historyScopeOnly?`${label}流水`:"全部流水";
+  historyScopeBtn.textContent=historyScopeOnly?"显示全部":"按统计范围";
+  historyScopeBtn.setAttribute("aria-pressed",String(historyScopeOnly));
 
   if(searching){
     historyListCountText.textContent=rows.length>historyVisibleCount
@@ -6969,6 +7001,12 @@ function renderHistoryTransactions(){
 
   historyMoreBtn.style.display=rows.length>historyVisibleCount?"block":"none";
 }
+
+document.getElementById("historyScopeBtn").addEventListener("click",()=>{
+  historyScopeOnly=!historyScopeOnly;
+  historyVisibleCount=HISTORY_PAGE_SIZE;
+  renderHistoryTransactions();
+});
 
 let txLongPressTimer=null;
 let txLongPressItem=null;
