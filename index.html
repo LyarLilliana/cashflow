@@ -7002,7 +7002,8 @@ function renderHistoryTransactions(){
   historyMoreBtn.style.display=rows.length>historyVisibleCount?"block":"none";
 }
 
-document.getElementById("historyScopeBtn").addEventListener("click",()=>{
+const historyScopeBtn=document.getElementById("historyScopeBtn");
+historyScopeBtn.addEventListener("click",()=>{
   historyScopeOnly=!historyScopeOnly;
   historyVisibleCount=HISTORY_PAGE_SIZE;
   renderHistoryTransactions();
