@@ -3462,7 +3462,8 @@ function transactionBelongsToCycle(t,incomeTx,next){
   if(!t||t.id===incomeTx.id)return false;
 
   // New-format records are explicitly bound to their source cycle.
-  if(t.cycleIncomeId)return t.cycleIncomeId===incomeTx.id;
+  const boundCycleId=effectiveExpenseCycleIncomeId(t);
+  if(boundCycleId)return boundCycleId===incomeTx.id;
 
   // Daily living settlement already knows exactly which income reserved that day.
   if(t.type==="living_settlement"&&t.sourceIncomeId){
@@ -3505,6 +3506,19 @@ function cycleIncomeIdForDate(date){
   return chosen?.id||"";
 }
 
+// Ordinary purchases logged after the opening recurring income on the same
+// calendar day belong to the new cycle, including old records with stale IDs.
+function effectiveExpenseCycleIncomeId(t){
+  const stored=String(t?.cycleIncomeId||"");
+  if(!t||t.type!=="expense"||(t.bucket!=="safe"&&t.bucket!=="living"))return stored;
+  const rows=cycleIncomeRows();
+  const current=rows.filter(r=>r.date===t.date).slice(-1)[0];
+  if(current&&stored&&stored!==current.id&&txStamp(t)>txStamp(current)){
+    const old=rows.find(r=>r.id===stored);
+    if(old&&old.date<=current.date)return current.id;
+  }
+  return stored;
+}
 function cyclePocketSnapshot(incomeTx){
   const {next}=cycleWindowForIncome(incomeTx);
   const cycleTx=cycleTransactionsForIncome(incomeTx);
@@ -3787,6 +3801,12 @@ function accounting(asOf=td()){
       const pb=accountingDayPriority(b);
       if(pa!==pb)return pa-pb;
 
+      // Open the new recurring cycle before allocating same-day extra income.
+      if(a.type==="income"&&b.type==="income"){
+        const aCycle=isCycleIncomeTx(a),bCycle=isCycleIncomeTx(b);
+        if(aCycle!==bCycle)return aCycle?-1:1;
+      }
+
       const aa=a._sortStamp!==undefined?Number(a._sortStamp):txStamp(a);
       const bb=b._sortStamp!==undefined?Number(b._sortStamp):txStamp(b);
       if(aa!==bb)return aa-bb;
@@ -3891,11 +3911,13 @@ function accounting(asOf=td()){
     }
 
     if(t.type==="cycle_close_saving"){
-      // 储蓄补位后回流的基础生活也应在本周期结束时结转。
+      // Close the prior cycle. Record remaining unfunded amounts in the
+      // historic shortfall ledger instead of carrying them into new pocket.
       const amount=Math.max(0,N(raw.safe));
-      raw.safe-=amount;
+      const historicalShortfall=Math.max(0,-N(raw.safe));
+      raw.safe=0;
       saving+=amount;
-      effects[t.id]={cycleCloseSaving:amount};
+      effects[t.id]={cycleCloseSaving:amount,cycleCloseUncovered:historicalShortfall};
       return;
     }
 
@@ -4206,8 +4228,9 @@ function projectAvail(p){
   return N(accounting().projects[p.id]||0);
 }
 function currentPocketBalance(a=accounting(),cycle=currentCycleStats()){
-  // The signed cycle pocket includes overruns previously covered from savings.
-  return cycle.income?Math.min(N(a.raw.safe),N(cycle.pocketBalance)):N(a.raw.safe);
+  // The signed pocket always belongs to the active recurring income cycle.
+  // Historical shortfalls stay in the savings and uncovered ledgers.
+  return cycle.income?N(cycle.pocketBalance):N(a.raw.safe);
 }
 function bal(){
   const a=accounting();
@@ -4251,6 +4274,7 @@ function cycleStatsForIncome(incomeTx){
     snap.plannedSaving
     +snap.pocketInitial
     +snap.livingRelease
+    +snap.lightPlanReleased
     -snap.pocketSpent
     -snap.pocketToProject;
 
@@ -4515,7 +4539,8 @@ function dailyExpenseAmountForDate(date){
 function dailyExpenseMatchesFundedLivingCycle(t,info){
   if(!info?.covered)return false;
   if(info.fallback)return true;
-  return !t.cycleIncomeId||t.cycleIncomeId===info.incomeId;
+  const boundCycleId=effectiveExpenseCycleIncomeId(t);
+  return !boundCycleId||boundCycleId===info.incomeId;
 }
 function livingSettlementPreviewForDate(date,allowance,manual){
   const batch=livingBatchShareForDate(date);
@@ -4627,10 +4652,40 @@ function livingRemainingForDate(date=td()){
 // 资金来源按用户规则依次为：当日基础生活剩余额度 → 零花钱 → 储蓄。
 // 这里把每一天剩余的基础生活额度按当天日常支出记录顺序分配出去，
 // 但不改变这些流水在消费统计里的“日常支出”分类。
+// Pair a separately funded purchase with a same-day, same-amount one-off
+// income using a matching memo. Duplicate adjacent labels in notes are
+// collapsed because the spending form can prefix the category name.
+function matchedEarmarkedExpenseIds(){
+  const pools=new Map();
+  const memo=value=>{
+    const s=String(value||"").trim().toLowerCase();
+    const parts=s.split(/\s+/);
+    return parts.length===2&&parts[0]===parts[1]?parts[0]:s;
+  };
+  const key=(date,amount,desc,cycle)=>[date,Math.round(N(amount)*100),memo(desc),cycle||""].join("|");
+  S.tx.forEach(t=>{
+    if(t.type!=="income"||t.incomeKind!=="extra"||N(t.amount)<=0||!memo(t.incomeNote))return;
+    const a=t.alloc||{};
+    if(Math.abs(N(a.safe)-N(t.amount))>.005
+      ||N(a.saving)>.005||N(a.living)>.005||N(a.bills)>.005
+      ||(a.projects||[]).length||(a.lightPlans||[]).length)return;
+    const k=key(t.date,t.amount,t.incomeNote,t.cycleIncomeId);
+    pools.set(k,(pools.get(k)||0)+1);
+  });
+  const result=new Set();
+  S.tx.forEach(t=>{
+    if(t.type!=="expense"||(t.bucket!=="safe"&&t.bucket!=="living")||t.settledBillId)return;
+    const k=key(t.date,t.amount,t.note,effectiveExpenseCycleIncomeId(t));
+    const n=pools.get(k)||0;
+    if(n>0){result.add(t.id);pools.set(k,n-1);}
+  });
+  return result;
+}
 function dailyExpenseLivingCoverMap(){
   const byTx={};
   const byDate={};
   const lightReserveUsage=lightPlanReserveUsageMap();
+  const earmarked=matchedEarmarkedExpenseIds();
 
   const rows=S.tx
     .filter(t=>
@@ -4666,7 +4721,7 @@ function dailyExpenseLivingCoverMap(){
       }
     }
 
-    if(!dailyExpenseMatchesFundedLivingCycle(t,dailyLivingBudgetInfo(date))){
+    if(earmarked.has(t.id)||!dailyExpenseMatchesFundedLivingCycle(t,dailyLivingBudgetInfo(date))){
       byTx[t.id]=0;
       return;
     }
