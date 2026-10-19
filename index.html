@@ -2062,7 +2062,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="formGrid">
           <div><label>项目名称</label><input id="projectName" placeholder="例如 上海旅行"></div>
           <div><label>总预算</label><input id="projectBudget" inputmode="decimal" type="number" placeholder="3500"></div>
-          <div><label>截止日期</label><input id="projectDue" type="date"></div>
+          <div><label>截止日期</label><input id="projectDue" type="date"><label class="small" style="display:flex;align-items:center;gap:6px;margin-top:7px"><input id="projectNoDue" type="checkbox" style="width:auto">长期专项，无截止日期</label></div>
           <div><label>已经准备好的资金</label><input id="projectInitial" inputmode="decimal" type="number" value="0"></div>
         </div>
         <div style="height:10px"></div>
@@ -2181,7 +2181,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <div class="savingOverviewCaption" id="savingCashflowHint">银行预估利息已计入总额</div>
         </div>
         <div class="savingOverviewAssetTotals" aria-label="当前储蓄分布">
-          <div class="savingOverviewAssetRow"><span>日常可用储蓄</span><strong id="savingOrdinaryCurrent">¥0</strong></div>
+          <strong id="savingOrdinaryCurrent" hidden></strong>
           <div class="savingOverviewAssetRow"><span>短期锁定储蓄</span><strong id="savingCurrentShortAssets">¥0</strong></div>
           <div class="savingOverviewAssetRow"><span>银行资产</span><strong id="savingCurrentBankAssets">¥0</strong></div>
         </div>
@@ -2194,14 +2194,14 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <summary>查看本期变化与对账<span aria-hidden="true" class="disclosureState">⌄</span></summary>
           <div class="savingOverviewBreakdownBody">
             <div class="savingOverviewDetailTitle">账户变动（所选期间）</div>
-            <div class="explainRow"><span>日常可用储蓄变动</span><strong id="savingFreePrincipal">¥0</strong></div>
+            <div class="explainRow"><span>储蓄余额变动</span><strong id="savingFreePrincipal">¥0</strong></div>
             <div class="explainRow"><span>短期储蓄变动</span><strong id="savingShortChange">¥0</strong></div>
             <div class="explainRow"><span>银行资产变动</span><strong id="savingBankTotal">¥0</strong></div>
             <div class="savingOverviewTransferNote" id="savingAssetMovementHint" hidden></div>
             <details class="savingReconcileDetails">
               <summary>查看详细计算<span aria-hidden="true" class="disclosureState">⌄</span></summary>
               <div class="savingReconcileInner">
-                <div class="savingOverviewDetailTitle">日常可用储蓄</div>
+                <div class="savingOverviewDetailTitle">储蓄余额</div>
                 <div class="explainRow"><span id="savingCyclePlannedLabel">期间实际变动</span><strong id="savingCyclePlanned">¥0</strong></div>
                 <div class="explainRow"><span id="savingCycleRemainderLabel">预计结余</span><strong id="savingCycleRemainder">¥0</strong></div>
                 <div class="explainRow"><span>转入银行</span><strong id="savingDailyBankTransfer">¥0</strong></div>
@@ -2245,7 +2245,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       </div>
       <div class="card bankReminderWithinSaving">
         <div class="name" style="margin-bottom:5px">累计转存目标</div>
-        <div class="meta">按日常可用储蓄与短期锁定储蓄的当前余额计算，预计结余在周期结束后结转。</div>
+        <div class="meta">已存储蓄加上本周期待结转零花，合计为预计累计金额；结转后即可实际转存。</div>
 
         <div class="divider"></div>
 
@@ -2269,7 +2269,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
         <div class="bankReminderRows">
           <div class="explainRow"><span>当前可转存储蓄</span><strong id="bankReminderCurrent">¥0</strong></div>
-          <div class="explainRow"><span>本周期待结转零花</span><strong id="bankReminderPending">¥0</strong></div>
+          <div class="explainRow"><span>本周期待结转零花</span><strong id="bankReminderPending">¥0</strong></div><div class="explainRow"><span>预计累计可转存</span><strong id="bankReminderExpected">¥0</strong></div>
           <div class="explainRow"><span>设定转存额度</span><strong id="bankReminderTarget">未设置</strong></div>
           <div class="explainRow total"><span id="bankReminderGapLabel">距离提醒额度</span><strong id="bankReminderGap">—</strong></div>
         </div>
@@ -2281,7 +2281,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
             <div class="row">
               <div>
                 <div class="name" id="bankReminderReadyTitle">已经达到银行转存额度</div>
-                <div class="meta" id="bankReminderReadyMeta">可以把这部分日常可用储蓄存入银行。</div>
+                <div class="meta" id="bankReminderReadyMeta">可以把这部分储蓄余额存入银行。</div>
               </div>
               <button class="primary" id="bankReminderDepositBtn">新增银行存款</button>
             </div>
@@ -2306,7 +2306,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <details class="savingsChangeDisclosure">
           <summary>查看储蓄变化构成<span aria-hidden="true">⌄</span></summary>
         <div class="name" id="savingGrowthTitle">储蓄增长构成</div>
-        <div class="meta" id="savingGrowthMeta">只展示这个统计范围内形成或减少储蓄的项目；日常可用储蓄转银行只改变资金位置，不重复计入增长。</div>
+        <div class="meta" id="savingGrowthMeta">只展示这个统计范围内形成或减少储蓄的项目；储蓄余额转银行只改变资金位置，不重复计入增长。</div>
 
         <div class="summaryGroup">
           <div class="summaryGroupTitle" id="savingIncreaseTitle">增加</div>
@@ -2325,7 +2325,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="summaryGroup">
           <div class="summaryGroupTitle" id="savingAdjustTitle">调整</div>
           <div class="summaryRow"><span id="savingUseLabel">储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
-          <div class="summaryRow"><span>日常可用储蓄转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
+          <div class="summaryRow"><span>储蓄余额转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
           <div class="summaryRow"><span>短期储蓄取用</span><strong id="savingShortUsePart">¥0</strong></div>
           <div class="summaryRow"><span>储蓄补回专项</span><strong id="savingProjectRepayPart">¥0</strong></div>
           <div class="summaryRow summaryTotal"><span id="savingGrowthTotalLabel">预计储蓄增长总和</span><strong id="savingGrowthTotal">¥0</strong></div>
@@ -2637,7 +2637,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     <div class="formGrid">
       <div><label>名称</label><input id="editProjectName"></div>
       <div><label>总预算</label><input id="editProjectBudget" inputmode="decimal" type="number"></div>
-      <div><label>截止日期</label><input id="editProjectDue" type="date"></div>
+      <div><label>截止日期</label><input id="editProjectDue" type="date"><label class="small" style="display:flex;align-items:center;gap:6px;margin-top:7px"><input id="editProjectNoDue" type="checkbox" style="width:auto">长期专项，无截止日期</label></div>
       <div><label>初始已备资金</label><input id="editProjectInitial" inputmode="decimal" type="number"></div>
     </div>
     <div class="actions">
@@ -2890,7 +2890,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div style="grid-column:1/-1">
         <label for="extraSavingDestination">存到哪里</label>
         <select id="extraSavingDestination">
-          <option value="ordinary">日常可用储蓄</option>
+          <option value="ordinary">储蓄余额</option>
           <option value="short">短期锁定储蓄（小荷包等）</option>
         </select>
       </div>
@@ -2907,7 +2907,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <label for="extraSavingFunding">资金来源（防止重复计算）</label>
           <select id="extraSavingFunding">
             <option value="combined">合并可用资金（已有储蓄 + 日常剩余）</option>
-            <option value="saving">已有日常可用储蓄（含上周期结转）</option>
+            <option value="saving">已有储蓄余额（含上周期结转）</option>
             <option value="pocket">本周期日常支出余额</option>
             <option value="new">真正新增的额外资金（尚未记账）</option>
           </select>
@@ -2985,7 +2985,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div>
         <label>本金来源</label>
         <select id="bankDepositSource">
-          <option value="existing">从日常可用储蓄转入</option>
+          <option value="existing">从储蓄余额转入</option>
           <option value="short">从短期储蓄转存</option>
           <option value="external">外部新增储蓄并存入</option>
         </select>
@@ -3037,7 +3037,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   <div class="formGrid one">
     <div><label for="shortTransferAccount">储蓄账户</label><select id="shortTransferAccount"></select></div>
     <div><label for="shortTransferAction">记录类型</label><select id="shortTransferAction">
-      <option value="out">取回日常可用储蓄</option>
+      <option value="out">取回储蓄余额</option>
       <option value="interest">实际到账收益</option><option value="spend">动用储蓄消费</option>
     </select></div>
     <div><label for="shortTransferAmount">金额</label><input id="shortTransferAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00"></div>
@@ -3055,7 +3055,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     <div><label for="projectRepayAmount">补回金额</label><input id="projectRepayAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></div>
     <div><label for="projectRepaySource">资金来源</label><select id="projectRepaySource">
       <option value="income">新增到账收入</option>
-      <option value="saving">日常可用储蓄</option>
+      <option value="saving">储蓄余额</option>
       <option value="safe">日常支出余额</option>
     </select></div>
   </div>
@@ -5877,7 +5877,7 @@ function renderPlan(){
     const pct=Math.min(100,Math.max(0,funded/Math.max(1,N(p.budget))*100));
     return `<div class="item" onclick="editProject('${p.id}')">
       <div class="row"><div><div class="name">${esc(p.name)}</div>
-      <div class="meta">预算 ${M(p.budget)} · 已备 ${M(funded)} · 已花 ${M(spent)}${planned>0?" · 待支出规划 "+M(planned):""}${p.dueDate?" · "+p.dueDate:""}${repay>0?" · 待补回 "+M(repay):""}</div></div>
+      <div class="meta">预算 ${M(p.budget)} · 已备 ${M(funded)} · 已花 ${M(spent)}${planned>0?" · 待支出规划 "+M(planned):""}${p.dueDate?" · 截止 "+p.dueDate:" · 长期专项"}${repay>0?" · 待补回 "+M(repay):""}</div></div>
       <div style="text-align:right"><div class="amount ${gap>0?"warn":"pos"}">${repay>0?"待补回 "+M(repay):gap>0?"缺 "+M(gap):"已备妥"}</div>
       <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteProject('${p.id}')">删除</button></div></div>
       <div class="progress"><span style="width:${pct}%"></span></div>${repay>0?`<div class="projectRepayInline"><span>待补回 <strong>${M(repay)}</strong></span><button type="button" class="secondary" onclick="event.stopPropagation();openProjectRepay('${p.id}')">补回</button></div>`:""}</div>`;
@@ -6214,10 +6214,10 @@ function renderNow(){
         summaryValue=`已备 ${M(projectFunded(p))}`;
         summaryClass+=" pos";
       }else if(plan.status==="no-date"){
-        summaryMeta=`资金缺口 ${M(plan.gap)} · 尚未设置截止日期`;
+        summaryMeta=`长期专项 · 当前待备 ${M(plan.gap)}`;
         summaryValue=`缺 ${M(plan.gap)}`;
         detailHtml=`<div class="projectCycleBox">
-          <div class="projectCycleMain"><span>周期建议</span><strong class="projectCycleWarn">请先设置截止日期</strong></div>
+          <div class="projectCycleMain"><span>资金安排</span><strong>按需转入，持续积累</strong></div>
         </div>`;
       }else if(plan.status==="overdue"){
         summaryMeta=`截止日期 ${p.dueDate} · 当前仍缺 ${M(plan.gap)}`;
@@ -6285,7 +6285,7 @@ function renderNow(){
       </details>`;
     }).join("")+`
       <div class="projectFundingFootnote">
-        * 结算并归档时可将结余转入日常可用储蓄或其他专项；保留结余则继续使用当前专项。
+        * 结算并归档时可将结余转入储蓄余额或其他专项；保留结余则继续使用当前专项。
       </div>`;
   }else{
     projectFundingSection.style.display="none";
@@ -6449,14 +6449,14 @@ function txHtml(t,del=false,edit=false){
   if(["short_transfer","short_interest","short_spend","saving_to_project"].includes(t.type)){
     const move=t.type==="short_transfer";
     const positive=t.type==="short_interest",spend=t.type==="short_spend";
-    const title=t.type==="saving_to_project"?"日常可用储蓄补回专项":
-      move?(t.direction==="in"?"转入短期储蓄":"取回日常可用储蓄"):positive?"短期储蓄到账收益":"短期储蓄取用";
+    const title=t.type==="saving_to_project"?"储蓄余额补回专项":
+      move?(t.direction==="in"?"转入短期储蓄":"取回储蓄余额"):positive?"短期储蓄到账收益":"短期储蓄取用";
     const account=t.type==="saving_to_project"?(S.projects.find(p=>p.id===t.projectId)?.name||"专项"):shortSavingsAccountLabel(t.shortAccountId);
     const fundingMeta=move&&N(t.pocketPortion)>0?` · 现有储蓄 ${M(N(t.amount)-N(t.pocketPortion))} + 日常支出 ${M(t.pocketPortion)}`:"";
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${fundingMeta?"合并资金转入 · ": ""}${title} · ${esc(account)}</div><div class="meta">${t.date}${fundingMeta}${t.note?" · "+esc(t.note):""}</div></div><div class="txRight"><div class="txAmount ${positive?"pos":spend?"neg":"txMuted"}">${positive?"+":spend?"-":"→ "}${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   if(t.type==="extra_saving"){
-    const location=t.shortAccountId?`锁定于 ${esc(shortSavingsAccountLabel(t.shortAccountId))}`:"计入日常可用储蓄";
+    const location=t.shortAccountId?`锁定于 ${esc(shortSavingsAccountLabel(t.shortAccountId))}`:"计入储蓄余额";
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">额外储蓄${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date} · ${location}</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   if(t.type==="pocket_to_short"){
@@ -6568,11 +6568,11 @@ function transactionActionTitle(t){
     const p=S.projects.find(x=>x.id===t.projectId);
     return `零花钱转专项${p?" · "+p.name:""}`;
   }
-  if(t.type==="short_transfer")return (t.direction==="in"?"转入短期储蓄":"取回日常可用储蓄")+" · "+shortSavingsAccountLabel(t.shortAccountId);
+  if(t.type==="short_transfer")return (t.direction==="in"?"转入短期储蓄":"取回储蓄余额")+" · "+shortSavingsAccountLabel(t.shortAccountId);
   if(t.type==="short_interest")return "短期储蓄到账收益 · "+shortSavingsAccountLabel(t.shortAccountId);
   if(t.type==="short_spend")return "短期储蓄取用 · "+shortSavingsAccountLabel(t.shortAccountId);
   if(t.type==="pocket_to_short")return "日常支出转入短期储蓄 · "+shortSavingsAccountLabel(t.shortAccountId);
-  if(t.type==="saving_to_project")return "日常可用储蓄补回专项";
+  if(t.type==="saving_to_project")return "储蓄余额补回专项";
   if(t.type==="project_settlement")return "专项结余转储蓄";
   if(t.type==="project_archive")return "专项归档";
   if(t.type==="project_restore")return "专项恢复";
@@ -7802,7 +7802,7 @@ function savingChangeEvents(){
     if(t.type==="short_transfer"){
       const pocket=N(t.pocketPortion);
       const saving=t.direction==="in"?Math.max(0,N(t.amount)-pocket):0;
-      const label=pocket>0?"合并可用资金转入":"日常可用储蓄转入";
+      const label=pocket>0?"合并可用资金转入":"储蓄余额转入";
       const detail=pocket>0?`已有储蓄 ${M(saving)} + 日常支出剩余 ${M(pocket)}`:"储蓄资产内部调动";
       events.push({id:t.id,date,name:`${t.direction==="in"?label:"短期储蓄取回"} · ${shortSavingsAccountLabel(t.shortAccountId)}`,
         meta:[detail,t.note].filter(Boolean).join(" · "),amount:N(t.amount),impact:pocket,mode:"move"});
@@ -7837,7 +7837,7 @@ function savingChangeEvents(){
       events.push({
         id:t.id,date,
         name:t.shortAccountId?`额外锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`:(t.note?`手动额外储蓄 · ${t.note}`:"手动额外储蓄"),
-        meta:t.shortAccountId?"直接存入锁定储蓄，不参与日常消费兜底":"通过“记额外储蓄”增加日常可用储蓄",
+        meta:t.shortAccountId?"直接存入锁定储蓄，不参与日常消费兜底":"通过“记额外储蓄”增加储蓄余额",
         amount:N(t.amount),
         impact:N(t.amount),
         mode:"pos"
@@ -7889,7 +7889,7 @@ function savingChangeEvents(){
       events.push({
         id:`bankExisting_${d.id}`,
         date:d.startDate||"",
-        name:`日常可用储蓄转银行 · ${d.name||"银行存款"}`,
+        name:`储蓄余额转银行 · ${d.name||"银行存款"}`,
         meta:"资金位置变化，不重复增加总储蓄",
         amount:N(d.principal),
         impact:0,
@@ -8037,7 +8037,7 @@ function renderSavingAssetSummary(){
   savingGrandTotal.style.color=current.total<-.005?"var(--danger)":"var(--accent)";
   savingCashflowHint.textContent=current.bankInterest>.005
     ?`银行资产含预估利息 ${M(current.bankInterest)}`
-    :"日常可用储蓄、短期储蓄与银行资产合计";
+    :"储蓄余额、短期储蓄与银行资产合计";
 
   savingOrdinaryCurrent.textContent=M(current.ordinary);
   savingOrdinaryCurrent.style.color=current.ordinary<-.005?"var(--danger)":"var(--text)";
@@ -8080,7 +8080,7 @@ function renderSavingAssetSummary(){
       :""
   ].filter(Boolean).join(" ");
 
-  savingCyclePlannedLabel.textContent="日常可用储蓄实际变动";
+  savingCyclePlannedLabel.textContent="储蓄余额实际变动";
   savingCycleRemainderLabel.textContent="预计零花结余";
   savingCyclePlanned.textContent=M(s.ordinaryBooked);
   savingCycleRemainder.textContent=M(s.pendingPocket);
@@ -8156,7 +8156,7 @@ function renderSavingStats(){
   savingAdjustTitle.textContent=cycleMode?"范围调整":"调整";
   savingUseLabel.textContent=cycleMode?"储蓄兜底 / 直接取用（参考）":"储蓄取用 / 超支扣减";
   savingGrowthTotalLabel.textContent="期间储蓄资产预计净变化";
-  savingGrowthNote.textContent=`日常可用储蓄账户变化 ${M(s.dailyAfterBank)} + 短期储蓄账户变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。本期已存入 ${M(s.grossSaved)}，账户转存属于资金位置调整。`;
+  savingGrowthNote.textContent=`储蓄余额账户变化 ${M(s.dailyAfterBank)} + 短期储蓄账户变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。本期已存入 ${M(s.grossSaved)}，账户转存属于资金位置调整。`;
 
   savingChangeList.innerHTML=events.length
     ?events.slice(0,30).map(ev=>`
@@ -8244,7 +8244,7 @@ function bankReminderState(){
   const cycle=currentCycleStats();
 
   // 当前可转存储蓄只统计实际留在银行以外的储蓄资产。
-  // 日常可用储蓄为可自由调配余额；小荷包等短期锁定储蓄为已沉淀余额。
+  // 储蓄余额为可自由调配余额；小荷包等短期锁定储蓄为已沉淀余额。
   const actual=Math.max(0,N(ordinarySavingsAvailable())+N(shortBalanceTotal()));
   const pending=cycle.income&&!cycle.isClosed
     ?Math.max(0,N(cycle.pocketBalance))
@@ -8285,7 +8285,7 @@ function renderBankDepositReminder(){
   bankReminderNowCard.style.display=r.ready?"":"none";
 
   if(!r.enabled){
-    bankReminderHint.textContent="设置额度后，按照已积累的日常可用储蓄与短期锁定储蓄计算转存进度。";
+    bankReminderHint.textContent="设置额度后，按照已积累的储蓄余额与短期锁定储蓄计算转存进度。";
   }else if(r.ready){
     bankReminderReadyTitle.textContent="当前储蓄已达到银行转存额度";
     bankReminderReadyMeta.textContent=`实际可转存 ${M(r.actual)}，目标 ${M(r.threshold)}。`;
@@ -8293,7 +8293,7 @@ function renderBankDepositReminder(){
     bankReminderNowTitle.textContent="当前储蓄已达到银行转存额度";
     bankReminderNowMeta.textContent=`可转存 ${M(r.actual)}，目标 ${M(r.threshold)}。`;
     bankReminderNowBtn.style.display="";
-    bankReminderHint.textContent="可以选择日常可用储蓄或短期锁定账户作为转存来源。";
+    bankReminderHint.textContent="可以选择储蓄余额或短期锁定账户作为转存来源。";
   }else{
     bankReminderHint.textContent=r.expected>=r.threshold
       ?`当前已积累 ${M(r.actual)}；预计结转 ${M(r.pending)} 后达到目标。`
@@ -8413,7 +8413,7 @@ function openShortTransfer(id="",action="out"){
 function updateShortTransferHint(){
   const date=shortTransferDate.value||td();
   const balance=shortAccountBalance(shortTransferAccount.value,date),action=shortTransferAction.value;
-  const note=action==="in"?"转入后锁定，退出日常可用储蓄兜底池":action==="out"?"转回日常可用储蓄，解锁后可再次调配":action==="interest"?"仅登记实际到账的收益":"属于主动储蓄取用，同时记录消费";
+  const note=action==="in"?"转入后锁定，退出储蓄余额兜底池":action==="out"?"转回储蓄余额，解锁后可再次调配":action==="interest"?"仅登记实际到账的收益":"属于主动储蓄取用，同时记录消费";
   shortTransferHint.textContent=`${date} 账面余额 ${M(balance)}。 ${note}。`+(date>td()?" 未来日期按待生效计划保存，届时才调整实际余额。":"");
 }
 shortTransferAccount.addEventListener("change",updateShortTransferHint);
@@ -8426,7 +8426,7 @@ saveShortTransfer.onclick=()=>{
   if(!S.shortAccounts.some(a=>a.id===accountId))return msg("请选择储蓄账户");
   if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效金额");
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return msg("请选择有效日期");
-  if(action==="in"&&amount>combinedSavingsAvailable(date).saving+0.005)return msg(`该日期日常可用储蓄可转入 ${M(combinedSavingsAvailable(date).saving)}`);
+  if(action==="in"&&amount>combinedSavingsAvailable(date).saving+0.005)return msg(`该日期储蓄余额可转入 ${M(combinedSavingsAvailable(date).saving)}`);
   if(action!=="in"&&action!=="interest"&&amount>shortAccountBalance(accountId,date)+0.005)
     return msg(`该日账户余额为 ${M(Math.max(0,shortAccountBalance(accountId,date)))}`);
   const type=action==="interest"?"short_interest":action==="spend"?"short_spend":"short_transfer";
@@ -8459,7 +8459,7 @@ function refreshProjectRepaySourceHint(){
   if(source==="income"){
     hint.textContent="新增到账收入会登记为一笔单次收入，金额直接用于补回专项。已有到账收入可在对应收入流水中调整专项补回预留，避免重复记入收入。";
   }else if(source==="saving"){
-    hint.textContent=`当前可用日常可用储蓄 ${M(Math.max(0,N(accounting().saving)))}。补回属于储蓄转入专项，储蓄资产同步减少。`;
+    hint.textContent=`当前可用储蓄余额 ${M(Math.max(0,N(accounting().saving)))}。补回属于储蓄转入专项，储蓄资产同步减少。`;
   }else{
     hint.textContent=`当前日常支出余额 ${M(Math.max(0,N(bal().safe)))}。补回属于日常余额转入专项。`;
   }
@@ -8481,7 +8481,7 @@ saveProjectRepay.onclick=()=>{
   if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效金额");
   if(amount>projectRepayPending(id)+0.005)return msg("金额超过待补回余额");
   if(source==="safe"&&amount>Math.max(0,N(bal().safe))+0.005)return msg("日常支出余额不足");
-  if(source==="saving"&&amount>Math.max(0,N(accounting().saving))+0.005)return msg("日常可用储蓄余额不足");
+  if(source==="saving"&&amount>Math.max(0,N(accounting().saving))+0.005)return msg("储蓄余额余额不足");
   if(source==="income"){
     const today=td();
     S.tx.push({
@@ -8514,7 +8514,7 @@ saveProjectRepay.onclick=()=>{
   save();closeSheet("projectRepaySheet");render();
   msg(source==="income"
     ?`单次收入 ${M(amount)} 已记账并全部补回「${p.name}」`
-    :`已从${source==="saving"?"日常可用储蓄":"日常支出余额"}补回「${p.name}」 ${M(amount)}`);
+    :`已从${source==="saving"?"储蓄余额":"日常支出余额"}补回「${p.name}」 ${M(amount)}`);
 };
 
 function renderSavings(){
@@ -8549,7 +8549,7 @@ function renderSavings(){
       </div>
 
       <div class="savingMiniGrid">
-        <div>资金来源<strong>${d.source==="short"?esc(shortSavingsAccountLabel(d.shortAccountId)):d.source==="existing"?"日常可用储蓄":"外部新增"}</strong></div>
+        <div>资金来源<strong>${d.source==="short"?esc(shortSavingsAccountLabel(d.shortAccountId)):d.source==="existing"?"储蓄余额":"外部新增"}</strong></div>
         <div>存入金额<strong>${M(d.principal)}</strong></div>
         <div>年利率<strong>${rateText}%</strong></div>
         <div>存款类型<strong>${depositTypeLabel(d)}</strong></div>
@@ -8653,7 +8653,7 @@ function renderHistory(){
   const outcomeLabels=periodOutcomeLabels(historyMode);
   mOutcomeLabel.textContent=outcomeLabels.outcome;
   mExpectedSavingSub.textContent=rs.expected<-.005
-    ?`已存入资金与储蓄取用都已计入本期净变化；当前日常可用储蓄余额 ${M(accounting().saving)}`
+    ?`已存入资金与储蓄取用都已计入本期净变化；当前储蓄余额余额 ${M(accounting().saving)}`
     :outcomeLabels.sub;
   mRateSub.textContent=outcomeLabels.rateSub;
 
@@ -9026,19 +9026,21 @@ function payProjectPlannedExpense(projectId,plannedId){
   syncDateDisplays();
 }
 
+projectNoDue.addEventListener("change",()=>{if(projectNoDue.checked)projectDue.value="";projectDue.disabled=projectNoDue.checked});
+editProjectNoDue.addEventListener("change",()=>{if(editProjectNoDue.checked)editProjectDue.value="";editProjectDue.disabled=editProjectNoDue.checked});
 addProject.onclick=()=>{
-  const name=projectName.value.trim(),budget=N(projectBudget.value),dueDate=projectDue.value,initialFund=N(projectInitial.value);
+  const name=projectName.value.trim(),budget=N(projectBudget.value),dueDate=projectNoDue.checked?"":projectDue.value,initialFund=N(projectInitial.value);
   if(!name||budget<=0)return msg("请填写专项名称和预算");
   S.projects.push({id:"p"+Date.now(),name,budget,dueDate,initialFund});
-  projectName.value="";projectBudget.value="";projectDue.value="";projectInitial.value=0;save();render();msg("专项已添加");
+  projectName.value="";projectBudget.value="";projectDue.value="";projectNoDue.checked=false;projectDue.disabled=false;projectInitial.value=0;save();render();msg("专项已添加");
 };
 function editProject(id){
   const p=S.projects.find(x=>x.id===id);if(!p)return;
-  editProjectId.value=id;editProjectName.value=p.name;editProjectBudget.value=p.budget;editProjectDue.value=p.dueDate||"";editProjectInitial.value=p.initialFund||0;editProjectSheet.classList.add("show");
+  editProjectId.value=id;editProjectName.value=p.name;editProjectBudget.value=p.budget;editProjectDue.value=p.dueDate||"";editProjectNoDue.checked=!p.dueDate;editProjectDue.disabled=editProjectNoDue.checked;editProjectInitial.value=p.initialFund||0;editProjectSheet.classList.add("show");
 }
 saveProjectEdit.onclick=()=>{
   const p=S.projects.find(x=>x.id===editProjectId.value);if(!p)return;
-  p.name=editProjectName.value.trim();p.budget=N(editProjectBudget.value);p.dueDate=editProjectDue.value;p.initialFund=N(editProjectInitial.value);
+  p.name=editProjectName.value.trim();p.budget=N(editProjectBudget.value);p.dueDate=editProjectNoDue.checked?"":editProjectDue.value;p.initialFund=N(editProjectInitial.value);
   save();closeSheet("editProjectSheet");render();msg("专项已修改");
 };
 deleteProject.onclick=()=>{
@@ -9866,11 +9868,11 @@ function refreshExtraSavingDestination(){
   const source=extraSavingFunding.value;
   refreshExtraSavingCombinedPreview();
   extraSavingDestinationHint.textContent=!locked
-    ?"额外存下的资金进入日常可用储蓄，仍按现有规则参与超支兜底；已计入的资金不要重复记为新增。"
+    ?"额外存下的资金进入储蓄余额，仍按现有规则参与超支兜底；已计入的资金不要重复记为新增。"
     :source==="combined"
       ?"可将上周期结转储蓄与本周期日常支出剩余合并存入，系统先使用已有储蓄，不足部分再使用日常剩余；已结算的基础生活回流已包含在日常余额中。专项、账单预留和原本锁定的资产不会自动挪用。"
       :source==="saving"
-      ?"从已记账的日常可用储蓄转入，储蓄总额不变；转入后会锁定，不再自动补贴零花钱。"
+      ?"从已记账的储蓄余额转入，储蓄总额不变；转入后会锁定，不再自动补贴零花钱。"
       :source==="pocket"
         ?"从现有零花钱转入，日常可花余额减少，锁定储蓄增加；之后不会自动用于消费。"
         :"额外新存入的钱直接进入锁定储蓄。若这笔钱之前已经在 SafeSpend 计为储蓄或零花钱，请更换来源，避免重复记账。";
@@ -9972,7 +9974,7 @@ saveExtraSaving.onclick=()=>{
     ?`${M(amount)} 已安排在 ${date} 存入；到日期前不影响实际余额`
     :locked
       ?`${M(amount)} 已记入「${shortSavingsAccountLabel(accountId)}」并锁定`
-      :`${M(amount)} 已记入日常可用储蓄`);
+      :`${M(amount)} 已记入储蓄余额`);
 };
 
 
@@ -10109,7 +10111,7 @@ saveBankDeposit.onclick=()=>{
     const restored=old&&old.source==="existing"?N(old.principal):0;
     const available=Math.max(0,N(bal().saving)+restored);
     if(principal>available){
-      return msg(`当前日常可用储蓄余额于银行存款的金额为 ${M(available)}`);
+      return msg(`当前储蓄余额余额于银行存款的金额为 ${M(available)}`);
     }
   }
 
@@ -10232,7 +10234,7 @@ function recalcPocketTransfer(){
     transferEffectLabel.textContent="本周期预计可存";
     transferProjectedSaving.textContent=M(cycleSaving);
     transferProjectedSaving.style.color=cycleSaving<-.005?"var(--warn)":"var(--accent)";
-    transferPocketNote.textContent="日常支出余额转入储蓄后，会增加日常可用储蓄余额，并等额减少可用日常支出。本周期储蓄净变化保持一致。";
+    transferPocketNote.textContent="日常支出余额转入储蓄后，会增加储蓄余额余额，并等额减少可用日常支出。本周期储蓄净变化保持一致。";
   }
 }
 
@@ -10934,7 +10936,7 @@ function openTxEdit(id){
         </div>
         ${inTransfer?`<div><label>其中由日常支出余额转入</label>
           <input id="editShortPocket" type="number" min="0" step="0.01" inputmode="decimal" value="${pocketAmount}">
-          <div class="note">其余金额由已有日常可用储蓄转入；两部分合计为本次转入金额。</div>
+          <div class="note">其余金额由已有储蓄余额转入；两部分合计为本次转入金额。</div>
         </div>`:""}
         <div>
           <label>备注</label>
@@ -10957,7 +10959,7 @@ function openTxEdit(id){
         </div>
         <div style="grid-column:1/-1">
           <label>存放账户</label>
-          <div class="note">${t.shortAccountId?"锁定储蓄 · "+esc(shortSavingsAccountLabel(t.shortAccountId)):"日常可用储蓄"}</div>
+          <div class="note">${t.shortAccountId?"锁定储蓄 · "+esc(shortSavingsAccountLabel(t.shortAccountId)):"储蓄余额"}</div>
         </div>
         <div style="grid-column:1/-1">
           <label>备注</label>
@@ -11640,7 +11642,7 @@ function summary(){
 本周期账单待支付：${currentCycleBillStatus().complete?"已完成":currentCycleBillStatus().none?"暂无":M(currentCycleBillStatus().outstandingAmount)}
 当前专项余额合计：${M(projectTotal)}
 当前仍需覆盖的日常资金缺口：${M(Math.max(0,-N(a.raw.safe)))}
-当前日常可用储蓄余额：${M(ordinarySavingsAvailable())}
+当前储蓄余额余额：${M(ordinarySavingsAvailable())}
 银行转存提醒额度：${bankReminderThresholdValue()>0?M(bankReminderThresholdValue()):"未设置"}
 
 收入计划：
