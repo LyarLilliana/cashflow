@@ -3759,16 +3759,17 @@ function accounting(asOf=td()){
     raw.safe+=amount-repaid;
     return repaid;
   };
-  const recordProjectAdvance=(projectId,amount,wallet,uncoveredPart=false,auto=false)=>{
+  const recordProjectAdvance=(projectId,amount,wallet,uncoveredPart=false,auto=false,expenseDate="")=>{
     if(N(amount)<=0)return;
     (projectAdvances[projectId]||(projectAdvances[projectId]=[])).push({
       remaining:N(amount),wallet,uncoveredPart,auto,
-      cycleId:activeCycleIncomeId
+      cycleId:activeCycleIncomeId,expenseDate
     });
   };
   const creditProjectFunding=(projectId,amount,eventId)=>{
     let incoming=Math.max(0,N(amount));
     let savingReimbursed=0,pocketReimbursed=0,pocketSavingRepaid=0,shortfallCovered=0;
+    const reimbursementOrigins=[];
     const advances=projectAdvances[projectId]||[];
     for(const advance of advances){
       if(incoming<=0.000001)break;
@@ -3776,6 +3777,7 @@ function accounting(asOf=td()){
       if(used<=0)continue;
       incoming-=used;
       advance.remaining-=used;
+      reimbursementOrigins.push({date:advance.expenseDate||"",wallet:advance.wallet,amount:used});
       if(advance.wallet==="safe"){
         pocketReimbursed+=used;
         pocketSavingRepaid+=creditPocket(used);
@@ -3797,6 +3799,9 @@ function accounting(asOf=td()){
       const effect=effects[eventId]||(effects[eventId]={});
       effect.projectAdvanceReimbursed=N(effect.projectAdvanceReimbursed)+savingReimbursed;
       effect.projectPocketReimbursed=N(effect.projectPocketReimbursed)+pocketReimbursed;
+      effect.projectReimbursementOrigins=[
+        ...(effect.projectReimbursementOrigins||[]),...reimbursementOrigins
+      ];
       effect.projectShortfallCovered=N(effect.projectShortfallCovered)+shortfallCovered;
       effect.pocketSavingRepaid=N(effect.pocketSavingRepaid)+pocketSavingRepaid;
     }
@@ -4146,9 +4151,9 @@ function accounting(asOf=td()){
         autoSavingUsed+=automaticDraw;
         if(!t.cycleIncomeId||t.cycleIncomeId===activeCycleIncomeId)autoSavingDebt+=automaticDraw;
         uncovered+=gap;
-        recordProjectAdvance(t.refId,pocketDraw,"safe");
-        recordProjectAdvance(t.refId,automaticDraw,"saving",false,true);
-        recordProjectAdvance(t.refId,gap,"safe",true);
+        recordProjectAdvance(t.refId,pocketDraw,"safe",false,false,t.date);
+        recordProjectAdvance(t.refId,automaticDraw,"saving",false,true,t.date);
+        recordProjectAdvance(t.refId,gap,"safe",true,false,t.date);
       }else if(overPlan>0){
         const beforeSaving=saving;
         saving-=overPlan;
@@ -4156,8 +4161,8 @@ function accounting(asOf=td()){
         manualSavingUsed+=overPlan;
         gap=Math.max(0,overPlan-Math.max(0,beforeSaving));
         uncovered+=gap;
-        recordProjectAdvance(t.refId,overPlan-gap,"saving");
-        recordProjectAdvance(t.refId,gap,"saving",true);
+        recordProjectAdvance(t.refId,overPlan-gap,"saving",false,false,t.date);
+        recordProjectAdvance(t.refId,gap,"saving",true,false,t.date);
       }
 
       effects[t.id]={
@@ -7973,23 +7978,27 @@ function filteredSavingChangeEvents(start="",end=""){
   });
 }
 
-// 项目内部资金重归属不属于本统计周期新赚到或新省下的钱。
+// 专项内部调拨和跨期垫款结清应从“本期预计可存”剥离。
+// 本期消费如先由储蓄垫付、又在本期获得专项资金补回，两者相互抵消。
+// 只有回补统计期之前的旧支出，才需要从本期储蓄成果中剔除。
 function projectInternalSavingReallocationForRange(start="",end=""){
   const inRange=date=>{
     const d=String(date||"");
     return !!d&&d<=td()&&(!start||d>=start)&&(!end||d<=end);
   };
   const effects=accounting().effects;
-  return sm(
-    S.tx.filter(t=>t.type==="project_transfer"&&inRange(t.date)),
-    t=>{
-      const e=effects[t.id]||{};
-      // 转入储蓄为专项本金重分类；转入另一专项时，优先偿还
-      // 既往由储蓄/零花垫付的支出。这些资金仍真实过账，但不构成本期新增储蓄。
-      const direct=t.toProjectId==="__saving__"?N(e.projectTransfer):0;
-      return direct+N(e.projectAdvanceReimbursed)+N(e.projectPocketReimbursed);
-    }
-  );
+  return sm(S.tx.filter(t=>inRange(t.date)),t=>{
+    const e=effects[t.id]||{};
+    const direct=t.type==="project_transfer"&&t.toProjectId==="__saving__"
+      ?N(e.projectTransfer)
+      :t.type==="project_settlement"?N(e.projectSettlement):0;
+    // 从现有储蓄补回专项再归还储蓄属于同一笔资金转圈，零净影响。
+    // 其余专项补回按最初垫付的支出日期判断，避免旧支出跨期算新存款。
+    const historical=t.type==="saving_to_project"||!start?0:
+      sm(e.projectReimbursementOrigins||[],x=>
+        x.date&&x.date<start?N(x.amount):0);
+    return direct+historical;
+  });
 }
 
 function savingSummaryForRange(start="",end="",cycleMode=false){
