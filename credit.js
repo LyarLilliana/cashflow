@@ -138,13 +138,13 @@ mountSheet("creditRepaySheet","记录信用还款",
  +'<div class="formGrid" style="margin-top:12px"><div><label>还款本金</label><input id="creditRepayAmount" type="number" min="0.01" step="0.01"></div>'
  +'<div><label>实际还款日期</label><input id="creditRepayDate" type="date"></div>'
  +'<div style="grid-column:1/-1"><label>资金来源（优先核销原有预留）</label><select id="creditRepaySource">'
- +'<option value="safe">日常支出余额，超额时储蓄补位</option><option value="saving">日常可用储蓄</option></select></div>'
+ +'<option value="safe">日常支出余额，超额时储蓄补位</option><option value="saving">储蓄余额</option></select></div>'
  +'<div style="grid-column:1/-1"><label>利息／手续费</label><input id="creditRepayFee" type="number" min="0" step="0.01" value="0"></div></div>'
  +'<div class="creditTip" id="creditRepayHint"></div>'+actions("creditRepaySheet","确认还款"));
 mountSheet("creditFundSheet","安排还款资金",
  '<input id="creditFundId" type="hidden"><div class="meta" id="creditFundMeta"></div>'
  +'<div class="formGrid" style="margin-top:12px"><div><label>本次预留金额</label><input id="creditFundAmount" type="number" min="0.01" step="0.01"></div>'
- +'<div><label>资金来源</label><select id="creditFundSource"><option value="safe">日常支出余额</option><option value="saving">日常可用储蓄</option></select></div></div>'
+ +'<div><label>资金来源</label><select id="creditFundSource"><option value="safe">日常支出余额</option><option value="saving">储蓄余额</option></select></div></div>'
  +'<div class="creditTip">预留属于资金用途调整，还款时核销预留。</div>'+actions("creditFundSheet","确认预留"));
 mountSheet("creditLoanSheet","记录现金借款到账",
  '<div class="formGrid"><div style="grid-column:1/-1"><label>借款账户</label><select id="creditLoanAccount"></select></div>'
@@ -208,7 +208,7 @@ el("creditRepaySheetSubmit").onclick=()=>{
  const datedRow=ledger(date).find(x=>x.id===r.id);
  if(!datedRow||amount>datedRow.remaining+.005)return msg("还款日期对应的待还本金不足");
  const reserved=Math.min(amount,datedRow.reserve),need=round(amount-reserved),source=el("creditRepaySource").value;
- if(source==="saving"&&need+fee>Math.max(0,bal().saving)+.005)return msg("日常可用储蓄不足");
+ if(source==="saving"&&need+fee>Math.max(0,bal().saving)+.005)return msg("储蓄余额不足");
  S.tx.push({id:uid(),date,type:"credit_repayment",cycleIncomeId:cycleIncomeIdForDate(date),amount,fee,
   creditChargeId:r.id,creditAccountId:r.t.creditAccountId,creditMode:r.mode,
   creditReservedUsed:reserved,creditSource:source,note:"信用还款本金"});
