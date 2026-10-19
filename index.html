@@ -4027,7 +4027,8 @@ function accounting(asOf=td()){
       const moved=Math.min(asked,available);
       projects[t.fromProjectId]=N(projects[t.fromProjectId]||0)-moved;
       effects[t.id]={projectTransfer:moved,projectTransferShortfall:Math.max(0,asked-moved)};
-      creditProjectFunding(t.toProjectId,moved,t.id);
+      if(t.toProjectId==="__saving__")saving+=moved;
+      else creditProjectFunding(t.toProjectId,moved,t.id);
       return;
     }
 
@@ -8273,12 +8274,13 @@ function bankReminderState(){
 
   // 转存提醒与进度仅由真实已存资金触发，预计结余另行提示。
   const ready=enabled&&actual>=threshold;
-  const gap=enabled?Math.max(0,threshold-actual):0;
-  const progress=enabled?Math.max(0,Math.min(100,actual/threshold*100)):0;
+  const gap=enabled?Math.max(0,threshold-expected):0;
+  const actualGap=enabled?Math.max(0,threshold-actual):0;
+  const progress=enabled?Math.max(0,Math.min(100,expected/threshold*100)):0;
 
   return {
     current:actual,available:actual,actual,expected,pending,
-    threshold,enabled,ready,actualReady:ready,gap,progress
+    threshold,enabled,ready,actualReady:ready,gap,actualGap,progress
   };
 }
 
@@ -8293,9 +8295,10 @@ function renderBankDepositReminder(){
 
   bankReminderCurrent.textContent=M(r.actual);
   bankReminderPending.textContent=M(r.pending);
+  bankReminderExpected.textContent=M(r.expected);
   bankReminderPending.style.color=r.pending>.005?"var(--accent)":"inherit";
   bankReminderTarget.textContent=r.enabled?M(r.threshold):"未设置";
-  bankReminderGapLabel.textContent=r.ready?"超过提醒额度":"距离提醒额度";
+  bankReminderGapLabel.textContent=r.ready?"超过提醒额度":r.enabled&&r.expected>=r.threshold?"预计达标":"预计距离提醒额度";
   bankReminderGap.textContent=r.enabled?M(r.ready?Math.max(0,r.actual-r.threshold):r.gap):"—";
   bankReminderGap.style.color=r.ready?"var(--accent)":"inherit";
   bankReminderProgress.style.width=`${r.progress}%`;
@@ -8303,7 +8306,7 @@ function renderBankDepositReminder(){
   bankReminderNowCard.style.display=r.ready?"":"none";
 
   if(!r.enabled){
-    bankReminderHint.textContent="设置额度后，按照已积累的储蓄余额与短期锁定储蓄计算转存进度。";
+    bankReminderHint.textContent="预计累计金额 = 已存储蓄 + 本周期待结转零花。";
   }else if(r.ready){
     bankReminderReadyTitle.textContent="当前储蓄已达到银行转存额度";
     bankReminderReadyMeta.textContent=`实际可转存 ${M(r.actual)}，目标 ${M(r.threshold)}。`;
@@ -8314,15 +8317,15 @@ function renderBankDepositReminder(){
     bankReminderHint.textContent="可以选择储蓄余额或短期锁定账户作为转存来源。";
   }else{
     bankReminderHint.textContent=r.expected>=r.threshold
-      ?`当前已积累 ${M(r.actual)}；预计结转 ${M(r.pending)} 后达到目标。`
-      :`当前已积累 ${M(r.actual)}，距离实际转存目标还差 ${M(r.gap)}。`;
+      ?`已存 ${M(r.actual)} + 待结转 ${M(r.pending)} = 预计 ${M(r.expected)}，结转后可执行转存。`
+      :`已存 ${M(r.actual)} + 待结转 ${M(r.pending)} = 预计 ${M(r.expected)}，距目标 ${M(r.gap)}。`;
   }
 }
 
 function openBankDepositFromReminder(){
   const r=bankReminderState();
   if(!r.enabled)return msg("请先设置银行转存提醒额度");
-  if(!r.ready)return msg(`距离银行转存目标还差 ${M(r.gap)}`);
+  if(!r.ready)return msg(`实际已存金额距离可执行转存还差 ${M(r.actualGap)}`);
   openBankDeposit();
   const largest=(S.shortAccounts||[]).slice().sort((a,b)=>shortAccountBalance(b.id)-shortAccountBalance(a.id))[0];
   if(largest&&shortAccountBalance(largest.id)>0){
