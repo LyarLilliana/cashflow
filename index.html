@@ -3731,6 +3731,10 @@ function accounting(asOf=td()){
   };
   const projects={};
   S.projects.forEach(p=>projects[p.id]=N(p.initialFund));
+  // Track spending temporarily advanced by savings/pocket when a project has
+  // insufficient cash. Subsequent funding first clears these advances.
+  // This keeps past spending deducted even when funding arrives much later.
+  const projectAdvances={};
 
   let saving=0;
   let autoSavingUsed=0;
@@ -3749,6 +3753,48 @@ function accounting(asOf=td()){
     saving+=repaid;
     raw.safe+=amount-repaid;
     return repaid;
+  };
+  const recordProjectAdvance=(projectId,amount,wallet,uncoveredPart=false,auto=false)=>{
+    if(N(amount)<=0)return;
+    (projectAdvances[projectId]||(projectAdvances[projectId]=[])).push({
+      remaining:N(amount),wallet,uncoveredPart,auto,
+      cycleId:activeCycleIncomeId
+    });
+  };
+  const creditProjectFunding=(projectId,amount,eventId)=>{
+    let incoming=Math.max(0,N(amount));
+    let savingReimbursed=0,pocketReimbursed=0,pocketSavingRepaid=0,shortfallCovered=0;
+    const advances=projectAdvances[projectId]||[];
+    for(const advance of advances){
+      if(incoming<=0.000001)break;
+      const used=Math.min(incoming,Math.max(0,N(advance.remaining)));
+      if(used<=0)continue;
+      incoming-=used;
+      advance.remaining-=used;
+      if(advance.wallet==="safe"){
+        pocketReimbursed+=used;
+        pocketSavingRepaid+=creditPocket(used);
+      }else{
+        saving+=used;
+        savingReimbursed+=used;
+        if(advance.auto&&advance.cycleId===activeCycleIncomeId){
+          autoSavingDebt=Math.max(0,autoSavingDebt-used);
+        }
+      }
+      if(advance.uncoveredPart){
+        uncovered=Math.max(0,uncovered-used);
+        shortfallCovered+=used;
+      }
+    }
+    projectAdvances[projectId]=advances.filter(x=>N(x.remaining)>0.000001);
+    projects[projectId]=N(projects[projectId]||0)+incoming;
+    if(eventId){
+      const effect=effects[eventId]||(effects[eventId]={});
+      effect.projectAdvanceReimbursed=N(effect.projectAdvanceReimbursed)+savingReimbursed;
+      effect.projectPocketReimbursed=N(effect.projectPocketReimbursed)+pocketReimbursed;
+      effect.projectShortfallCovered=N(effect.projectShortfallCovered)+shortfallCovered;
+      effect.pocketSavingRepaid=N(effect.pocketSavingRepaid)+pocketSavingRepaid;
+    }
   };
 
   const depositLocks=startedBankDeposits(asOf)
@@ -3904,9 +3950,7 @@ function accounting(asOf=td()){
       }
       refreshBillRaw();
       saving+=N(ea.saving);
-      ea.projects.forEach(x=>{
-        projects[x.projectId]=(projects[x.projectId]||0)+N(x.amount);
-      });
+      ea.projects.forEach(x=>creditProjectFunding(x.projectId,N(x.amount),t.id));
       return;
     }
 
@@ -3939,8 +3983,8 @@ function accounting(asOf=td()){
     }
     if(t.type==="saving_to_project"){
       saving-=N(t.amount);
-      projects[t.projectId]=(projects[t.projectId]||0)+N(t.amount);
       effects[t.id]={savingToProject:N(t.amount)};
+      creditProjectFunding(t.projectId,N(t.amount),t.id);
       return;
     }
 
@@ -3982,8 +4026,8 @@ function accounting(asOf=td()){
       const available=Math.max(0,N(projects[t.fromProjectId]||0));
       const moved=Math.min(asked,available);
       projects[t.fromProjectId]=N(projects[t.fromProjectId]||0)-moved;
-      projects[t.toProjectId]=N(projects[t.toProjectId]||0)+moved;
       effects[t.id]={projectTransfer:moved,projectTransferShortfall:Math.max(0,asked-moved)};
+      creditProjectFunding(t.toProjectId,moved,t.id);
       return;
     }
 
@@ -4018,8 +4062,8 @@ function accounting(asOf=td()){
     if(t.type==="pocket_to_project"){
       const amount=N(t.amount);
       raw.safe-=amount;
-      projects[t.projectId]=(projects[t.projectId]||0)+amount;
       effects[t.id]={pocketToProject:amount,projectId:t.projectId};
+      creditProjectFunding(t.projectId,amount,t.id);
       return;
     }
 
@@ -4096,6 +4140,9 @@ function accounting(asOf=td()){
         autoSavingUsed+=automaticDraw;
         if(!t.cycleIncomeId||t.cycleIncomeId===activeCycleIncomeId)autoSavingDebt+=automaticDraw;
         uncovered+=gap;
+        recordProjectAdvance(t.refId,pocketDraw,"safe");
+        recordProjectAdvance(t.refId,automaticDraw,"saving",false,true);
+        recordProjectAdvance(t.refId,gap,"safe",true);
       }else if(overPlan>0){
         const beforeSaving=saving;
         saving-=overPlan;
@@ -4103,6 +4150,8 @@ function accounting(asOf=td()){
         manualSavingUsed+=overPlan;
         gap=Math.max(0,overPlan-Math.max(0,beforeSaving));
         uncovered+=gap;
+        recordProjectAdvance(t.refId,overPlan-gap,"saving");
+        recordProjectAdvance(t.refId,gap,"saving",true);
       }
 
       effects[t.id]={
@@ -4222,7 +4271,11 @@ function accounting(asOf=td()){
     };
   });
 
-  return {raw,projects,saving,autoSavingUsed,manualSavingUsed,uncovered,effects,fallbackLivingFunding,lightPlanReserves:lightReserveUsage.remaining};
+  const projectFundingDeficits={};
+  Object.entries(projectAdvances).forEach(([id,entries])=>{
+    projectFundingDeficits[id]=sm(entries,e=>Math.max(0,N(e.remaining)));
+  });
+  return {raw,projects,projectFundingDeficits,saving,autoSavingUsed,manualSavingUsed,uncovered,effects,fallbackLivingFunding,lightPlanReserves:lightReserveUsage.remaining};
 }
 function projectAvail(p){
   return N(accounting().projects[p.id]||0);
@@ -7502,6 +7555,10 @@ function savingStatsForRange(start="",end=""){
     S.tx.filter(t=>inRange(t.date)),
     t=>N(engineEffects[t.id]?.pocketSavingRepaid)
   );
+  const projectSavingReimbursement=sm(
+    S.tx.filter(t=>inRange(t.date)),
+    t=>N(engineEffects[t.id]?.projectAdvanceReimbursed)
+  );
 
   const deductions=directSavingUse+projectSavingUse+automaticSavingUse;
 
@@ -7517,6 +7574,7 @@ function savingStatsForRange(start="",end=""){
     +projectSurplus
     +extra
     +automaticSavingRepayment
+    +projectSavingReimbursement
     -deductions;
 
   // Moving existing ordinary savings into a bank deposit changes location only.
@@ -10430,55 +10488,18 @@ function editedIncomeBillItems(t,start,end){
 }
 
 function projectBalanceBeforeEdit(projectId,targetId,targetDate){
-  const p=S.projects.find(x=>x.id===projectId);
-  if(!p)return 0;
-
+  if(!S.projects.some(p=>p.id===projectId))return 0;
   const target=S.tx.find(x=>x.id===targetId);
-  const targetStamp=txStamp(target);
-
-  let amount=N(p.initialFund);
-
-  const ordered=[...S.tx]
-    .filter(x=>x.id!==targetId)
-    .sort((a,b)=>{
-      if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
-      const aa=txStamp(a),bb=txStamp(b);
-      if(aa!==bb)return aa-bb;
-      return String(a.id).localeCompare(String(b.id));
-    });
-
-  for(const x of ordered){
-    const xd=String(x.date||"");
-
-    if(xd>targetDate)break;
-    if(xd===targetDate&&txStamp(x)>=targetStamp)break;
-
-    if(x.type==="income"){
-      const ea=effectiveIncomeAllocation(x);
-      amount+=sm((ea.projects||[]).filter(v=>v.projectId===projectId),v=>N(v.amount));
-      continue;
-    }
-
-    if((x.type==="pocket_to_project"||x.type==="saving_to_project")&&x.projectId===projectId){
-      amount+=N(x.amount);
-      continue;
-    }
-    if(x.type==="project_transfer"){
-      if(x.fromProjectId===projectId)amount-=Math.min(Math.max(0,amount),N(x.amount));
-      if(x.toProjectId===projectId)amount+=N(x.amount);
-      continue;
-    }
-    if(x.type==="project_settlement"&&x.projectId===projectId){
-      amount-=Math.min(Math.max(0,amount),N(x.amount));
-      continue;
-    }
-
-    if(x.type==="expense"&&x.bucket==="project"&&x.refId===projectId){
-      amount-=Math.min(Math.max(0,amount),N(x.amount));
-    }
-  }
-
-  return Math.max(0,amount);
+  const stamp=target?txStamp(target):Infinity;
+  const original=S.tx;
+  // Reuse the full accounting engine so editing a historical expense respects
+  // previously advanced costs, subsequent reimbursements and internal transfers.
+  S.tx=original.filter(x=>
+    x.id!==targetId&&(x.date<targetDate||
+      (x.date===targetDate&&(x.type==="income"||txStamp(x)<stamp)))
+  );
+  try{return Math.max(0,N(accounting(targetDate).projects[projectId]));}
+  finally{S.tx=original;}
 }
 
 function billSettledIgnoringTx(ignoreId,bid,dueDate){
