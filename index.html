@@ -8155,7 +8155,7 @@ function renderSavingAssetSummary(){
   savingAssetMovementHint.hidden=s.bankExternal<=.005&&Math.abs(creditChange)<=.005&&projectReallocation<=.005;
   savingAssetMovementHint.textContent=[
     projectReallocation>.005
-      ?`专项内部调拨带来的资产回补 ${M(projectReallocation)} 已计入真实储蓄余额，但不计入本期预计可存。`
+      ?`历史专项垫款回补及内部资金调拨共 ${M(projectReallocation)}，已反映在账户余额中，不计入本期新存下的钱。`
       :"",
     s.bankExternal>.005
       ?`本期录入的外部银行本金 ${M(s.bankExternal)} 已计入资产总额，本期净存入已剔除既有本金。`
