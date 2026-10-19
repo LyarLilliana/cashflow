@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-80-saving-project-settlement-unified";
+const CACHE = "safespend-v10-81-transfer-spent-savings-source";
 const ASSETS = [
   "./",
   "./index.html",
