@@ -8223,16 +8223,16 @@ function renderSavingStats(){
   savingShortInterestPart.textContent=M(s.short.interest);
   savingShortUsePart.textContent=s.short.used>0?`-${M(s.short.used)}`:M(0);
   savingProjectRepayPart.textContent=s.short.projectRepay>0?`-${M(s.short.projectRepay)}`:M(0);
-  savingGrowthTotal.textContent=M(s.expected-N(s.internalProjectReallocation));
-  savingGrowthTotal.style.color=s.expected<0?"var(--warn)":"var(--accent)";
+  savingGrowthTotal.textContent=M(s.cashflowGrowth);
+  savingGrowthTotal.style.color=s.cashflowGrowth<0?"var(--warn)":"var(--accent)";
 
   savingGrowthTitle.textContent=cycleMode?"当前周期储蓄资金流水":"期间储蓄资金流水";
   savingGrowthMeta.textContent="本表记录存入、取用与账户间转存。净变化以账户期初、期末资产差额和待结算结余统一计算。";
   savingIncreaseTitle.textContent=cycleMode?"当前周期构成":"增加";
   savingAdjustTitle.textContent=cycleMode?"范围调整":"调整";
   savingUseLabel.textContent=cycleMode?"储蓄兜底 / 直接取用（参考）":"储蓄取用 / 超支扣减";
-  savingGrowthTotalLabel.textContent="期间储蓄资产预计净变化";
-  savingGrowthNote.textContent=`储蓄余额账户变化 ${M(s.dailyAfterBank)} + 短期储蓄账户变化 ${M(s.shortTotal)} + 银行资产变化 ${M(s.bankTotal)} = ${M(s.expected)}。本期已存入 ${M(s.grossSaved)}，账户转存属于资金位置调整。`;
+  savingGrowthTotalLabel.textContent="所选期间预计可存（净变化）";
+  savingGrowthNote.textContent=`账户资产预计变动 ${M(s.expected)}；专项内部资金重归属 ${M(s.internalProjectReallocation)}、外部已有银行本金 ${M(s.bankExternal)}、预估银行利息 ${M(s.interestGrowth)} 分开核算，信用调整 ${M(s.creditImpact)}；本期预计可存 ${M(s.cashflowGrowth)}。各账户实际余额照常显示。`;
 
   savingChangeList.innerHTML=events.length
     ?events.slice(0,30).map(ev=>`
