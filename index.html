@@ -7973,6 +7973,25 @@ function filteredSavingChangeEvents(start="",end=""){
   });
 }
 
+// 项目内部资金重归属不属于本统计周期新赚到或新省下的钱。
+function projectInternalSavingReallocationForRange(start="",end=""){
+  const inRange=date=>{
+    const d=String(date||"");
+    return !!d&&d<=td()&&(!start||d>=start)&&(!end||d<=end);
+  };
+  const effects=accounting().effects;
+  return sm(
+    S.tx.filter(t=>t.type==="project_transfer"&&inRange(t.date)),
+    t=>{
+      const e=effects[t.id]||{};
+      // 转入储蓄为专项本金重分类；转入另一专项时，优先偿还
+      // 既往由储蓄/零花垫付的支出。这些资金仍真实过账，但不构成本期新增储蓄。
+      const direct=t.toProjectId==="__saving__"?N(e.projectTransfer):0;
+      return direct+N(e.projectAdvanceReimbursed)+N(e.projectPocketReimbursed);
+    }
+  );
+}
+
 function savingSummaryForRange(start="",end="",cycleMode=false){
   const range={start,end};
   const raw=expectedSavingGrowthForRange(start,end,cycleMode);
@@ -8003,7 +8022,12 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   // not new savings originating from current income.
   const creditImpact=(typeof creditSavingAdjustmentForRange==="function"
     ?creditSavingAdjustmentForRange(start,end):0);
-  const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth+creditImpact;
+  const internalProjectReallocation=projectInternalSavingReallocationForRange(start,end);
+  // “本周期预计可存”衡量本期储蓄成果，不把专项之间的调拨、
+  // 专项转储蓄或专项补偿历史垫付款误认为新存入。
+  // 真实普通储蓄、专项及银行资产仍按完整资金流水过账。
+  const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth
+    +creditImpact-internalProjectReallocation;
   const pocketClosedThisRange=Math.max(0,N(raw.pocketClosed)-priorCycleCarry);
   const grossSaved=
     N(raw.recurringIncomeSaving)+N(raw.oneOffIncomeSaving)
@@ -8025,7 +8049,7 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
     dailyAfterBank,
     short:shortFlowForRange(start,end),
     shortTotal,bankPrincipal,bankTotal,interestGrowth,
-    pendingPocket,expected,cashflowGrowth,creditImpact,grossSaved
+    pendingPocket,expected,cashflowGrowth,creditImpact,internalProjectReallocation,grossSaved
   };
 }
 
@@ -8118,8 +8142,12 @@ function renderSavingAssetSummary(){
   savingBankTotal.textContent=M(s.bankTotal);
   savingBankTotal.style.color=s.bankTotal<-.005?"var(--muted)":"var(--text)";
   const creditChange=N(s.creditImpact);
-  savingAssetMovementHint.hidden=s.bankExternal<=.005&&Math.abs(creditChange)<=.005;
+  const projectReallocation=N(s.internalProjectReallocation);
+  savingAssetMovementHint.hidden=s.bankExternal<=.005&&Math.abs(creditChange)<=.005&&projectReallocation<=.005;
   savingAssetMovementHint.textContent=[
+    projectReallocation>.005
+      ?`专项内部调拨带来的资产回补 ${M(projectReallocation)} 已计入真实储蓄余额，但不计入本期预计可存。`
+      :"",
     s.bankExternal>.005
       ?`本期录入的外部银行本金 ${M(s.bankExternal)} 已计入资产总额，本期净存入已剔除既有本金。`
       :"",
@@ -8195,7 +8223,7 @@ function renderSavingStats(){
   savingShortInterestPart.textContent=M(s.short.interest);
   savingShortUsePart.textContent=s.short.used>0?`-${M(s.short.used)}`:M(0);
   savingProjectRepayPart.textContent=s.short.projectRepay>0?`-${M(s.short.projectRepay)}`:M(0);
-  savingGrowthTotal.textContent=M(s.expected);
+  savingGrowthTotal.textContent=M(s.expected-N(s.internalProjectReallocation));
   savingGrowthTotal.style.color=s.expected<0?"var(--warn)":"var(--accent)";
 
   savingGrowthTitle.textContent=cycleMode?"当前周期储蓄资金流水":"期间储蓄资金流水";
