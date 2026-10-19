@@ -7738,6 +7738,16 @@ function savingChangeEvents(){
 
   S.tx.forEach(t=>{
     const date=t.date||"";
+    const projectReimbursement=N(effects[t.id]?.projectAdvanceReimbursed);
+    if(projectReimbursement>.005){
+      const destination=S.projects.find(p=>p.id===(t.toProjectId||t.projectId));
+      events.push({
+        id:"projectReimburse_"+t.id,date,
+        name:`专项垫付款回补 · ${destination?.name||"专项"}`,
+        meta:"专项重新获得资金，已由储蓄垫付的历史支出同步回补",
+        amount:projectReimbursement,impact:projectReimbursement,mode:"pos"
+      });
+    }
     if(date>td()&&["short_transfer","pocket_to_short","extra_saving","short_interest","short_spend"].includes(t.type)){
       const destination=t.shortAccountId?` · ${shortSavingsAccountLabel(t.shortAccountId)}`:"";
       events.push({
