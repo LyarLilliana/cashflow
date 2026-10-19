@@ -2181,8 +2181,8 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <div class="savingOverviewCaption" id="savingCashflowHint">银行预估利息已计入总额</div>
         </div>
         <div class="savingOverviewAssetTotals" aria-label="当前储蓄分布">
-          <strong id="savingOrdinaryCurrent" hidden></strong>
-          <div class="savingOverviewAssetRow"><span>短期锁定储蓄</span><strong id="savingCurrentShortAssets">¥0</strong></div>
+          <div class="savingOverviewAssetRow"><span>已存待转存</span><strong id="savingOrdinaryCurrent">¥0</strong></div>
+          <strong id="savingCurrentShortAssets" hidden></strong>
           <div class="savingOverviewAssetRow"><span>银行资产</span><strong id="savingCurrentBankAssets">¥0</strong></div>
         </div>
         <div class="savingOverviewPeriod" aria-live="polite">
@@ -2194,14 +2194,14 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <summary>查看本期变化与对账<span aria-hidden="true" class="disclosureState">⌄</span></summary>
           <div class="savingOverviewBreakdownBody">
             <div class="savingOverviewDetailTitle">账户变动（所选期间）</div>
-            <div class="explainRow"><span>储蓄余额变动</span><strong id="savingFreePrincipal">¥0</strong></div>
-            <div class="explainRow"><span>短期储蓄变动</span><strong id="savingShortChange">¥0</strong></div>
+            <div class="explainRow"><span>待转存资金预计变动</span><strong id="savingFreePrincipal">¥0</strong></div>
+            <strong id="savingShortChange" hidden></strong>
             <div class="explainRow"><span>银行资产变动</span><strong id="savingBankTotal">¥0</strong></div>
             <div class="savingOverviewTransferNote" id="savingAssetMovementHint" hidden></div>
             <details class="savingReconcileDetails">
               <summary>查看详细计算<span aria-hidden="true" class="disclosureState">⌄</span></summary>
               <div class="savingReconcileInner">
-                <div class="savingOverviewDetailTitle">储蓄余额</div>
+                <div class="savingOverviewDetailTitle">储蓄资金变动明细</div>
                 <div class="explainRow"><span id="savingCyclePlannedLabel">期间实际变动</span><strong id="savingCyclePlanned">¥0</strong></div>
                 <div class="explainRow"><span id="savingCycleRemainderLabel">预计结余</span><strong id="savingCycleRemainder">¥0</strong></div>
                 <div class="explainRow"><span>转入银行</span><strong id="savingDailyBankTransfer">¥0</strong></div>
@@ -8077,10 +8077,10 @@ function renderSavingAssetSummary(){
   savingGrandTotal.style.color=current.total<-.005?"var(--danger)":"var(--accent)";
   savingCashflowHint.textContent=current.bankInterest>.005
     ?`银行资产含预估利息 ${M(current.bankInterest)}`
-    :"储蓄余额、短期储蓄与银行资产合计";
+    :"已存待转存资金与银行资产合计";
 
-  savingOrdinaryCurrent.textContent=M(current.ordinary);
-  savingOrdinaryCurrent.style.color=current.ordinary<-.005?"var(--danger)":"var(--text)";
+  savingOrdinaryCurrent.textContent=M(current.ordinary+current.short);
+  savingOrdinaryCurrent.style.color=current.ordinary+current.short<-.005?"var(--danger)":"var(--text)";
   savingCurrentShortAssets.textContent=M(current.short);
   savingCurrentShortAssets.style.color=current.short<-.005?"var(--danger)":"var(--text)";
   savingCurrentBankAssets.textContent=M(current.bank);
@@ -8103,8 +8103,8 @@ function renderSavingAssetSummary(){
   savingPendingNotice.textContent=s.pendingPocket>.005
     ?`另有预计待结转 ${M(s.pendingPocket)}，结算后才会进入储蓄余额。`:"";
 
-  savingFreePrincipal.textContent=M(s.dailyAfterBank);
-  savingFreePrincipal.style.color=s.dailyAfterBank<-.005?"var(--muted)":"var(--text)";
+  savingFreePrincipal.textContent=M(s.dailyAfterBank+s.shortTotal);
+  savingFreePrincipal.style.color=s.dailyAfterBank+s.shortTotal<-.005?"var(--muted)":"var(--text)";
   savingShortChange.textContent=M(s.shortTotal);
   savingShortChange.style.color=s.shortTotal<-.005?"var(--muted)":"var(--text)";
   savingBankTotal.textContent=M(s.bankTotal);
@@ -8120,7 +8120,7 @@ function renderSavingAssetSummary(){
       :""
   ].filter(Boolean).join(" ");
 
-  savingCyclePlannedLabel.textContent="储蓄余额实际变动";
+  savingCyclePlannedLabel.textContent="可调配部分实际变动";
   savingCycleRemainderLabel.textContent="预计零花结余";
   savingCyclePlanned.textContent=M(s.ordinaryBooked);
   savingCycleRemainder.textContent=M(s.pendingPocket);
