@@ -2268,7 +2268,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="divider"></div>
 
         <div class="bankReminderRows">
-          <div class="explainRow"><span>当前已存储蓄</span><strong id="bankReminderCurrent">¥0</strong></div>
+          <div class="explainRow"><span>当前已存储蓄<span id="bankReminderComposition" style="display:block;font-size:10.5px;color:var(--muted);margin-top:3px"></span></span><strong id="bankReminderCurrent">¥0</strong></div>
           <div class="explainRow"><span>本周期待结转零花</span><strong id="bankReminderPending">¥0</strong></div><div class="explainRow"><span>预计累计可转存</span><strong id="bankReminderExpected">¥0</strong></div>
           <div class="explainRow"><span>设定转存额度</span><strong id="bankReminderTarget">未设置</strong></div>
           <div class="explainRow total"><span id="bankReminderGapLabel">距离提醒额度</span><strong id="bankReminderGap">—</strong></div>
@@ -3274,16 +3274,21 @@ function projectFunded(p){
     t=>N(t.amount)
   );
   const savingFunded=sm(S.tx.filter(t=>t.type==="saving_to_project"&&t.projectId===p.id),t=>N(t.amount));
-  // 专项间调拨只重新分配已备资金，不新增收入或支出。
+  // 已备记录累计投入到专项的本金：调拨转出保留在原专项已备账本，
+  // 同时计入该专项的“已花”。真正的余额变动只在 accounting() 中发生一次。
   const transferIn=sm(S.tx.filter(t=>t.type==="project_transfer"&&t.toProjectId===p.id),t=>N(t.amount));
-  const transferOut=sm(S.tx.filter(t=>t.type==="project_transfer"&&t.fromProjectId===p.id),t=>N(t.amount));
-  return N(p.initialFund)+incomeFunded+pocketFunded+savingFunded+transferIn-transferOut;
+  return N(p.initialFund)+incomeFunded+pocketFunded+savingFunded+transferIn;
 }
 function projectSpent(p){
-  // 日常支出借用专项资金与专项本身的真实消费分开统计。
-  return sm(S.tx.filter(t=>
+  // 专项内部的已花 = 实际消费 + 从本专项调出去的金额。
+  // 调拨仅属于专项内部预算消耗，全局消费/储蓄净变化均不重复计支出。
+  const consumed=sm(S.tx.filter(t=>
     t.type==="expense"&&t.bucket==="project"&&t.refId===p.id&&!t.projectBorrow
   ),t=>N(t.amount));
+  const transferred=sm(S.tx.filter(t=>
+    t.type==="project_transfer"&&t.fromProjectId===p.id
+  ),t=>N(t.amount));
+  return consumed+transferred;
 }
 function projectPlannedExpenses(p){
   return [...(p?.plannedExpenses||[])].sort((a,b)=>{
@@ -5594,6 +5599,8 @@ function projectFinanceDetailHtml(p,a){
   const borrowRows=S.tx.filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id&&t.projectBorrow)
     .sort((a,b)=>(String(b.date)+String(b.id)).localeCompare(String(a.date)+String(a.id)));
   const spent=projectSpent(p);
+  const consumed=sm(expenses,t=>N(t.amount));
+  const transferredOut=Math.max(0,spent-consumed);
   const repayState=projectRepaymentTotals(p.id);
   const pendingRepay=projectRepayPending(p.id);
   const available=Math.max(0,N(a.projects[p.id]||0));
@@ -5696,6 +5703,7 @@ const expenseHtml=expenses.length
       <div class="projectFinanceFocusItem spent">
         <span>已花</span>
         <strong>${M(spent)}</strong>
+        ${transferredOut>.005?`<div class="projectLedgerMeta" style="margin-top:3px">含调拨转出 ${M(transferredOut)}</div>`:""}
       </div>
     </div>
 
@@ -5717,7 +5725,7 @@ const expenseHtml=expenses.length
       ${overBudget>0?`<span style="color:var(--danger)">已超预算 ${M(overBudget)}</span>`:""}
       ${funded>budget&&budget>0?`<span>实际已备比预算多 ${M(funded-budget)}</span>`:""}
     </div>
-    <div class="projectLedgerMeta" style="margin-top:5px">专项实际剩余 = 已规划待花 + 未规划实际可用；资金条从左到右显示实际可用、已规划待花和已花。</div>`:""}
+    <div class="projectLedgerMeta" style="margin-top:5px">专项实际剩余 = 已规划待花 + 未规划实际可用；“已花”包含从本专项调拨转出的资金，全局消费仍只按实际消费记录。</div>`:""}
 
     <details class="projectLedger">
       <summary><span>支出规划 · ${plans.length} 项 · ${M(plannedTotal)}</span></summary>
@@ -5734,7 +5742,7 @@ const expenseHtml=expenses.length
     </details>
 
     <details class="projectLedger">
-      <summary><span>支出明细 · ${expenses.length} 笔 · ${M(spent)}</span></summary>
+      <summary><span>实际消费明细 · ${expenses.length} 笔 · ${M(consumed)}</span></summary>
       ${expenseHtml}
     </details>
     ${borrowHtml}
@@ -8285,7 +8293,9 @@ function bankReminderState(){
 
   // 当前可转存储蓄只统计实际留在银行以外的储蓄资产。
   // 储蓄余额为可自由调配余额；小荷包等短期锁定储蓄为已沉淀余额。
-  const actual=Math.max(0,N(ordinarySavingsAvailable())+N(shortBalanceTotal()));
+  const otherSaved=N(ordinarySavingsAvailable());
+  const shortSaved=N(shortBalanceTotal());
+  const actual=Math.max(0,otherSaved+shortSaved);
   const pending=cycle.income&&!cycle.isClosed
     ?Math.max(0,N(cycle.pocketBalance))
     :0;
@@ -8300,7 +8310,7 @@ function bankReminderState(){
   const progress=enabled?Math.max(0,Math.min(100,expected/threshold*100)):0;
 
   return {
-    current:actual,available:actual,actual,expected,pending,
+    current:actual,available:actual,actual,expected,pending,otherSaved,shortSaved,
     threshold,enabled,ready,actualReady:ready,gap,actualGap,progress
   };
 }
@@ -8315,6 +8325,7 @@ function renderBankDepositReminder(){
   bankReminderEditBtn.hidden=!r.enabled||bankReminderEditing;
 
   bankReminderCurrent.textContent=M(r.actual);
+  bankReminderComposition.textContent=`短期储蓄 ${M(r.shortSaved)} + 其他已存 ${M(r.otherSaved)}`;
   bankReminderPending.textContent=M(r.pending);
   bankReminderExpected.textContent=M(r.expected);
   bankReminderPending.style.color=r.pending>.005?"var(--accent)":"inherit";
