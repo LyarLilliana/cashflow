@@ -2,7 +2,7 @@
 "use strict";
 const round=v=>Math.round((Number(v)||0)*100)/100;
 const $=id=>document.getElementById(id);
-const label=id=>S.projects.find(p=>p.id===id)?.name||"原专项";
+const label=id=>id==="__saving__"?"储蓄":S.projects.find(p=>p.id===id)?.name||"原专项";
 const transferRows=pid=>[...S.tx].filter(t=>t.type==="project_transfer"&&(t.fromProjectId===pid||t.toProjectId===pid))
   .sort((a,b)=>String(b.date).localeCompare(String(a.date))||txStamp(b)-txStamp(a));
 const modal=document.createElement("div");
@@ -14,7 +14,7 @@ modal.innerHTML=`
     <input type="hidden" id="projectTransferEditId">
     <div class="formGrid">
       <div><label for="projectTransferFrom">转出专项</label><select id="projectTransferFrom"></select></div>
-      <div><label for="projectTransferTo">转入专项</label><select id="projectTransferTo"></select></div>
+      <div><label for="projectTransferTo">转入专项或储蓄</label><select id="projectTransferTo"></select></div>
       <div><label for="projectTransferAmount">调拨金额</label><input id="projectTransferAmount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00"></div>
       <div><label for="projectTransferDate">调拨日期</label><input id="projectTransferDate" type="date"></div>
       <div style="grid-column:1/-1"><label for="projectTransferNote">备注（可选）</label><input id="projectTransferNote" maxlength="80" placeholder="资金用途调整"></div>
@@ -76,10 +76,10 @@ function refreshPreview(){
   if(!from||!to)return;
   const prior=transferSnapshot(date,edited);
   const available=Math.max(0,round(prior.projects[from]));
-  const targetBefore=round(prior.projects[to]);
+  const targetBefore=to==="__saving__"?round(prior.saving):round(prior.projects[to]);
   const after=simulatedTransferSnapshot(date,edited,from,to,amount);
   const afterSource=round(after.state.projects[from]);
-  const targetAfter=round(after.state.projects[to]);
+  const targetAfter=to==="__saving__"?round(after.state.saving):round(after.state.projects[to]);
   const offset=round(Math.max(0,after.moved-(targetAfter-targetBefore)));
   const planned=projectPlannedTotal(S.projects.find(p=>p.id===from));
   const shortfall=Math.max(0,planned-afterSource);
@@ -89,20 +89,20 @@ function refreshPreview(){
     (offset>.005?`<br>其中 ${M(offset)} 优先冲抵原专项历史支出垫付`:"")+
     (amount>available+.005?`<br><span style="color:var(--danger)">调拨金额超过该日期可用资金 ${M(available)}</span>`:"")+
     (shortfall>0?`<br><span style="color:var(--warn)">转出后，当前待支付规划可能存在 ${M(shortfall)} 的资金缺口</span>`:"")+
-    `<br>内部调拨只改变资金归属，原有已花记录持续计入专项余额。`;
+    `<br>${to==="__saving__"?"专项余额减少，储蓄余额增加；资金总额保持一致。":"调入资金优先冲抵历史已花支出，剩余部分成为专项可用资金。"} `;
 }
 window.openProjectTransfer=function(fromId="",editId=""){
   const tx=editId?S.tx.find(t=>t.id===editId&&t.type==="project_transfer"):null;
   if(editId&&!tx)return msg("调拨记录已更新，请重新打开");
   if(tx?.archiveId)return msg("归档结算对应的调拨请从归档记录恢复后修改");
   const current=activeProjects();
-  if(current.length<2&&!tx)return msg("至少建立两个进行中的专项才能调拨资金");
+  if(current.length<1&&!tx)return msg("请先建立一个进行中的专项");
   const source=tx?.fromProjectId||fromId||current[0]?.id;
-  const target=tx?.toProjectId||current.find(p=>p.id!==source)?.id||"";
+  const target=tx?.toProjectId||current.find(p=>p.id!==source)?.id||"__saving__";
   $("projectTransferTitle").textContent=tx?"修改专项调拨":"专项资金调拨";
   $("projectTransferEditId").value=editId;
   $("projectTransferFrom").innerHTML=optionList(source,editId);
-  $("projectTransferTo").innerHTML=optionList(target,editId);
+  $("projectTransferTo").innerHTML=optionList(target,editId)+`<option value="__saving__">储蓄</option>`;
   $("projectTransferFrom").value=source;
   $("projectTransferTo").value=target;
   $("projectTransferDate").value=tx?.date||td();
@@ -128,11 +128,11 @@ $("projectTransferConfirm").onclick=()=>{
   const editId=$("projectTransferEditId").value;
   const original=editId?S.tx.find(t=>t.id===editId):null;
   const validId=id=>S.projects.some(p=>p.id===id);
-  if(!validId(fromProjectId)||!validId(toProjectId)||fromProjectId===toProjectId)
-    return msg("请选择两个不同的有效专项");
+  if(!validId(fromProjectId)||!(validId(toProjectId)||toProjectId==="__saving__")||fromProjectId===toProjectId)
+    return msg("请选择有效的转出专项与转入去向");
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>td())return msg("请选择今天或此前的调拨日期");
   if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效的调拨金额");
-  if(!original&&[fromProjectId,toProjectId].some(id=>S.projects.find(p=>p.id===id)?.archived))
+  if(!original&&[fromProjectId,toProjectId].some(id=>id!=="__saving__"&&S.projects.find(p=>p.id===id)?.archived))
     return msg("归档专项需要先恢复");
   const preview=transferSnapshot(date,editId),available=Math.max(0,N(preview.projects[fromProjectId]));
   if(amount>available+.005)return msg(`该日期可调拨 ${M(available)}，请调整金额`);
@@ -151,7 +151,7 @@ $("projectTransferConfirm").onclick=()=>{
     return msg("此调整会使某笔调拨的当日资金不足，请调整日期或金额");
   }
   save();closeSheet("projectTransferSheet");render();
-  msg(original?"专项调拨已修改":"专项调拨已记账，历史已花部分已同步冲抵");
+  msg(original?"资金调拨已修改":"资金调拨已记账，专项已花与可用资金同步更新");
 };
 const baseFinance=projectFinanceDetailHtml;
 projectFinanceDetailHtml=function(p,a){
@@ -164,7 +164,7 @@ projectFinanceDetailHtml=function(p,a){
     </div><div class="projectLedgerAmount">${inbound?"+":"−"}${M(t.amount)}</div></div>`;
   }).join("");
   const choices=activeProjects().filter(x=>x.id!==p.id);
-  const actions=choices.length?`<button class="projectPlanAdd" type="button" onclick="event.stopPropagation();openProjectTransfer('${p.id}')">资金调拨</button>`:"";
+  const actions=!p.archived?`<button class="projectPlanAdd" type="button" onclick="event.stopPropagation();openProjectTransfer('${p.id}')">资金调拨</button>`:"";
   const transferLedger=`<details class="projectLedger" data-project-transfer-ledger>
     <summary><span>专项资金调拨 · ${rows.length} 笔</span></summary>
     ${ledger||'<div class="note" style="margin-top:8px">暂无专项间调拨记录。</div>'}
@@ -179,7 +179,7 @@ render=function(){
   if(typeof projectList==="undefined")return;
   const rows=[...projectList.querySelectorAll(":scope > .item")];
   activeProjects().forEach((p,i)=>{
-    if(!rows[i]||activeProjects().length<2)return;
+    if(!rows[i])return;
     const side=rows[i].querySelector(".row > div:last-child");
     if(!side)return;
     const button=document.createElement("button");
@@ -282,7 +282,7 @@ archiveProject=function(id){
   $("projectSettlementChoiceId").value=id;
   $("projectSettlementChoiceHint").textContent=`${p.name} 当前结余 ${M(available)}，请选择资金去向。`;
   $("projectSettlementDestination").innerHTML=
-    `<option value="saving">日常可用储蓄（默认）</option>`+
+    `<option value="saving">储蓄（默认）</option>`+
     activeProjects().filter(x=>x.id!==id).map(x=>`<option value="project:${esc(x.id)}">${esc(x.name)}</option>`).join("")+
     `<option value="keep">保留在当前专项（继续进行中）</option>`;
   settle.classList.add("show");
