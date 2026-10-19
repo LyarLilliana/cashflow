@@ -5569,12 +5569,13 @@ function restoreProject(id){
 
 function projectExpenseRows(p){
   return S.tx
-    .filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id)
+    .filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id&&!t.projectBorrow)
     .sort((a,b)=>(String(b.date)+String(b.id)).localeCompare(String(a.date)+String(a.id)));
 }
 
-function projectExpenseBreakdown(t){
-  const over=Math.max(0,N(t.projectOverrunAmount));
+function projectExpenseBreakdown(t,effect){
+  // Read actual payment allocation from the ledger, including legacy expenses.
+  const over=Math.max(0,N(effect?.overPlan??t.projectOverrunAmount));
   const fromProject=Math.max(0,N(t.amount)-over);
   const overSource=t.projectOverrunSource==="safe"
     ?"零花钱"
@@ -5589,6 +5590,8 @@ function projectFinanceDetailHtml(p,a){
   const budget=Math.max(0,N(p.budget));
   const funded=Math.max(0,projectFunded(p));
   const expenses=projectExpenseRows(p);
+  const borrowRows=S.tx.filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id&&t.projectBorrow)
+    .sort((a,b)=>(String(b.date)+String(b.id)).localeCompare(String(a.date)+String(a.id)));
   const spent=projectSpent(p);
   const repayState=projectRepaymentTotals(p.id);
   const pendingRepay=projectRepayPending(p.id);
@@ -5641,12 +5644,10 @@ function projectFinanceDetailHtml(p,a){
     :'<div class="note" style="margin-top:8px">还没有预先规划的专项支出。</div>';
 const expenseHtml=expenses.length
     ?expenses.map(t=>{
-      const b=projectExpenseBreakdown(t);
-      const sourceText=t.projectBorrow
-        ?(t.projectBorrowTemporary?"临时挪用 · 单独核算":"专项挪用 · 日常消费")
-        :b.over>0
-          ?`专项 ${M(b.fromProject)} + ${b.overSource} ${M(b.over)}`
-          :`专项资金 ${M(b.fromProject)}`;
+      const b=projectExpenseBreakdown(t,a.effects[t.id]);
+      const sourceText=b.over>0
+        ?`当时专项支付 ${M(b.fromProject)} · ${b.overSource}垫付 ${M(b.over)}`
+        :`专项资金 ${M(b.fromProject)}`;
       return `<div class="projectLedgerRow">
         <div class="projectLedgerInfo">
           <div class="projectLedgerName">${esc(t.note||"专项支出")}</div>
@@ -5662,6 +5663,22 @@ const expenseHtml=expenses.length
       </div>`;
     }).join("")
     :'<div class="note" style="margin-top:8px">还没有专项支出记录。</div>';
+  const borrowHtml=borrowRows.length
+    ?`<details class="projectLedger">
+      <summary><span>专项挪用明细 · ${borrowRows.length} 笔 · ${M(sm(borrowRows,t=>N(t.amount)))}</span></summary>
+      ${borrowRows.map(t=>`<div class="projectLedgerRow">
+        <div class="projectLedgerInfo">
+          <div class="projectLedgerName">${esc(t.note||"临时挪用")}</div>
+          <div class="projectLedgerMeta">${t.date} · ${t.projectBorrowTemporary?"临时挪用":"日常挪用"} · 独立于专项实际消费</div>
+        </div>
+        <div class="projectLedgerAmount">-${M(t.amount)}
+          <div class="projectPlanActions">
+            <button onclick="event.stopPropagation();openTxEdit('${t.id}')">修改</button>
+          </div>
+        </div>
+      </div>`).join("")}
+      </details>`
+    :"";
 
   return `<div class="projectFinanceBox">
     <div class="projectFinanceNumbers">
@@ -5719,6 +5736,7 @@ const expenseHtml=expenses.length
       <summary><span>支出明细 · ${expenses.length} 笔 · ${M(spent)}</span></summary>
       ${expenseHtml}
     </details>
+    ${borrowHtml}
   </div>`;
 }
 
