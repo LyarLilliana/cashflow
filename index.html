@@ -7548,17 +7548,16 @@ function savingStatsForRange(start="",end=""){
   const projectTransfers=S.tx.filter(t=>t.type==="pocket_to_project"&&inRange(t.date));
   const pocketToProject=sm(projectTransfers,t=>N(t.amount));
 
+  const engineEffects=accounting().effects;
   const projectSettlements=S.tx.filter(t=>(t.type==="project_settlement"||(t.type==="project_transfer"&&t.toProjectId==="__saving__"))&&inRange(t.date));
   const projectSurplus=sm(projectSettlements,t=>t.type==="project_transfer"
-    ?N(engineEffectsForProjectTransfer(t.id)):N(t.amount));
+    ?N(engineEffects[t.id]?.projectTransfer):N(t.amount));
 
-  const engineEffectsForProjectTransfer=id=>N(accounting().effects[id]?.projectTransfer);
   const extras=S.tx.filter(t=>t.type==="extra_saving"&&inRange(t.date));
   const extra=sm(extras,t=>N(t.amount));
 
   // A positive pocket balance only becomes real savings when the next recurring
   // income closes the previous cycle. Attribute it to the closure date.
-  const engineEffects=accounting().effects;
   const closeEvents=virtualCycleCloseEvents().filter(t=>inRange(t.date));
   const pocketClosed=sm(closeEvents,t=>N(engineEffects[t.id]?.cycleCloseSaving));
   const expenses=S.tx.filter(t=>t.type==="expense"&&inRange(t.date));
