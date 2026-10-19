@@ -58,6 +58,16 @@ function transferSnapshot(date,editId){
   S.tx=before.filter(x=>x.id!==editId);
   try{return accounting(date)}finally{S.tx=before}
 }
+function simulatedTransferSnapshot(date,editId,fromProjectId,toProjectId,amount){
+  const before=S.tx;
+  const simulated={id:"pt9999999999999preview",type:"project_transfer",
+    date,fromProjectId,toProjectId,amount};
+  S.tx=[...before.filter(x=>x.id!==editId),simulated];
+  try{
+    const state=accounting(date);
+    return {state,moved:Math.max(0,N(state.effects[simulated.id]?.projectTransfer))};
+  }finally{S.tx=before;}
+}
 function refreshPreview(){
   const from=$("projectTransferFrom").value,to=$("projectTransferTo").value;
   const date=$("projectTransferDate").value||td();
@@ -67,15 +77,19 @@ function refreshPreview(){
   const prior=transferSnapshot(date,edited);
   const available=Math.max(0,round(prior.projects[from]));
   const targetBefore=round(prior.projects[to]);
-  const afterSource=Math.max(0,available-amount);
+  const after=simulatedTransferSnapshot(date,edited,from,to,amount);
+  const afterSource=round(after.state.projects[from]);
+  const targetAfter=round(after.state.projects[to]);
+  const offset=round(Math.max(0,after.moved-(targetAfter-targetBefore)));
   const planned=projectPlannedTotal(S.projects.find(p=>p.id===from));
   const shortfall=Math.max(0,planned-afterSource);
   $("projectTransferPreview").innerHTML=
     `${esc(label(from))}：${M(available)} → ${M(afterSource)}<br>`+
-    `${esc(label(to))}：${M(targetBefore)} → ${M(targetBefore+amount)}`+
+    `${esc(label(to))}：${M(targetBefore)} → ${M(targetAfter)}`+
+    (offset>.005?`<br>其中 ${M(offset)} 优先冲抵原专项历史支出垫付`:"")+
     (amount>available+.005?`<br><span style="color:var(--danger)">调拨金额超过该日期可用资金 ${M(available)}</span>`:"")+
     (shortfall>0?`<br><span style="color:var(--warn)">转出后，当前待支付规划可能存在 ${M(shortfall)} 的资金缺口</span>`:"")+
-    `<br>专项资金总额保持一致，实际消费与本周期预计可存保持原有结果。`;
+    `<br>内部调拨只改变资金归属，原有已花记录持续计入专项余额。`;
 }
 window.openProjectTransfer=function(fromId="",editId=""){
   const tx=editId?S.tx.find(t=>t.id===editId&&t.type==="project_transfer"):null;
@@ -137,7 +151,7 @@ $("projectTransferConfirm").onclick=()=>{
     return msg("此调整会使某笔调拨的当日资金不足，请调整日期或金额");
   }
   save();closeSheet("projectTransferSheet");render();
-  msg(original?"专项调拨已修改":"专项资金已调拨，收支与储蓄统计保持一致");
+  msg(original?"专项调拨已修改":"专项调拨已记账，历史已花部分已同步冲抵");
 };
 const baseFinance=projectFinanceDetailHtml;
 projectFinanceDetailHtml=function(p,a){
