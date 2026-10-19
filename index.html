@@ -2315,7 +2315,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <div class="summaryRow"><span>周期结束结余</span><strong id="savingCycleClosePart">¥0</strong></div>
           <div class="summaryRow"><span>当前周期预计结余</span><strong id="savingPendingPart">¥0</strong></div>
           <div class="summaryRow"><span>零花钱转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
-          <div class="summaryRow"><span>专项结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
+          <div class="summaryRow"><span>专项调拨与结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
           <div class="summaryRow"><span>额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
           <div class="summaryRow"><span>外部存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
           <div class="summaryRow"><span>银行预估利息</span><strong id="savingInterestGrowthPart">¥0</strong></div>
@@ -7548,9 +7548,11 @@ function savingStatsForRange(start="",end=""){
   const projectTransfers=S.tx.filter(t=>t.type==="pocket_to_project"&&inRange(t.date));
   const pocketToProject=sm(projectTransfers,t=>N(t.amount));
 
-  const projectSettlements=S.tx.filter(t=>t.type==="project_settlement"&&inRange(t.date));
-  const projectSurplus=sm(projectSettlements,t=>N(t.amount));
+  const projectSettlements=S.tx.filter(t=>(t.type==="project_settlement"||(t.type==="project_transfer"&&t.toProjectId==="__saving__"))&&inRange(t.date));
+  const projectSurplus=sm(projectSettlements,t=>t.type==="project_transfer"
+    ?N(engineEffectsForProjectTransfer(t.id)):N(t.amount));
 
+  const engineEffectsForProjectTransfer=id=>N(accounting().effects[id]?.projectTransfer);
   const extras=S.tx.filter(t=>t.type==="extra_saving"&&inRange(t.date));
   const extra=sm(extras,t=>N(t.amount));
 
@@ -7803,6 +7805,16 @@ function savingChangeEvents(){
         impact:N(t.amount),
         mode:"pos"
       });
+      return;
+    }
+
+    if(t.type==="project_transfer"&&t.toProjectId==="__saving__"){
+      const p=S.projects.find(x=>x.id===t.fromProjectId);
+      const amount=N(effects[t.id]?.projectTransfer);
+      events.push({id:t.id,date,
+        name:`专项转入储蓄 · ${p?.name||"专项"}`,
+        meta:t.note||"专项已备资金转入储蓄，计入储蓄余额",
+        amount,impact:amount,mode:"pos"});
       return;
     }
 
