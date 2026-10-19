@@ -89,7 +89,7 @@ function refreshPreview(){
     (offset>.005?`<br>其中 ${M(offset)} 优先冲抵原专项历史支出垫付`:"")+
     (amount>available+.005?`<br><span style="color:var(--danger)">调拨金额超过该日期可用资金 ${M(available)}</span>`:"")+
     (shortfall>0?`<br><span style="color:var(--warn)">转出后，当前待支付规划可能存在 ${M(shortfall)} 的资金缺口</span>`:"")+
-    `<br>${to==="__saving__"?"专项余额减少，储蓄余额增加；资金总额保持一致。":"调入资金优先冲抵历史已花支出，剩余部分成为专项可用资金。"} `;
+    `<br>${to==="__saving__"?"调出金额计入原专项已花、进入储蓄；资产总额不变。":"调出金额计入原专项已花；调入资金优先冲抵目标专项历史支出，余款成为可用资金。"}`;
 }
 window.openProjectTransfer=function(fromId="",editId=""){
   const tx=editId?S.tx.find(t=>t.id===editId&&t.type==="project_transfer"):null;
@@ -160,7 +160,7 @@ projectFinanceDetailHtml=function(p,a){
     const inbound=t.toProjectId===p.id,partner=inbound?t.fromProjectId:t.toProjectId;
     return `<div class="projectLedgerRow"><div class="projectLedgerInfo">
       <div class="projectLedgerName">${inbound?"从":"转给"} ${esc(label(partner))}</div>
-      <div class="projectLedgerMeta">${t.date}${t.note?" · "+esc(t.note):""}${t.archiveId?" · 结算归档":""}</div>
+      <div class="projectLedgerMeta">${t.date} · ${inbound?"计入专项已备":"计入本专项已花"}${t.note?" · "+esc(t.note):""}${t.archiveId?" · 结算归档":""}</div>
     </div><div class="projectLedgerAmount">${inbound?"+":"−"}${M(t.amount)}</div></div>`;
   }).join("");
   const choices=activeProjects().filter(x=>x.id!==p.id);
