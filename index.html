@@ -1899,7 +1899,8 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .shortBalanceEdit{
   display:inline-flex;align-items:center;gap:5px;flex:none;
   background:transparent;border:0;padding:5px 0 5px 8px;
-  color:var(--text);font:inherit;font-size:13px;font-weight:800;cursor:pointer
+  color:var(--text);font:inherit;font-size:16px;font-weight:800;cursor:pointer;
+  white-space:nowrap
 }
 .shortBalanceEdit span{color:var(--muted);font-size:11px;font-weight:500}
 /* 短期储蓄：紧凑账户卡片 */
@@ -6615,6 +6616,14 @@ function expenseSourceLabel(t){
 }
 
 function txHtml(t,del=false,edit=false,effects=null){
+  if(t.type==="short_balance_adjustment"){
+    const actual=Number.isFinite(Number(t.targetBalance))?N(t.targetBalance):"";
+    const summary=actual===""?"余额已校准":`账户实际余额 ${M(actual)}`;
+    return `<div class="item"><div class="txRow"><div class="txLeft">
+      <div class="name">短期储蓄余额校准 · ${esc(shortSavingsAccountLabel(t.shortAccountId))}</div>
+      <div class="meta">${esc(t.date||"")} · ${summary} · 账实修正，不是新收入${t.note?" · "+esc(t.note):""}</div>
+    </div><div class="txRight"><div class="txAmount txMuted">${N(t.delta)>=0?"+":"−"}${M(Math.abs(N(t.delta)))}</div></div></div></div>`;
+  }
   if(t.type==="project_funding_view"){
     return `<div class="item"><div class="txRow">
       <div class="txLeft"><div class="name">${t.repayment?"专项挪用补回":"专项存入"} · ${esc(t.projectName)}</div>
@@ -6839,6 +6848,7 @@ function transactionActionTitle(t){
         ?"基础生活标准调整"
         :"基础生活标准新增";
   }
+  if(t.type==="short_balance_adjustment")return `短期储蓄余额校准 · ${shortSavingsAccountLabel(t.shortAccountId)}`;
   if(t.type==="extra_saving")return t.shortAccountId?`额外锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`:"额外储蓄";
   if(t.type==="pocket_to_short")return `零花钱存入锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`;
   if(t.type==="pocket_to_saving")return "零花钱转储蓄";
@@ -6934,6 +6944,8 @@ txActionDeleteBtn.onclick=()=>{
 
   if(["project_settlement","project_archive","project_restore"].includes(t.type)){
     removeProjectTimelineTx(id);
+  }else if(t.type==="short_balance_adjustment"){
+    deleteShortBalanceAdjustment(id,true);
   }else if(["short_transfer","short_interest","short_spend"].includes(t.type)){
     deleteShortRecord(id,true);
   }else{
@@ -7247,6 +7259,7 @@ function transactionSearchText(t){
 
   if(t.type==="living_settlement")parts.push("基础生活 结算");
   if(t.type==="living_batch")parts.push("多日 基础生活 买菜 分摊 预付");
+  if(t.type==="short_balance_adjustment")parts.push("短期储蓄 余额 校准 修正 实际金额",shortSavingsAccountLabel(t.shortAccountId),t.priorBalance,t.targetBalance,t.delta);
   if(t.type==="extra_saving")parts.push("额外储蓄");
   if(t.type==="pocket_to_saving")parts.push("零花钱转储蓄");
   if(t.type==="pocket_to_short")parts.push("小荷包 锁定储蓄 零花钱转存");
@@ -8937,6 +8950,21 @@ saveShortTransfer.onclick=()=>{
   }
   save();closeSheet("shortTransferSheet");render();msg("短期储蓄记录已保存");
 };
+function deleteShortBalanceAdjustment(id,alreadyConfirmed=false){
+  const t=S.tx.find(x=>x.id===id&&x.type==="short_balance_adjustment");
+  if(!t)return;
+  if(!alreadyConfirmed&&!confirm("撤销这次短期储蓄余额校准？"))return;
+  const checkpoints=walletFundingCheckDates(t.date||td());
+  const before=walletFundingSnapshots(checkpoints);
+  const previous=[...S.tx];
+  S.tx=S.tx.filter(x=>x.id!==id);
+  if(!shortLedgerValid(t.shortAccountId)
+    ||!walletFundingRemainsCovered(before,walletFundingSnapshots(checkpoints))){
+    S.tx=previous;
+    return msg("撤销校准将导致已有转存或后续资金不足，请先调整关联记录");
+  }
+  save();render();msg("已撤销余额校准，短期储蓄账户重新按剩余流水计算");
+}
 function deleteShortRecord(id,alreadyConfirmed=false){
   const t=S.tx.find(x=>x.id===id);
   if(!t||!["short_transfer","short_interest","short_spend"].includes(t.type))return;
