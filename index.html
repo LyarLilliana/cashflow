@@ -3694,6 +3694,7 @@ function shortAccountBalance(id,asOf=td(),excludeBankId=""){
     if(t.shortAccountId!==id||!t.date||t.date>asOf)return;
     const a=N(t.amount);
     if(t.type==="short_transfer")n+=t.direction==="in"?a:-a;
+    if(t.type==="project_transfer"&&t.toProjectId==="__saving__"&&t.savingDestination==="short")n+=a;
     if(t.type==="pocket_to_short")n+=a;
     if(t.type==="extra_saving"&&t.shortAccountId)n+=a;
     if(t.type==="short_interest")n+=a;
@@ -4047,7 +4048,10 @@ function accounting(asOf=td()){
       const moved=Math.min(asked,available);
       projects[t.fromProjectId]=N(projects[t.fromProjectId]||0)-moved;
       effects[t.id]={projectTransfer:moved,projectTransferShortfall:Math.max(0,asked-moved)};
-      if(t.toProjectId==="__saving__")saving+=moved;
+      if(t.toProjectId==="__saving__"){
+         // Named short/bank ledgers hold the transferred money; do not add ordinary savings.
+         if(!["short","bank"].includes(t.savingDestination))saving+=moved;
+       }
       else creditProjectFunding(t.toProjectId,moved,t.id);
       return;
     }
@@ -7419,6 +7423,28 @@ function enhanceCollapsibleSections(){
 function activeBankDeposits(){
   return (S.deposits||[]).filter(d=>N(d.principal)>0);
 }
+function bankProjectTransferRows(id){
+  return S.tx.filter(t=>t.type==="project_transfer"&&t.toProjectId==="__saving__"
+    &&t.savingDestination==="bank"&&t.bankDepositId===id);
+}
+function bankProjectIncludedPrincipal(d){
+  return sm(bankProjectTransferRows(d.id).filter(t=>t.bankTransferMode!=="increase"),t=>N(t.amount));
+}
+function bankProjectAddedPrincipal(d,asOf=td()){
+  if(d.startDate&&d.startDate>asOf)return 0;
+  return sm(bankProjectTransferRows(d.id).filter(t=>t.bankTransferMode==="increase"
+    &&t.date&&t.date<=asOf&&(!d.startDate||t.date>=d.startDate)),t=>N(t.amount));
+}
+function bankDepositPrincipalAt(d,asOf=td()){
+  if(d.startDate&&d.startDate>asOf)return 0;
+  return N(d.principal)+bankProjectAddedPrincipal(d,asOf);
+}
+function bankProjectAddedForRange(start="",end=""){
+  const limit=end&&end<td()?end:td();
+  return sm(S.tx.filter(t=>t.type==="project_transfer"&&t.toProjectId==="__saving__"
+    &&t.savingDestination==="bank"&&t.bankTransferMode==="increase"
+    &&t.date&&t.date<=limit&&(!start||t.date>=start)),t=>N(t.amount));
+}
 function startedBankDeposits(asOf=td()){
   return activeBankDeposits().filter(d=>!d.startDate||d.startDate<=asOf);
 }
@@ -7446,22 +7472,19 @@ function depositRenewalLabel(d){
 }
 
 function depositAccruedInterest(d,asOf=td()){
-  const principal=N(d.principal);
-  const rate=N(d.annualRate);
-  const start=d.startDate;
-
-  if(principal<=0||rate<=0||!start||asOf<=start)return 0;
-
+  const rate=N(d.annualRate),start=d.startDate;
+  if(rate<=0||!start||asOf<=start)return 0;
   let end=asOf;
   if(d.depositType==="fixed"&&d.maturityDate&&d.maturityDate<end)end=d.maturityDate;
   if(end<=start)return 0;
-
-  const days=diffDays(start,end);
-  return principal*(rate/100)*days/365;
+  const base=N(d.principal)*(rate/100)*diffDays(start,end)/365;
+  const added=sm(bankProjectTransferRows(d.id).filter(t=>t.bankTransferMode==="increase"
+    &&t.date&&t.date>=start&&t.date<end),t=>
+      N(t.amount)*(rate/100)*diffDays(t.date,end)/365);
+  return base+added;
 }
-
 function depositDailyInterest(d){
-  return N(d.principal)*(N(d.annualRate)/100)/365;
+  return bankDepositPrincipalAt(d)*(N(d.annualRate)/100)/365;
 }
 
 function depositInterestForRange(d,start="",end=""){
@@ -7479,7 +7502,7 @@ function depositInterestForRange(d,start="",end=""){
 }
 
 function bankPrincipalTotal(){
-  return sm(startedBankDeposits(),d=>N(d.principal));
+  return sm(startedBankDeposits(),d=>bankDepositPrincipalAt(d));
 }
 
 function bankStartedPrincipalForRange(start="",end=""){
@@ -7488,7 +7511,7 @@ function bankStartedPrincipalForRange(start="",end=""){
     if(start&&date<start)return false;
     if(end&&date>end)return false;
     return true;
-  }),d=>N(d.principal));
+  }),d=>N(d.principal))+bankProjectAddedForRange(start,end);
 }
 
 function bankExistingPrincipalForRange(start="",end=""){
@@ -7574,7 +7597,9 @@ function savingStatsForRange(start="",end=""){
   const engineEffects=accounting().effects;
   const projectSettlements=S.tx.filter(t=>(t.type==="project_settlement"||(t.type==="project_transfer"&&t.toProjectId==="__saving__"))&&inRange(t.date));
   const projectSurplus=sm(projectSettlements,t=>t.type==="project_transfer"
-    ?N(engineEffects[t.id]?.projectTransfer):N(t.amount));
+    ?(t.savingDestination==="bank"&&t.bankTransferMode!=="increase"?0:N(engineEffects[t.id]?.projectTransfer)):N(t.amount));
+  const bankProjectIncrease=sm(projectSettlements.filter(t=>t.type==="project_transfer"&&t.savingDestination==="bank"&&t.bankTransferMode==="increase"),t=>N(engineEffects[t.id]?.projectTransfer));
+  const shortProjectIncrease=sm(projectSettlements.filter(t=>t.type==="project_transfer"&&t.savingDestination==="short"),t=>N(engineEffects[t.id]?.projectTransfer));
 
   const extras=S.tx.filter(t=>t.type==="extra_saving"&&inRange(t.date));
   const extra=sm(extras,t=>N(t.amount));
@@ -7614,7 +7639,7 @@ function savingStatsForRange(start="",end=""){
     planned
     +transfers
     +pocketClosed
-    +projectSurplus
+    +projectSurplus-bankProjectIncrease-shortProjectIncrease
     +extra
     +automaticSavingRepayment
     +projectSavingReimbursement
@@ -7625,7 +7650,7 @@ function savingStatsForRange(start="",end=""){
   const bankGrowth=bankStarted+interest;
 
   // Total principal growth must not double-count internal bank transfers.
-  const principalNet=ordinaryGross+bankExternal;
+  const principalNet=ordinaryGross+bankExternal+bankProjectIncrease+shortProjectIncrease;
   const totalGrowth=principalNet+interest;
 
   const cycleCount=S.tx.filter(t=>isCycleIncomeTx(t)&&inRange(t.date)).length;
@@ -7843,10 +7868,14 @@ function savingChangeEvents(){
     if(t.type==="project_transfer"&&t.toProjectId==="__saving__"){
       const p=S.projects.find(x=>x.id===t.fromProjectId);
       const amount=N(effects[t.id]?.projectTransfer);
+      const dest=t.savingDestination==="bank"
+        ?(S.deposits.find(d=>d.id===t.bankDepositId)?.name||"银行存款")
+        :t.savingDestination==="short"?shortSavingsAccountLabel(t.shortAccountId):"储蓄余额";
+      const included=t.savingDestination==="bank"&&t.bankTransferMode!=="increase";
       events.push({id:t.id,date,
-        name:`专项转入储蓄 · ${p?.name||"专项"}`,
-        meta:t.note||"专项已备资金转入储蓄，计入储蓄余额",
-        amount,impact:amount,mode:"pos"});
+        name:`专项转入储蓄 · ${p?.name||"专项"} → ${dest}`,
+        meta:t.note||(included?"归入银行已记录本金":"专项转入指定储蓄账户"),
+        amount,impact:included?0:amount,mode:included?"move":"pos"});
       return;
     }
 
@@ -8000,7 +8029,7 @@ function projectInternalSavingReallocationForRange(start="",end=""){
   return sm(S.tx.filter(t=>inRange(t.date)),t=>{
     const e=effects[t.id]||{};
     const direct=t.type==="project_transfer"&&t.toProjectId==="__saving__"
-      ?N(e.projectTransfer)
+      ?(t.savingDestination==="bank"&&t.bankTransferMode!=="increase"?0:N(e.projectTransfer))
       :t.type==="project_settlement"?N(e.projectSettlement):0;
     // 从现有储蓄补回专项再归还储蓄属于同一笔资金转圈，零净影响。
     // 其余专项补回按最初垫付的支出日期判断，避免旧支出跨期算新存款。
@@ -8080,7 +8109,7 @@ function savingsAssetComponentsAt(asOf=td()){
   const ordinary=N(accounting(date).saving);
   const short=sm(S.shortAccounts||[],a=>shortAccountBalance(a.id,date));
   const deposits=startedBankDeposits(date);
-  const bankPrincipal=sm(deposits,d=>N(d.principal));
+  const bankPrincipal=sm(deposits,d=>bankDepositPrincipalAt(d,date));
   const bankInterest=sm(deposits,d=>depositAccruedInterest(d,date));
   const bank=bankPrincipal+bankInterest;
   return {ordinary,short,bankPrincipal,bankInterest,bank,total:ordinary+short+bank};
@@ -8628,6 +8657,10 @@ function renderSavings(){
 
   bankDepositList.innerHTML=deposits.length?deposits.map(d=>{
     const interestNow=depositAccruedInterest(d);
+    const principalNow=bankDepositPrincipalAt(d);
+    const linked=bankProjectTransferRows(d.id);
+    const included=bankProjectIncludedPrincipal(d);
+    const added=bankProjectAddedPrincipal(d);
     const daily=depositDailyInterest(d);
     const future=!!(d.startDate&&d.startDate>td());
     const matured=!!(!future&&d.depositType==="fixed"&&d.maturityDate&&td()>=d.maturityDate);
@@ -8643,23 +8676,24 @@ function renderSavings(){
           <span class="depositStatus ${matured?"matured":""}">${future?`计划 ${d.startDate} 开始`:matured?"已到期":d.depositType==="demand"?"活期计息中":"定期计息中"}</span>
         </div>
         <div style="text-align:right">
-          <div class="savingAccountValue">${M(d.principal)}</div>
+          <div class="savingAccountValue">${M(principalNow)}</div>
           <div class="small" style="margin-top:3px">+${M(interestNow)} 利息</div>
         </div>
       </div>
 
       <div class="savingMiniGrid">
         <div>资金来源<strong>${d.source==="short"?esc(shortSavingsAccountLabel(d.shortAccountId)):d.source==="existing"?"储蓄余额":"外部新增"}</strong></div>
-        <div>存入金额<strong>${M(d.principal)}</strong></div>
+        <div>存款本金<strong>${M(principalNow)}</strong></div>
         <div>年利率<strong>${rateText}%</strong></div>
         <div>存款类型<strong>${depositTypeLabel(d)}</strong></div>
         <div>存期<strong>${depositTermLabel(d)}</strong></div>
         <div>每日预估利息<strong>${M(daily)}</strong></div>
         <div>累计预估利息<strong>${M(interestNow)}</strong></div>
-        <div>${future?"计划存入本金":"当前预估价值"}<strong>${M(N(d.principal)+interestNow)}</strong></div>
+        <div>${future?"计划存入本金":"当前预估价值"}<strong>${M(principalNow+interestNow)}</strong></div>
         <div>到期处理<strong>${d.depositType==="fixed"?depositRenewalLabel(d):"活期无固定到期"}</strong></div>
       </div>
 
+      ${linked.length?`<div class="meta" style="margin-top:7px">专项关联 ${M(included+added)}，其中归入已有本金 ${M(included)}，新增本金 ${M(added)}</div>`:""}
       ${d.note?`<div class="meta" style="margin-top:7px">${esc(d.note)}</div>`:""}
 
       <div class="depositActions">
@@ -10216,6 +10250,10 @@ saveBankDeposit.onclick=()=>{
   }
 
   const original=id?{...S.deposits.find(x=>x.id===id)}:null;
+  if(original){
+    if(bankProjectTransferRows(id).some(t=>t.date<startDate))return msg("新存款日期晚于关联调拨，请先修改调拨日期");
+    if(principal+0.005<bankProjectIncludedPrincipal(original))return msg("本金小于关联的已归入金额，请先修改专项调拨");
+  }
   let createdId="";
   const record={
     name,
@@ -10269,6 +10307,7 @@ saveBankDeposit.onclick=()=>{
 deleteBankDeposit.onclick=()=>{
   const id=bankDepositId.value;
   if(!id)return;
+  if(bankProjectTransferRows(id).length)return msg("该银行项目已关联专项调拨，请先修改调拨记录");
   if(!confirm("删除这笔银行存款记录？"))return;
 
   S.deposits=S.deposits.filter(x=>x.id!==id);
