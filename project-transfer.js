@@ -34,15 +34,15 @@ modal.innerHTML=`
       <div><label for="projectTransferFrom">转出专项</label><select id="projectTransferFrom"></select></div>
       <div><label for="projectTransferTo">转入专项或储蓄</label><select id="projectTransferTo"></select></div>
       <div id="projectTransferSavingsRow" style="display:none;grid-column:1/-1">
-        <label for="projectTransferSavingsTarget">具体储蓄去向</label><select id="projectTransferSavingsTarget"></select>
+        <label for="projectTransferSavingsTarget">具体储蓄去向</label><select id="projectTransferSavingsTarget"></select><div class="note">选择具体储蓄账户，银行存款可关联到已有整笔存款。</div>
       </div>
       <div id="projectTransferBankModeRow" style="display:none;grid-column:1/-1">
         <label for="projectTransferBankMode">银行本金处理</label>
         <select id="projectTransferBankMode">
-          <option value="included">归入已记录本金（总额保持原值）</option>
+          <option value="included">关联至已记录的整笔银行存款（本金保持原值）</option>
           <option value="increase">追加到现有本金（银行总额增加）</option>
         </select>
-        <div class="note">原本金已包含这笔专项资金时选第一项；实际新增存款时选第二项。</div>
+        <div class="note">银行原本金已包含转入专项资金时选“关联”，以防资产重复计算。确实额外存入时选“追加”。</div>
       </div>
       <div><label for="projectTransferAmount">调拨金额</label><input id="projectTransferAmount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00"></div>
       <div><label for="projectTransferDate">调拨日期</label><input id="projectTransferDate" type="date"></div>
@@ -167,14 +167,14 @@ function refreshPreview(){
         :"转入储蓄余额，成为可调配资金。")
       :"调出金额计入原专项已花；调入资金优先冲抵目标专项历史支出，余款成为可用资金。"}`;
 }
-window.openProjectTransfer=function(fromId="",editId=""){
+window.openProjectTransfer=function(fromId="",editId="",preferredSavingsTarget=""){
   const tx=editId?S.tx.find(t=>t.id===editId&&t.type==="project_transfer"):null;
   if(editId&&!tx)return msg("调拨记录已更新，请重新打开");
   if(tx?.archiveId)return msg("归档结算对应的调拨请从归档记录恢复后修改");
   const current=activeProjects();
   if(current.length<1&&!tx)return msg("请先建立一个进行中的专项");
   const source=tx?.fromProjectId||fromId||current[0]?.id;
-  const target=tx?.toProjectId||current.find(p=>p.id!==source)?.id||"__saving__";
+  const target=tx?.toProjectId||(preferredSavingsTarget?"__saving__":current.find(p=>p.id!==source)?.id)||"__saving__";
   $("projectTransferTitle").textContent=tx?"修改专项调拨":"专项资金调拨";
   $("projectTransferEditId").value=editId;
   $("projectTransferFrom").innerHTML=optionList(source,editId);
@@ -182,7 +182,7 @@ window.openProjectTransfer=function(fromId="",editId=""){
   $("projectTransferFrom").value=source;
   $("projectTransferTo").value=target;
   $("projectTransferSavingsTarget").innerHTML=targetOptions();
-  $("projectTransferSavingsTarget").value=savingTargetValue(tx);
+  $("projectTransferSavingsTarget").value=tx?savingTargetValue(tx):(preferredSavingsTarget||"ordinary");
   $("projectTransferBankMode").value=tx?.bankTransferMode==="increase"?"increase":"included";
   $("projectTransferDate").value=tx?.date||td();
   $("projectTransferDate").max=td();
