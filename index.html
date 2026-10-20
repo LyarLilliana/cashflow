@@ -3562,6 +3562,7 @@ function cyclePocketSnapshot(incomeTx){
   const cycleTx=cycleTransactionsForIncome(incomeTx);
 
   const expenses=cycleTx.filter(t=>t.type==="expense");
+  const projectEffects=expenses.some(t=>t.bucket==="project")?accounting().effects:{};
   const settlements=cycleTx.filter(t=>t.type==="living_settlement");
   const savingTransfers=cycleTx.filter(t=>t.type==="pocket_to_saving"||t.type==="pocket_to_short"||(t.type==="short_transfer"&&t.direction==="in"&&N(t.pocketPortion)>0));
   const projectTransfers=cycleTx.filter(t=>t.type==="pocket_to_project");
@@ -3630,12 +3631,12 @@ function cyclePocketSnapshot(incomeTx){
   const pocketSpent=
     dailyPocketSpent
     +fallbackLivingCommitted
-    +sm(expenses.filter(t=>t.bucket==="project"&&t.projectOverrunSource==="safe"),t=>N(t.projectOverrunAmount))
+    +sm(expenses.filter(t=>t.bucket==="project"),t=>projectExpenseEffect(t,projectEffects).pocketCharged)
     +billPocketSpent;
 
   const manualSavingUse=
     sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount))
-    +sm(expenses.filter(t=>t.bucket==="project"&&t.projectOverrunSource==="saving"),t=>N(t.projectOverrunAmount));
+    +sm(expenses.filter(t=>t.bucket==="project"),t=>projectExpenseEffect(t,projectEffects).manualSavingDraw);
 
   // 已结算日期只把真正未使用的基础生活回流到零花钱。
   // 当天已经替日常支出承担的金额留在基础生活池中，避免再次回流造成重复计算。
@@ -4327,6 +4328,20 @@ function accounting(asOf=td()){
     projectFundingDeficits[id]=sm(entries,e=>Math.max(0,N(e.remaining)));
   });
   return {raw,projects,projectFundingDeficits,saving,autoSavingUsed,manualSavingUsed,uncovered,effects,fallbackLivingFunding,lightPlanReserves:lightReserveUsage.remaining};
+}
+// 统一以过账引擎的实际分摊为准，历史录入的超支快照仅保留为记录。
+// 后续专项入账或调拨会改变实时资金覆盖情况，统计及流水不得使用旧快照。
+function projectExpenseEffect(t,effects){
+  const e=effects?.[t?.id]||null;
+  const source=e?.projectOverrunSource||t?.projectOverrunSource||"saving";
+  return {
+    over:Math.max(0,N(e?.overPlan)),
+    source,
+    pocketCharged:Math.max(0,N(e?.projectPocketDraw))
+      +(source==="safe"?Math.max(0,N(e?.uncovered)):0),
+    manualSavingDraw:Math.max(0,N(e?.manualDraw)),
+    automaticSavingDraw:Math.max(0,N(e?.autoDraw))
+  };
 }
 function projectAvail(p){
   return N(accounting().projects[p.id]||0);
@@ -5666,7 +5681,7 @@ function projectFinanceDetailHtml(p,a){
   const freeAvailableCash=Math.max(0,available-plannedCoveredCash);
 
   const structureSpent=Math.max(0,spent);
-  const structurePlanned=Math.max(0,plannedTotal);
+  const structurePlanned=Math.max(0,plannedCoveredCash);
   const structureFree=Math.max(0,freeAvailableCash);
   const structureTotal=Math.max(1,structureFree+structurePlanned+structureSpent);
 
@@ -5759,7 +5774,7 @@ const expenseHtml=expenses.length
     </div>
     <div class="projectMoneyLegend">
       <span><i style="background:#ADC3B8"></i>实际可用 ${M(freeAvailableCash)}</span>
-      <span><i style="background:#D8B7AA"></i>已规划待花 ${M(plannedTotal)}</span>
+      <span><i style="background:#D8B7AA"></i>已规划待花（已备） ${M(plannedCoveredCash)}</span>
       <span class="projectLegendSpent"><i style="background:#A56454"></i>已花 ${M(spent)}</span>
     </div>
     <div class="projectMoneyWarnings">
@@ -6398,8 +6413,9 @@ function renderNow(){
     .sort(sortHistoryNewestFirst)
     .slice(0,8);
 
+  const recentEffects=recent.some(t=>t.type==="expense"&&t.bucket==="project")?accounting().effects:null;
   recentTx.innerHTML=recent.length
-    ?recent.map(t=>txHtml(t,false,false)).join("")
+    ?recent.map(t=>txHtml(t,false,false,recentEffects)).join("")
     :'<div class="note">尚无流水记录。</div>';
 }
 function expenseSourceLabel(t){
@@ -6426,7 +6442,7 @@ function expenseSourceLabel(t){
   return "日常支出";
 }
 
-function txHtml(t,del=false,edit=false){
+function txHtml(t,del=false,edit=false,effects=null){
   if(t.type==="income_pending"){
     const name=esc(t.planNameAtRecord||S.incomePlans.find(x=>x.id===t.planId)?.name||"周期收入");
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">收入待到账 · ${name}</div><div class="meta">原定 ${t.scheduledDate||t.date} 到账 · ${t.pendingRecordedDate||t.date} 已记录暂未到账</div></div><div class="txRight"><div class="txAmount txMuted">待 ${M(t.expectedAmount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
@@ -6571,9 +6587,12 @@ function txHtml(t,del=false,edit=false){
   }
 
   let extraMeta="";
-  if(t.bucket==="project"&&N(t.projectOverrunAmount)>0){
-    const source=t.projectOverrunSource==="safe"?"零花钱":"储蓄";
-    extraMeta=` · 超出 ${M(t.projectOverrunAmount)} 由${source}支付`;
+  if(t.bucket==="project"){
+    const paid=projectExpenseEffect(t,effects||accounting().effects);
+    if(paid.over>0){
+      const source=paid.source==="safe"?"零花钱":"储蓄";
+      extraMeta=` · 超出 ${M(paid.over)} 由${source}支付`;
+    }
   }
   const lightReleased=Math.max(0,N(t.personalPlannedExpenseId?lightPlanReserveUsageMap().releasedByExpense[t.id]:0));
   if(lightReleased>0.005)extraMeta+=` · 预留结余 ${M(lightReleased)} 已回流零花钱`;
@@ -6876,11 +6895,7 @@ function pocketOutflowAmountForTx(t,effects=null){
   }
 
   if(t.bucket==="project"){
-    return Math.max(
-      0,
-      N(fx?.projectPocketDraw),
-      t.projectOverrunSource==="safe"?N(t.projectOverrunAmount):0
-    );
+    return projectExpenseEffect(t,effects).pocketCharged;
   }
 
   if(t.bucket==="saving")return 0;
@@ -7223,8 +7238,9 @@ function renderHistoryTransactions(){
       :`${rangeRows.length} 条`;
   }
 
+  const historyEffects=shown.some(t=>t.type==="expense"&&t.bucket==="project")?accounting().effects:null;
   monthTx.innerHTML=shown.length
-    ?shown.map(t=>txHtml(t,true,true)).join("")
+    ?shown.map(t=>txHtml(t,true,true,historyEffects)).join("")
     :searching
       ?'<div class="note">当前统计范围内没有匹配的流水。</div>'
       :'<div class="note">这个日期范围内还没有流水。</div>';
@@ -7638,11 +7654,11 @@ function savingStatsForRange(start="",end=""){
 
   const directSavingUse=sm(expenses.filter(t=>t.bucket==="saving"),t=>N(t.amount));
   const projectSavingUse=sm(
-    expenses.filter(t=>t.bucket==="project"&&(t.projectOverrunSource==="saving"||!t.projectOverrunSource)),
-    t=>N(t.projectOverrunAmount||engineEffects[t.id]?.overPlan)
+    expenses.filter(t=>t.bucket==="project"),
+    t=>projectExpenseEffect(t,engineEffects).manualSavingDraw
   );
   const automaticSavingUse=sm(
-    expenses.filter(t=>t.bucket!=="saving"&&(t.bucket!=="project"||t.projectOverrunSource==="safe")),
+    expenses.filter(t=>t.bucket!=="saving"),
     t=>N(engineEffects[t.id]?.autoDraw)
   );
   const automaticSavingRepayment=sm(
@@ -7970,10 +7986,11 @@ function savingChangeEvents(){
       if(t.bucket==="saving"){
         used=N(t.amount);
         meta="从储蓄直接支付";
-      }else if(t.bucket==="project"&&(t.projectOverrunSource==="saving"||!t.projectOverrunSource)){
-        used=N(t.projectOverrunAmount||effects[t.id]?.overPlan);
-        if(used>0)meta="专项超出部分由储蓄支付";
-      }else if(t.bucket!=="project"||t.projectOverrunSource==="safe"){
+      }else if(t.bucket==="project"){
+        const paid=projectExpenseEffect(t,effects);
+        used=paid.manualSavingDraw+paid.automaticSavingDraw;
+        if(used>0)meta=paid.manualSavingDraw>0?"专项超出部分由储蓄支付":"专项超出部分自动动用储蓄";
+      }else{
         used=N(effects[t.id]?.autoDraw);
         if(used>0)meta="预算不足后自动动用储蓄";
       }
