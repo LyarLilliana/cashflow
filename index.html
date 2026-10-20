@@ -8838,7 +8838,7 @@ saveShortAccount.onclick=()=>{
 
   const oldAccount=previousAccount?{...previousAccount}:null;
   const accountId=id||("sa"+Date.now()+Math.random().toString(36).slice(2,5));
-  const oldTransactions=S.tx;
+  const oldTransactions=[...S.tx];
   const account=previousAccount||{id:accountId,name,annualRate:rate};
   const dates=walletFundingCheckDates(td());
   const beforeWallet=walletFundingSnapshots(dates);
