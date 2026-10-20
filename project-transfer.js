@@ -146,7 +146,7 @@ function refreshPreview(){
   const targetLabel=to==="__saving__"?(options.savingDestination==="bank"
     ?(dest?.name||"银行存款"):options.savingDestination==="short"
       ?shortSavingsAccountLabel(options.shortAccountId):"储蓄余额"):label(to);
-  const offset=round(Math.max(0,after.moved-(targetAfter-targetBefore)));
+  const offset=to==="__saving__"?0:round(Math.max(0,after.moved-(targetAfter-targetBefore)));
   const planned=projectPlannedTotal(S.projects.find(p=>p.id===from));
   const shortfall=Math.max(0,planned-afterSource);
   $("projectTransferPreview").innerHTML=
