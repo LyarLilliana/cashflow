@@ -5929,8 +5929,9 @@ const expenseHtml=expenses.length
     <div class="projectMoneyWarnings">
       ${settledToSaving>0?`<span>已结算转储蓄 ${M(settledToSaving)}</span>`:""}
       ${plannedCashGap>0?`<span style="color:var(--danger)">规划资金还差 ${M(plannedCashGap)}</span>`:""}
-      ${pendingRepay>0?`<span style="color:var(--warn)">临时挪用待补回 ${M(pendingRepay)}</span>`
-        :repayState.borrowed>0?`<span>临时挪用已补回 ${M(Math.min(repayState.borrowed,repayState.repaid))}</span>`:""}
+      ${pendingRepay>0?`<span style="color:var(--warn)">临时挪用待补回 ${M(pendingRepay)}</span>`:""}
+      ${repayState.repaid>.005?`<span>临时挪用已补回 ${M(Math.min(repayState.borrowed,repayState.repaid))}</span>`:""}
+      ${repayState.writtenOff>.005?`<span>临时挪用已核销 ${M(repayState.writtenOff)}</span>`:""}
       ${overBudget>0?`<span style="color:var(--danger)">已超预算 ${M(overBudget)}</span>`:""}
       ${funded>budget&&budget>0?`<span>实际已备比预算多 ${M(funded-budget)}</span>`:""}
     </div>
