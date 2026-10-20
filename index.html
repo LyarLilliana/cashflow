@@ -3812,6 +3812,22 @@ function projectBorrowStatus(t,states=null){
     label="已核销（含已补回 "+M(state.repaid)+"）";
   return {...state,label};
 }
+function writeOffProjectBorrow(borrowId){
+  const borrow=S.tx.find(t=>t.id===borrowId&&t.type==="expense"&&t.projectBorrow&&t.projectBorrowTemporary);
+  if(!borrow)return msg("这笔挪用已修改或不需要核销");
+  const remaining=projectBorrowStatus(borrow).remaining;
+  if(remaining<=.005)return msg("这笔挪用已经完成补回或核销");
+  const project=S.projects.find(p=>p.id===borrow.refId);
+  if(!confirm(`将「${project?.name||"专项"}」这笔挪用剩余 ${M(remaining)} 核销为无需补回？\n\n核销只结清待补回义务：挪用时已扣过专项余额，不会再次扣款，也不会将款项转回专项。`))return;
+  S.tx.push({
+    id:"pwo"+Date.now()+Math.random().toString(36).slice(2,6),
+    type:"project_borrow_writeoff",date:td(),projectId:borrow.refId,
+    borrowTxId:borrow.id,amount:Math.round(remaining*100)/100,
+    note:"专项挪用剩余核销"
+  });
+  save();render();
+  msg(`已核销 ${M(remaining)}；原挪用明细显示“已核销”，不再计入待补回。`);
+}
 function accounting(asOf=td()){
   // Historical and future-dated wallet movements affect balances only from their effective date.
   const raw={safe:0,bills:0};
@@ -6560,7 +6576,7 @@ function expenseSourceLabel(t){
 
   if(t.bucket==="project"){
     const p=S.projects.find(x=>x.id===t.refId);
-    if(t.projectBorrow)return `挪用专项 · ${p?.name||"专项"}${t.projectBorrowTemporary?" · 待补回":""}`;
+    if(t.projectBorrow)return `挪用专项 · ${p?.name||"专项"} · ${projectBorrowStatus(t).label}`;
     return p?`专项 · ${p.name}`:"专项";
   }
 
@@ -6658,6 +6674,14 @@ function txHtml(t,del=false,edit=false,effects=null){
   }
   const map={safe:"日常支出",living:"日常支出",bill:"固定账单",project:"专项支出",saving:"储蓄取用"};
 
+  if(t.type==="project_borrow_writeoff"){
+    const p=S.projects.find(x=>x.id===t.projectId);
+    return `<div class="item"><div class="txRow">
+      <div class="txLeft"><div class="name">专项挪用核销 · ${esc(p?.name||t.projectName||"专项")}</div>
+      <div class="meta">${esc(t.date||"")} · 结清原挪用的待补回余额 · 仅调整状态，不重复记支出</div></div>
+      <div class="txRight"><div class="txAmount txMuted">已核销 ${M(t.amount)}</div></div>
+    </div></div>`;
+  }
   if(t.type==="project_settlement"){
     const p=S.projects.find(x=>x.id===t.projectId);
     const name=esc(p?.name||t.projectName||"专项");
@@ -6806,6 +6830,10 @@ function transactionActionTitle(t){
   if(t.type==="short_spend")return "短期储蓄取用 · "+shortSavingsAccountLabel(t.shortAccountId);
   if(t.type==="pocket_to_short")return "日常支出转入短期储蓄 · "+shortSavingsAccountLabel(t.shortAccountId);
   if(t.type==="saving_to_project")return "储蓄余额补回专项";
+  if(t.type==="project_borrow_writeoff"){
+    const p=S.projects.find(x=>x.id===t.projectId);
+    return `专项挪用已核销 · ${p?.name||"专项"}`;
+  }
   if(t.type==="project_settlement")return "专项结余转储蓄";
   if(t.type==="project_archive")return "专项归档";
   if(t.type==="project_restore")return "专项恢复";
@@ -7203,6 +7231,7 @@ function transactionSearchText(t){
   if(t.type==="pocket_to_short")parts.push("小荷包 锁定储蓄 零花钱转存");
   if(t.shortAccountId)parts.push(shortSavingsAccountLabel(t.shortAccountId));
   if(t.type==="pocket_to_project")parts.push("零花钱转专项");
+  if(t.type==="project_borrow_writeoff")parts.push("专项 挪用 已核销 核销 待补回",S.projects.find(p=>p.id===t.projectId)?.name||"");
   if(t.type==="project_settlement")parts.push("专项结余转储蓄");
   if(t.type==="project_archive")parts.push("专项归档");
   if(t.type==="project_restore")parts.push("专项恢复");
@@ -11580,7 +11609,10 @@ saveTxEdit.onclick=()=>{
     if(t.projectBorrowTemporary){
       const loan=projectRepaymentTotals(t.refId,t.id);
       const remains=loan.borrowed+(projectBorrow&&document.getElementById("editExpenseBorrowDisposition").value==="temporary"&&refId===t.refId?amount:0);
-      if(remains+0.005<loan.repaid)return msg("这笔挪用已经有补回记录。请先核对或撤销相关补回，再修改挪用金额、来源或类型");
+      if(remains+0.005<loan.repaid+loan.writtenOff)return msg("这笔挪用已有补回或核销记录。请先核对或撤销相关记录，再修改挪用金额、来源或类型");
+      const ownWriteOff=sm(S.tx.filter(x=>x.type==="project_borrow_writeoff"&&x.borrowTxId===t.id),x=>N(x.amount));
+      if(ownWriteOff>.005&&(!projectBorrow||document.getElementById("editExpenseBorrowDisposition").value!=="temporary"||refId!==t.refId||amount+0.005<ownWriteOff))
+        return msg("这笔挪用已核销部分资金。请先撤销对应核销记录，再改变挪用性质、来源或降低金额");
     }
     const oldBucket=t.bucket;
     const oldRef=t.refId;
@@ -11954,7 +11986,10 @@ function removeTx(id){
   if(!target)return;
   if(target.type==="expense"&&target.projectBorrowTemporary){
     const loan=projectRepaymentTotals(target.refId,target.id);
-    if(loan.borrowed+0.005<loan.repaid)return msg("这笔专项挪用已有补回记录。请先撤销对应的补回记录，再删除原消费");
+    if(S.tx.some(t=>t.type==="project_borrow_writeoff"&&t.borrowTxId===id))
+      return msg("这笔专项挪用有已核销流水。请先删除相应核销记录，再删除原消费");
+    if(loan.borrowed+0.005<loan.repaid+loan.writtenOff)
+      return msg("这笔专项挪用已有补回或核销记录。请先调整相关记录，再删除原消费");
   }
 
   if(target.type==="income"&&target.planId){
