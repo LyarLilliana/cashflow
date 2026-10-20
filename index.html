@@ -336,6 +336,29 @@ button{touch-action:manipulation}
 .depositActions button:active{
   color:var(--text);
 }
+
+/* Compact project funding provenance for one bank account */
+.bankSourceDetails{margin-top:10px;border-top:1px solid var(--line)}
+.bankSourceSummary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;padding:10px 0 8px;min-height:36px}
+.bankSourceSummary::-webkit-details-marker{display:none}
+.bankSourceLabel{display:flex;align-items:baseline;gap:7px;min-width:0}
+.bankSourceLabel strong{color:var(--text);font-size:11px;font-weight:750}
+.bankSourceLabel small{color:var(--muted);font-size:10px;white-space:nowrap}
+.bankSourceSummaryEnd{display:flex;align-items:center;gap:9px;flex:none}
+.bankSourceSummaryEnd strong{font-size:12px;font-weight:750;color:var(--text);white-space:nowrap}
+.bankSourceArrow{color:var(--muted);width:10px;font-size:13px;line-height:1;text-align:center;transition:transform .16s ease}
+.bankSourceDetails[open] .bankSourceArrow{transform:rotate(180deg)}
+.bankSourceList{border-top:1px solid var(--line)}
+.bankSourceRow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 0}
+.bankSourceRow+.bankSourceRow{border-top:1px solid var(--line)}
+.bankSourceMain{min-width:0;flex:1}
+.bankSourceName{font-size:11px;font-weight:700;color:var(--text);line-height:1.45;overflow-wrap:anywhere}
+.bankSourceMeta{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5}
+.bankSourceNote{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5;overflow-wrap:anywhere}
+.bankSourceAside{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
+.bankSourceAmount{font-size:11px;font-weight:750;color:var(--text);white-space:nowrap}
+.bankSourceEdit{padding:4px 0 4px 8px;border:0;background:transparent;color:var(--muted);font-size:10px;font-weight:650;min-height:24px}
+.bankSourceEdit:active{color:var(--accent)}
 .depositStatus{
   display:inline-block;
   margin-top:5px;
@@ -8650,6 +8673,8 @@ saveProjectRepay.onclick=()=>{
 };
 
 function renderSavings(){
+  const expandedBankSources=new Set([...bankDepositList.querySelectorAll("details.bankSourceDetails[open]")]
+    .map(el=>el.dataset.bankId));
   renderSavingRangeViews();
   renderShortAccounts();
   renderBankDepositReminder();
@@ -8696,8 +8721,24 @@ function renderSavings(){
         <div>到期处理<strong>${d.depositType==="fixed"?depositRenewalLabel(d):"活期无固定到期"}</strong></div>
       </div>
 
-      ${linked.length?`<div class="meta" style="margin-top:7px">专项关联 ${M(included+added)}，其中归入已有本金 ${M(included)}，新增本金 ${M(added)}</div>`:""}
-      ${linked.length?`<details class="projectLedger" style="margin-top:8px"><summary>专项来源明细 · ${linked.length} 笔</summary>${[...linked].sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(t=>`<div class="projectLedgerRow"><div class="projectLedgerInfo"><div class="projectLedgerName">${esc(S.projects.find(p=>p.id===t.fromProjectId)?.name||"原专项")}</div><div class="projectLedgerMeta">${esc(t.date)} · ${t.bankTransferMode==="increase"?"追加本金":"已含在原本金中"}${t.note?" · "+esc(t.note):""}</div></div><div style="display:flex;align-items:center;gap:7px"><strong>${M(t.amount)}</strong>${t.archiveId?"":`<button type="button" class="ghost" onclick="openProjectTransfer(&quot;${t.fromProjectId}&quot;,&quot;${t.id}&quot;)">编辑</button>`}</div></div>`).join("")}</details>`:""}
+      ${linked.length?`<details class="bankSourceDetails" data-bank-id="${esc(d.id)}" ${expandedBankSources.has(d.id)?"open":""}>
+        <summary class="bankSourceSummary">
+          <span class="bankSourceLabel"><strong>专项来源</strong><small>${linked.length} 笔</small></span>
+          <span class="bankSourceSummaryEnd"><strong>${M(included+added)}</strong><span class="bankSourceArrow" aria-hidden="true">⌄</span></span>
+        </summary>
+        <div class="bankSourceList">${[...linked].sort((a,b)=>String(b.date).localeCompare(String(a.date))||txStamp(b)-txStamp(a)).map(t=>`
+          <div class="bankSourceRow">
+            <div class="bankSourceMain">
+              <div class="bankSourceName">${esc(S.projects.find(p=>p.id===t.fromProjectId)?.name||"原专项")}</div>
+              <div class="bankSourceMeta">${esc(t.date)} · ${t.bankTransferMode==="increase"?"追加本金":"归入已有本金"}</div>
+              ${t.note?`<div class="bankSourceNote">${esc(t.note)}</div>`:""}
+            </div>
+            <div class="bankSourceAside">
+              <span class="bankSourceAmount">${M(t.amount)}</span>
+              ${t.archiveId?"":`<button type="button" class="bankSourceEdit" onclick="event.stopPropagation();openProjectTransfer('${t.fromProjectId}','${t.id}')">修改</button>`}
+            </div>
+          </div>`).join("")}</div>
+      </details>`:""}
       ${d.note?`<div class="meta" style="margin-top:7px">${esc(d.note)}</div>`:""}
 
       <div class="depositActions">
