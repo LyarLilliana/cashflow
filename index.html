@@ -3761,13 +3761,56 @@ function projectRepaymentTotals(projectId,excludeBorrowId=""){
   const borrowed=sm(S.tx.filter(t=>t.type==="expense"&&t.refId===projectId&&t.projectBorrowTemporary&&t.id!==excludeBorrowId),t=>N(t.amount));
   const repaid=sm(S.tx.filter(t=>t.repaymentOf===projectId),t=>N(t.amount))
     +sm(S.tx.filter(t=>t.type==="income"),t=>sm((t.alloc?.projects||[]).filter(x=>x.projectId===projectId&&x.repayment),x=>N(x.amount)));
-  return {borrowed,repaid};
+  const writtenOff=sm(S.tx.filter(t=>t.type==="project_borrow_writeoff"&&t.projectId===projectId),t=>N(t.amount));
+  return {borrowed,repaid,writtenOff};
 }
 function projectRepayPending(projectId){
-  const borrowed=sm(S.tx.filter(t=>t.type==="expense"&&t.refId===projectId&&t.projectBorrowTemporary),t=>N(t.amount));
-  const repaid=sm(S.tx.filter(t=>t.repaymentOf===projectId),t=>N(t.amount))
-    +sm(S.tx.filter(t=>t.type==="income"),t=>sm((t.alloc?.projects||[]).filter(x=>x.projectId===projectId&&x.repayment),x=>N(x.amount)));
-  return Math.max(0,borrowed-repaid);
+  const {borrowed,repaid,writtenOff}=projectRepaymentTotals(projectId);
+  return Math.max(0,borrowed-repaid-writtenOff);
+}
+// Backfill statuses for historical temporary borrowing by attributing repayments FIFO.
+// Explicit write-offs are linked to a specific borrowed expense. Neither event
+// alters the existing project cash balance: the spending was deducted when borrowed.
+function projectBorrowSettlementMap(projectId){
+  const borrows=S.tx.filter(t=>t.type==="expense"&&t.projectBorrow&&t.refId===projectId)
+    .sort((a,b)=>String(a.date||"").localeCompare(String(b.date||""))||txStamp(a)-txStamp(b)||String(a.id).localeCompare(String(b.id)));
+  const states={};
+  borrows.forEach(t=>states[t.id]={
+    borrowed:Math.max(0,N(t.amount)),repaid:0,writtenOff:0,
+    remaining:0,temporary:!!t.projectBorrowTemporary
+  });
+  S.tx.filter(t=>t.type==="project_borrow_writeoff"&&t.projectId===projectId)
+    .forEach(t=>{
+      const state=states[t.borrowTxId];
+      if(state?.temporary)state.writtenOff+=Math.max(0,N(t.amount));
+    });
+  let repayments=projectRepaymentTotals(projectId).repaid;
+  borrows.forEach(t=>{
+    const state=states[t.id];
+    if(!state.temporary)return;
+    const due=Math.max(0,state.borrowed-state.writtenOff);
+    const covered=Math.min(due,repayments);
+    state.repaid=covered;
+    state.remaining=Math.max(0,due-covered);
+    repayments=Math.max(0,repayments-covered);
+  });
+  return states;
+}
+function projectBorrowStatus(t,states=null){
+  if(!t?.projectBorrow)return {label:"",remaining:0,writtenOff:0,repaid:0};
+  if(!t.projectBorrowTemporary)return {
+    label:"已核销",remaining:0,writtenOff:Math.max(0,N(t.amount)),repaid:0
+  };
+  const state=(states||projectBorrowSettlementMap(t.refId))[t.id]
+    ||{borrowed:N(t.amount),repaid:0,writtenOff:0,remaining:N(t.amount)};
+  let label=state.remaining<=.005
+    ?(state.writtenOff>.005?"已核销":"已补回")
+    :state.writtenOff>.005?"部分核销 · 待补回 "+M(state.remaining)
+      :state.repaid>.005?"部分补回 · 待补回 "+M(state.remaining)
+        :"待补回";
+  if(state.remaining<=.005&&state.writtenOff>.005&&state.repaid>.005)
+    label="已核销（含已补回 "+M(state.repaid)+"）";
+  return {...state,label};
 }
 function accounting(asOf=td()){
   // Historical and future-dated wallet movements affect balances only from their effective date.
@@ -5815,20 +5858,26 @@ const expenseHtml=expenses.length
       </div>`;
     }).join("")
     :'<div class="note" style="margin-top:8px">还没有专项支出记录。</div>';
+  const borrowStates=projectBorrowSettlementMap(p.id);
   const borrowHtml=borrowRows.length
     ?`<details class="projectLedger">
       <summary><span>专项挪用明细 · ${borrowRows.length} 笔 · ${M(sm(borrowRows,t=>N(t.amount)))}</span></summary>
-      ${borrowRows.map(t=>`<div class="projectLedgerRow">
-        <div class="projectLedgerInfo">
-          <div class="projectLedgerName">${esc(t.note||"临时挪用")}</div>
-          <div class="projectLedgerMeta">${t.date} · ${t.projectBorrowTemporary?"临时挪用":"日常挪用"} · 独立于专项实际消费</div>
-        </div>
-        <div class="projectLedgerAmount">-${M(t.amount)}
-          <div class="projectPlanActions">
-            <button onclick="event.stopPropagation();openTxEdit('${t.id}')">修改</button>
+      ${borrowRows.map(t=>{
+        const status=projectBorrowStatus(t,borrowStates);
+        return `<div class="projectLedgerRow">
+          <div class="projectLedgerInfo">
+            <div class="projectLedgerName">${esc(t.note||"专项挪用")}</div>
+            <div class="projectLedgerMeta">${t.date} · ${t.projectBorrowTemporary?"临时挪用":"无需补回"} · <span class="projectBorrowStatus ${status.remaining>.005?"isPending":"isSettled"}">${esc(status.label)}</span></div>
           </div>
-        </div>
-      </div>`).join("")}
+          <div class="projectLedgerAmount">-${M(t.amount)}
+            <div class="projectPlanActions">
+              <button onclick="event.stopPropagation();openTxEdit('${t.id}')">修改</button>
+              ${t.projectBorrowTemporary&&status.remaining>.005
+                ?`<button onclick="event.stopPropagation();writeOffProjectBorrow('${t.id}')">核销剩余</button>`:""}
+            </div>
+          </div>
+        </div>`;
+      }).join("")}
       </details>`
     :"";
 
