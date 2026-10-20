@@ -5646,6 +5646,83 @@ function projectExpenseRows(p){
     .sort((a,b)=>(String(b.date)+String(b.id)).localeCompare(String(a.date)+String(a.id)));
 }
 
+
+function projectFundingLedgerEntries(p){
+  // Entries are reconstructed from source transactions; no extra postings.
+  const entries=[];
+  const push=(r)=>entries.push({...r,amount:Math.max(0,N(r.amount))});
+  if(N(p.initialFund)>0){
+    push({id:"initial:"+p.id,date:p.createdAt||"",order:-1,
+      title:"建项初始资金",source:p.createdAt?"专项建立时录入":"初始金额，原始日期未记录",
+      amount:p.initialFund,kind:"funding"});
+  }
+  S.tx.forEach(t=>{
+    if(t.type==="income"){
+      (t.alloc?.projects||[]).filter(x=>x.projectId===p.id&&N(x.amount)>0).forEach((x,i)=>{
+        const extra=t.incomeKind==="extra"||t.incomeKind==="planned_extra"||t.planFreqAtRecord==="none";
+        const origin=t.incomeNote||t.planNameAtRecord||S.incomePlans.find(y=>y.id===t.planId)?.name||"";
+        push({id:"income:"+t.id+":"+i,date:t.date||"",order:txStamp(t),
+          title:x.repayment?"收入补回专项":"收入分配存入",
+          source:(extra?"单次收入":"周期收入")+(origin?" · "+origin:""),
+          amount:x.amount,kind:x.repayment?"repayment":"funding"});
+      });
+    }else if(t.type==="pocket_to_project"&&t.projectId===p.id){
+      push({id:t.id,date:t.date||"",order:txStamp(t),
+        title:t.repaymentOf===p.id?"日常余额补回":"日常余额转入",
+        source:t.note||"来自日常支出余额",amount:t.amount,
+        kind:t.repaymentOf===p.id?"repayment":"funding"});
+    }else if(t.type==="saving_to_project"&&t.projectId===p.id){
+      push({id:t.id,date:t.date||"",order:txStamp(t),
+        title:t.repaymentOf===p.id?"储蓄补回专项":"已有储蓄转入",
+        source:t.note||"来自储蓄余额",amount:t.amount,
+        kind:t.repaymentOf===p.id?"repayment":"funding"});
+    }else if(t.type==="project_transfer"&&t.toProjectId===p.id){
+      const from=S.projects.find(y=>y.id===t.fromProjectId);
+      push({id:t.id,date:t.date||"",order:txStamp(t),
+        title:"其他专项调入",
+        source:"来自 "+(from?.name||t.fromProjectName||"原专项")+(t.note?" · "+t.note:""),
+        amount:t.amount,kind:"funding"});
+    }
+  });
+  const chronological=entries.filter(r=>r.amount>.005).sort((a,b)=>{
+    if(a.order===-1||b.order===-1)return a.order===-1?-1:1;
+    if(a.date!==b.date)return String(a.date).localeCompare(String(b.date));
+    return N(a.order)-N(b.order)||String(a.id).localeCompare(String(b.id));
+  });
+  let accumulated=0;
+  chronological.forEach(r=>{
+    if(r.kind==="funding")accumulated+=r.amount;
+    r.accumulated=Math.round(accumulated*100)/100;
+  });
+  return chronological.reverse();
+}
+function projectFundingLedgerHtml(p){
+  const entries=projectFundingLedgerEntries(p);
+  const saved=sm(entries.filter(r=>r.kind==="funding"),r=>r.amount);
+  const repaid=sm(entries.filter(r=>r.kind==="repayment"),r=>r.amount);
+  const rows=entries.map(r=>{
+    const repayment=r.kind==="repayment";
+    const meta=[r.date||"日期未记录",r.source,
+      repayment?"挪用归还，不新增已备":"累计投入 "+M(r.accumulated)].join(" · ");
+    return `<div class="projectLedgerRow">
+      <div class="projectLedgerInfo">
+        <div class="projectLedgerName">${esc(r.title)}</div>
+        <div class="projectLedgerMeta">${esc(meta)}</div>
+      </div>
+      <div class="projectLedgerAmount" style="color:${repayment?"var(--muted)":"var(--accent)"}">+${M(r.amount)}</div>
+    </div>`;
+  }).join("");
+  return `<details class="projectLedger" data-project-funding-ledger>
+    <summary><span>专项攒钱流水 · ${entries.length} 笔 · 已备 ${M(saved)}</span></summary>
+    <div class="projectLedgerMeta" style="margin:8px 0 3px">
+      逐笔记录初始金额、收入预留、日常结余、储蓄转入和其他专项调入。
+      ${repaid>.005?`挪用补回 ${M(repaid)} 单独展示，不重复计入已备。`:""}
+      内部资金调动不等于新增总收入。
+    </div>
+    ${rows||'<div class="note" style="margin-top:8px">尚无资金存入记录。</div>'}
+  </details>`;
+}
+
 function projectExpenseBreakdown(t,effect){
   // Read actual payment allocation from the ledger, including legacy expenses.
   const over=Math.max(0,N(effect?.overPlan??t.projectOverrunAmount));
@@ -5807,6 +5884,8 @@ const expenseHtml=expenses.length
       <button class="projectPlanAdd" onclick="event.stopPropagation();openProjectPlannedExpense('${p.id}')">+ 添加支出规划</button>
       ${planHtml}
     </details>
+
+    ${projectFundingLedgerHtml(p)}
 
     <details class="projectLedger">
       <summary><span>实际消费明细 · ${expenses.length} 笔 · ${M(consumed)}</span></summary>
@@ -9235,7 +9314,7 @@ editProjectNoDue.addEventListener("change",()=>{if(editProjectNoDue.checked)edit
 addProject.onclick=()=>{
   const name=projectName.value.trim(),budget=N(projectBudget.value),dueDate=projectNoDue.checked?"":projectDue.value,initialFund=N(projectInitial.value);
   if(!name||budget<=0)return msg("请填写专项名称和预算");
-  S.projects.push({id:"p"+Date.now(),name,budget,dueDate,initialFund});
+  S.projects.push({id:"p"+Date.now(),name,budget,dueDate,initialFund,createdAt:td()});
   projectName.value="";projectBudget.value="";projectDue.value="";projectNoDue.checked=false;projectDue.disabled=false;projectInitial.value=0;save();render();msg("专项已添加");
 };
 function editProject(id){
