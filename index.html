@@ -6495,7 +6495,7 @@ function renderNow(){
   pocketToSavingBtn.disabled=b.safe<=0;
 
   // “最近流水”取全局最新记录，单次额外收入和跨周期资金调拨都要出现。
-  const recent=[...S.tx]
+  const recent=[...S.tx,...incomeProjectFundingViewRows()]
     .sort(sortHistoryNewestFirst)
     .slice(0,8);
 
@@ -6529,6 +6529,13 @@ function expenseSourceLabel(t){
 }
 
 function txHtml(t,del=false,edit=false,effects=null){
+  if(t.type==="project_funding_view"){
+    return `<div class="item"><div class="txRow">
+      <div class="txLeft"><div class="name">${t.repayment?"专项挪用补回":"专项存入"} · ${esc(t.projectName)}</div>
+      <div class="meta">${esc(t.date||"")} · 来自${esc(t.incomeName||"到账收入")}的收入分配 · ${t.repayment?"恢复专项资金，不重复计入已备":"内部资金分配，不新增总收入"} · 长按可编辑来源收入</div></div>
+      <div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div></div>
+    </div></div>`;
+  }
   if(t.type==="income_pending"){
     const name=esc(t.planNameAtRecord||S.incomePlans.find(x=>x.id===t.planId)?.name||"周期收入");
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">收入待到账 · ${name}</div><div class="meta">原定 ${t.scheduledDate||t.date} 到账 · ${t.pendingRecordedDate||t.date} 已记录暂未到账</div></div><div class="txRight"><div class="txAmount txMuted">待 ${M(t.expectedAmount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
@@ -7017,11 +7024,44 @@ function livingReleaseRemaining(settlement){
 
 // 结果页的流水是独立的完整台账；统计范围仅在用户选择后限定流水。
 let historyScopeOnly=false;
+
+function incomeProjectFundingViewRows(){
+  // Read-only presentation records: underlying income posting remains the sole
+  // accounting entry, so project allocation is never counted as new income.
+  const views=[];
+  S.tx.filter(t=>t.type==="income").forEach(t=>{
+    const grouped=new Map();
+    (t.alloc?.projects||[]).forEach(x=>{
+      if(N(x.amount)<=.005)return;
+      const p=S.projects.find(y=>y.id===x.projectId);
+      if(!p)return;
+      const key=p.id+"|"+(x.repayment?"repayment":"funding");
+      if(grouped.has(key)){
+        grouped.get(key).amount+=N(x.amount);
+      }else{
+        grouped.set(key,{
+          id:"project_view:"+t.id+":"+key,
+          type:"project_funding_view",
+          date:t.date,
+          recordedAt:historyTxRecordStamp(t),
+          projectId:p.id,
+          projectName:p.name,
+          sourceIncomeId:t.id,
+          incomeName:t.incomeNote||t.planNameAtRecord||S.incomePlans.find(y=>y.id===t.planId)?.name||"",
+          repayment:!!x.repayment,
+          amount:N(x.amount)
+        });
+      }
+    });
+    views.push(...grouped.values());
+  });
+  return views;
+}
 function historyFilteredTx(){
   const start=historyScopeOnly?historyStartDate.value:"";
   const end=historyScopeOnly?historyEndDate.value:"";
 
-  return [...S.tx]
+  return [...S.tx,...incomeProjectFundingViewRows()]
     .filter(t=>{
       const d=historyTxDate(t);
       if(start&&d<start)return false;
@@ -7039,6 +7079,8 @@ function normalizeHistorySearch(v){
 }
 
 function transactionSearchText(t){
+  if(t.type==="project_funding_view")
+    return normalizeHistorySearch(["专项 攒钱 资金 存入 收入 分配",t.repayment?"补回":"已备",t.projectName,t.incomeName,t.amount,t.date].join(" "));
   const parts=[
     t.type,
     t.bucket,
@@ -7336,8 +7378,10 @@ function renderHistoryTransactions(){
     items.forEach((el,index)=>{
       const t=shown[index];
       if(!t)return;
-      el.dataset.txId=t.id;
-      el.setAttribute("aria-label",`${transactionActionTitle(t)}，长按管理`);
+      el.dataset.txId=t.type==="project_funding_view"?t.sourceIncomeId:t.id;
+      el.setAttribute("aria-label",t.type==="project_funding_view"
+        ?`专项存入 · ${t.projectName}，长按编辑来源收入`
+        :`${transactionActionTitle(t)}，长按管理`);
     });
   }
 
