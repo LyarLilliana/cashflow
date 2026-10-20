@@ -7920,8 +7920,12 @@ function savingStatsForRange(start="",end=""){
   const ordinaryNet=ordinaryGross-bankExisting;
   const bankGrowth=bankStarted+interest;
 
-  // Total principal growth must not double-count internal bank transfers.
-  const principalNet=ordinaryGross+bankExternal+bankProjectIncrease+shortProjectIncrease;
+  // Recording a corrected external account balance changes the asset record,
+  // not earned savings: expose as a distinct non-income balance adjustment.
+  const shortBalanceAdjustment=sm(S.tx.filter(t=>
+    t.type==="short_balance_adjustment"&&inRange(t.date)
+  ),t=>N(t.delta));
+  const principalNet=ordinaryGross+bankExternal+bankProjectIncrease+shortProjectIncrease+shortBalanceAdjustment;
   const totalGrowth=principalNet+interest;
 
   const cycleCount=S.tx.filter(t=>isCycleIncomeTx(t)&&inRange(t.date)).length;
@@ -7948,6 +7952,7 @@ function savingStatsForRange(start="",end=""){
     interest,
     bankGrowth,
     principalNet,
+    shortBalanceAdjustment,
     growth:totalGrowth,
     income,
     rate:income>0?principalNet/income*100:0
@@ -8171,6 +8176,16 @@ function savingChangeEvents(){
         meta:[detail,t.note].filter(Boolean).join(" · "),amount:N(t.amount),impact:pocket,mode:"move"});
       return;
     }
+    if(t.type==="short_balance_adjustment"){
+      const delta=N(t.delta);
+      events.push({
+        id:t.id,date,
+        name:`短期储蓄余额校准 · ${shortSavingsAccountLabel(t.shortAccountId)}`,
+        meta:`账面 ${M(t.priorBalance)} → 实际 ${M(t.targetBalance)}；不属于本期新存储蓄`,
+        amount:Math.abs(delta),impact:delta,mode:delta>=0?"pos":"neg"
+      });
+      return;
+    }
     if(t.type==="short_interest"){
       events.push({id:t.id,date,name:`短期储蓄收益 · ${shortSavingsAccountLabel(t.shortAccountId)}`,
         meta:t.note||"实际到账收益",amount:N(t.amount),impact:N(t.amount),mode:"pos"});
@@ -8343,11 +8358,15 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   const creditImpact=(typeof creditSavingAdjustmentForRange==="function"
     ?creditSavingAdjustmentForRange(start,end):0);
   const internalProjectReallocation=projectInternalSavingReallocationForRange(start,end);
+  const shortBalanceCorrection=sm(S.tx.filter(t=>
+    t.type==="short_balance_adjustment"&&t.date&&t.date<=td()
+    &&(!start||t.date>=start)&&(!end||t.date<=end)
+  ),t=>N(t.delta));
   // “本周期预计可存”衡量本期储蓄成果，不把专项之间的调拨、
   // 专项转储蓄或专项补偿历史垫付款误认为新存入。
   // 真实普通储蓄、专项及银行资产仍按完整资金流水过账。
   const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth
-    +creditImpact-internalProjectReallocation;
+    +creditImpact-internalProjectReallocation-shortBalanceCorrection;
   const pocketClosedThisRange=Math.max(0,N(raw.pocketClosed)-priorCycleCarry);
   const grossSaved=
     N(raw.recurringIncomeSaving)+N(raw.oneOffIncomeSaving)
@@ -8369,7 +8388,7 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
     dailyAfterBank,
     short:shortFlowForRange(start,end),
     shortTotal,bankPrincipal,bankTotal,interestGrowth,
-    pendingPocket,expected,cashflowGrowth,creditImpact,internalProjectReallocation,grossSaved
+    pendingPocket,expected,cashflowGrowth,creditImpact,internalProjectReallocation,shortBalanceCorrection,grossSaved
   };
 }
 
@@ -8463,10 +8482,16 @@ function renderSavingAssetSummary(){
   savingBankTotal.style.color=s.bankTotal<-.005?"var(--muted)":"var(--text)";
   const creditChange=N(s.creditImpact);
   const projectReallocation=N(s.internalProjectReallocation);
-  savingAssetMovementHint.hidden=s.bankExternal<=.005&&Math.abs(creditChange)<=.005&&projectReallocation<=.005;
+  savingAssetMovementHint.hidden=s.bankExternal<=.005
+    &&Math.abs(creditChange)<=.005
+    &&projectReallocation<=.005
+    &&Math.abs(N(s.shortBalanceCorrection))<=.005;
   savingAssetMovementHint.textContent=[
     projectReallocation>.005
       ?`历史专项垫款回补及内部资金调拨共 ${M(projectReallocation)}，已反映在账户余额中，不计入本期新存下的钱。`
+      :"",
+    Math.abs(N(s.shortBalanceCorrection))>.005
+      ?`短期储蓄余额核对修正 ${s.shortBalanceCorrection>=0?"+":"−"}${M(Math.abs(s.shortBalanceCorrection))}，只校准已存余额，不计本期新存款。`
       :"",
     s.bankExternal>.005
       ?`本期录入的外部银行本金 ${M(s.bankExternal)} 已计入资产总额，本期净存入已剔除既有本金。`
@@ -8552,7 +8577,7 @@ function renderSavingStats(){
   savingAdjustTitle.textContent=cycleMode?"范围调整":"调整";
   savingUseLabel.textContent=cycleMode?"储蓄兜底 / 直接取用（参考）":"储蓄取用 / 超支扣减";
   savingGrowthTotalLabel.textContent="所选期间预计可存（净变化）";
-  savingGrowthNote.textContent=`账户资产预计变动 ${M(s.expected)}；专项内部资金重归属 ${M(s.internalProjectReallocation)}、外部已有银行本金 ${M(s.bankExternal)}、预估银行利息 ${M(s.interestGrowth)} 分开核算，信用调整 ${M(s.creditImpact)}；本期预计可存 ${M(s.cashflowGrowth)}。各账户实际余额照常显示。`;
+  savingGrowthNote.textContent=`账户资产预计变动 ${M(s.expected)}；短期储蓄账实校准 ${M(s.shortBalanceCorrection)}、专项内部资金重归属 ${M(s.internalProjectReallocation)}、外部已有银行本金 ${M(s.bankExternal)}、预估银行利息 ${M(s.interestGrowth)} 分开核算，信用调整 ${M(s.creditImpact)}；本期预计可存 ${M(s.cashflowGrowth)}。各账户实际余额照常显示。`;
 
   savingChangeList.innerHTML=events.length
     ?events.slice(0,30).map(ev=>`
@@ -8673,7 +8698,7 @@ function renderBankDepositReminder(){
   bankReminderEditBtn.hidden=!r.enabled||bankReminderEditing;
 
   bankReminderCurrent.textContent=M(r.actual);
-  bankReminderComposition.textContent=`短期储蓄 ${M(r.shortSaved)} + 其他已存 ${M(r.otherSaved)}`;
+  bankReminderComposition.textContent=`短期储蓄 ${M(r.shortSaved)} + 普通储蓄余额 ${M(r.otherSaved)}`;
   bankReminderPending.textContent=M(r.pending);
   bankReminderExpected.textContent=M(r.expected);
   bankReminderPending.style.color=r.pending>.005?"var(--accent)":"inherit";
