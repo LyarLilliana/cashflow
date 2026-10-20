@@ -1019,6 +1019,9 @@ input[type="date"]::-webkit-calendar-picker-indicator{
   margin:0;
   padding:4px;
 }
+.formGrid .incomeFillPlannedGap{width:100%;height:28px;min-height:28px;padding:0 8px;margin-top:5px;background:var(--accentSoft);color:var(--accent);border:1px solid var(--line);border-radius:9px;font-size:11px;font-weight:700;cursor:pointer}
+.formGrid .incomeFillPlannedGap[hidden]{display:none}
+.incomePlanningGapProgress{margin-top:3px}
 .formGrid button{
   width:100%;
   height:46px;
@@ -3327,6 +3330,10 @@ function projectPlannedExpenses(p){
 }
 function projectPlannedTotal(p){
   return sm(projectPlannedExpenses(p),x=>N(x.amount));
+}
+function projectPlannedCashGap(p,ledger=null){
+  const a=ledger||accounting();
+  return Math.max(0,projectPlannedTotal(p)-Math.max(0,N(a.projects[p.id]||0)));
 }
 function projectUnplannedBudget(p){
   return Math.max(0,N(p.budget)-projectSpent(p)-projectPlannedTotal(p));
@@ -5671,7 +5678,7 @@ function projectFinanceDetailHtml(p,a){
   const plannedTotal=projectPlannedTotal(p);
   const unplannedBudget=projectUnplannedBudget(p);
   const plannedOverBudget=projectPlannedOverBudget(p);
-  const plannedCashGap=Math.max(0,plannedTotal-available);
+  const plannedCashGap=projectPlannedCashGap(p,a);
 
   // 专项实际剩余包含“已规划待花 + 未规划可用”。
   // 资金结构条单独回答“现在的钱处于什么状态”，顺序固定为：
@@ -9308,13 +9315,61 @@ function syncIncomeFromPlan(){
 
   recalcIncome();
 }
+function incomeProjectGapNote(p,a){
+  const gap=projectPlannedCashGap(p,a),advance=Math.max(0,N(a.projectFundingDeficits?.[p.id]));
+  if(gap+advance<=.005)return "";
+  return `<div class="meta projectPlanWarn incomePlanningGapNote" data-gap="${gap}" data-advance="${advance}">${gap>.005?`规划资金还差 ${M(gap)}`:""}${advance>.005?` · 历史垫付待回补 ${M(advance)}`:""}</div>
+  <div class="meta incomePlanningGapProgress"></div>`;
+}
+function incomeProjectGapButton(p,a){
+  const gap=projectPlannedCashGap(p,a)+Math.max(0,N(a.projectFundingDeficits?.[p.id]));
+  return gap>.005?`<button class="incomeFillPlannedGap" type="button" data-id="${esc(p.id)}">补入规划差额</button>`:"";
+}
+let incomeAllocationRemaining=0;
+function refreshIncomeGapHints(){
+  const items=[...projectSuggest.querySelectorAll(".projectContrib")];
+  let count=0,total=0,remaining=0;
+  items.forEach(input=>{
+    const row=input.closest(".formGrid"),info=row?.querySelector(".incomePlanningGapNote");
+    if(!info)return;
+    const gap=Math.max(0,N(info.dataset.gap)),advance=Math.max(0,N(info.dataset.advance));
+    if(gap>.005){count++;total+=gap;}
+    const repay=sm([...projectSuggest.querySelectorAll(".projectRepayContrib")].filter(x=>x.dataset.id===input.dataset.id),x=>N(x.value));
+    const due=Math.max(0,gap+advance-Math.max(0,N(input.value))-repay);
+    remaining+=due;
+    const progress=row.querySelector(".incomePlanningGapProgress");
+    if(progress)progress.textContent=due>.005?`本次拟分配后预计仍需补入 ${M(due)}`:"本次拟分配预计可补足规划缺口";
+    const btn=row.querySelector(".incomeFillPlannedGap");
+    if(btn)btn.hidden=due<=.005;
+  });
+  if(count)projectSuggestMeta.textContent=`${count} 个专项的支出规划当前还差 ${M(total)}。可点击“补入规划差额”从本次收入预留。${remaining>.005?`本次拟分配后预计仍需补入 ${M(remaining)}。`:"本次拟分配预计可覆盖现有缺口。"}已达到预算的专项仍可继续追加。`;
+  else projectSuggestMeta.textContent="可向任意进行中的专项继续分配资金；若有支出规划缺口，会单独提示并支持补入。";
+}
+function fillIncomeProjectGap(projectId){
+  const input=[...projectSuggest.querySelectorAll(".projectContrib")].find(x=>x.dataset.id===projectId);
+  if(!input)return;
+  const info=input.closest(".formGrid")?.querySelector(".incomePlanningGapNote");
+  if(!info)return;
+  const repay=sm([...projectSuggest.querySelectorAll(".projectRepayContrib")].filter(x=>x.dataset.id===projectId),x=>N(x.value));
+  const current=Math.max(0,N(input.value));
+  const target=Math.max(0,N(info.dataset.gap))+Math.max(0,N(info.dataset.advance));
+  const need=Math.max(0,Math.round((target-current-repay)*100)/100);
+  const free=Math.max(0,Math.round(incomeAllocationRemaining*100)/100);
+  if(need<=.005)return;
+  if(free<=.005)return msg("这笔收入没有剩余可分配金额，请先调整储蓄、生活或其他预留。");
+  const add=Math.min(need,free);
+  input.value=(Math.round((current+add)*100)/100).toFixed(2);
+  recalcIncomeSummary();
+  if(add+.005<need)msg(`本次拟补入 ${M(add)}，尚不能覆盖全部差额；确认到账后才正式入账。`);
+}
 function projectSuggestionInputs(){
   const selectedPlan=S.incomePlans.find(x=>x.id===incPlan.value);
   const oneOff=incPlan.value==="__extra__" || (selectedPlan&&!isRecurringPlan(selectedPlan));
-  // All active projects accept additional earmarked income, even after the budget target is reached.
-  // Unfunded projects stay first; fully funded projects default to a zero contribution.
+  // The shortage of cash for actual planned expenses takes priority over the budget goal.
+  const projectLedger=accounting();
   const suggestProjects=[...activeProjects()].sort((a,b)=>
-    Number(projectGap(b)>0)-Number(projectGap(a)>0)
+    Number(projectPlannedCashGap(b,projectLedger)>.005)-Number(projectPlannedCashGap(a,projectLedger)>.005)
+    ||Number(projectGap(b)>0)-Number(projectGap(a)>0)
   );
   const suggestLightPlans=activeLightPlans().filter(x=>x.status==="planned");
   const repayProjects=oneOff?activeProjects().filter(p=>projectRepayPending(p.id)>0):[];
@@ -9337,9 +9392,10 @@ function projectSuggestionInputs(){
           return `<div class="formGrid" style="margin-top:8px">
             <div>
               <div class="name">${esc(p.name)}</div>
-              <div class="meta">${projectGap(p)>0?`当前还缺 ${M(projectGap(p))} · 可从本次收入预留`:`预算已备妥 · 可继续追加 · 当前可用 ${M(projectAvail(p))}`}</div>
+              <div class="meta">${projectGap(p)>0?`预算仍缺 ${M(projectGap(p))} · 可从本次收入预留`:`预算已备妥 · 可继续追加 · 当前可用 ${M(projectAvail(p))}`}</div>
+              ${incomeProjectGapNote(p,projectLedger)}
             </div>
-            <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0"></div>
+            <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0" step="0.01">${incomeProjectGapButton(p,projectLedger)}</div>
           </div>`;
         }
 
@@ -9349,18 +9405,20 @@ function projectSuggestionInputs(){
           return `<div class="formGrid" style="margin-top:8px">
             <div>
               <div class="name">${esc(p.name)}</div>
-              <div class="meta">缺 ${M(cp.gap)} · 截止前还有 ${cp.count} 个周期收入 · 本周期建议 ${M(next.recommended)}</div>
+              <div class="meta">预算缺 ${M(cp.gap)} · 截止前还有 ${cp.count} 个周期收入 · 本周期建议 ${M(next.recommended)}</div>
+              ${incomeProjectGapNote(p,projectLedger)}
             </div>
-            <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="${next.recommended}" min="0"></div>
+            <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="${next.recommended}" min="0" step="0.01">${incomeProjectGapButton(p,projectLedger)}</div>
           </div>`;
         }
 
         return `<div class="formGrid" style="margin-top:8px">
           <div>
             <div class="name">${esc(p.name)}</div>
-            <div class="meta">${projectGap(p)>0?`当前还缺 ${M(projectGap(p))} · 本次可以自行预留`:`预算已备妥 · 可继续追加 · 当前可用 ${M(projectAvail(p))}`}</div>
+            <div class="meta">${projectGap(p)>0?`预算仍缺 ${M(projectGap(p))} · 本次可以自行预留`:`预算已备妥 · 可继续追加 · 当前可用 ${M(projectAvail(p))}`}</div>
+            ${incomeProjectGapNote(p,projectLedger)}
           </div>
-          <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0"></div>
+          <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0" step="0.01">${incomeProjectGapButton(p,projectLedger)}</div>
         </div>`;
       }).join("");
   }
@@ -9397,6 +9455,9 @@ function projectSuggestionInputs(){
   projectSuggest.innerHTML=projectHtml+repayHtml+lightHtml;
   document.querySelectorAll(".projectContrib,.projectRepayContrib,.lightPlanContrib")
     .forEach(x=>x.addEventListener("input",recalcIncomeSummary));
+  projectSuggest.querySelectorAll(".incomeFillPlannedGap").forEach(btn=>
+    btn.addEventListener("click",()=>fillIncomeProjectGap(btn.dataset.id))
+  );
 }
 function recalcIncome(){
   const p=S.incomePlans.find(x=>x.id===incPlan.value);
@@ -9442,6 +9503,8 @@ function recalcIncomeSummary(){
   const lps=sm(lightPlans,x=>x.amount);
 
   const safe=amount-saving-living-bills-ps-lps;
+  incomeAllocationRemaining=safe;
+  refreshIncomeGapHints();
 
   sumIncome.textContent=M(amount);
   sumSaving.textContent=M(saving);
@@ -10543,7 +10606,7 @@ function txIncomeProjectRows(t){
   const projectHtml=rows.map(p=>`
     <div class="formGrid" style="margin-top:8px">
       <div><div class="name">${esc(p.name)}</div>
-        <div class="meta">${p.archived?"已归档 · ":""}${projectGap(p)>0?`当前还缺 ${M(projectGap(p))}`:"预算已备妥 · 可继续追加"} · 本次已预留 ${M(allocMap.get(p.id)||0)}</div></div>
+        <div class="meta">${p.archived?"已归档 · ":""}${projectPlannedCashGap(p)>.005?`规划资金还差 ${M(projectPlannedCashGap(p))} · `:""}${projectGap(p)>0?`预算仍缺 ${M(projectGap(p))}`:"预算已备妥 · 可继续追加"} · 本次已预留 ${M(allocMap.get(p.id)||0)}</div></div>
       <div><input class="editIncomeProjectAmount" data-id="${p.id}" inputmode="decimal" type="number" min="0" step="0.01" value="${allocMap.get(p.id)||0}"></div>
     </div>`).join("");
   const repayments=rows.filter(p=>projectRepayPending(p.id)+(repayMap.get(p.id)||0)>0.005)
