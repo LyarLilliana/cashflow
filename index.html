@@ -3470,10 +3470,6 @@ function cycleWindowForIncome(incomeTx){
 function transactionBelongsToCycle(t,incomeTx,next){
   if(!t||t.id===incomeTx.id)return false;
 
-  // New-format records are explicitly bound to their source cycle.
-  const boundCycleId=effectiveExpenseCycleIncomeId(t);
-  if(boundCycleId)return boundCycleId===incomeTx.id;
-
   // Keep the funding income as settlement provenance, but attribute the
   // released pocket funds to the recurring-income cycle open on posting date.
   // An early recurring income may open while the previous living coverage
@@ -3484,6 +3480,10 @@ function transactionBelongsToCycle(t,incomeTx,next){
       ?postingCycleId===incomeTx.id
       :!!t.sourceIncomeId&&t.sourceIncomeId===incomeTx.id;
   }
+
+  // Explicit cycle ownership on other transactions remains authoritative.
+  const boundCycleId=effectiveExpenseCycleIncomeId(t);
+  if(boundCycleId)return boundCycleId===incomeTx.id;
 
   // Legacy fallback: infer by calendar date + record timestamp.
   if(t.date>incomeTx.date){
