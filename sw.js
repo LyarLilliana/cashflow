@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-85-period-project-repayment-explained";
+const CACHE = "safespend-v10-86-living-settlement-period-fix";
 const ASSETS = [
   "./",
   "./index.html",
