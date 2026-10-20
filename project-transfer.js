@@ -293,7 +293,7 @@ render=function(){
   });
 };
 const beforeTxHtml=txHtml;
-txHtml=function(t,del=false,edit=false){
+txHtml=function(t,del=false,edit=false,effects=null){
   if(t?.type==="project_transfer"){
     const from=esc(label(t.fromProjectId)),to=esc(targetName(t));
     return `<div class="item"><div class="txRow"><div class="txLeft">
@@ -301,7 +301,7 @@ txHtml=function(t,del=false,edit=false){
       <div class="meta">${esc(t.date)} · 内部资金调动${t.note?" · "+esc(t.note):""}${t.archiveId?" · 专项结算":""}</div>
       </div><div class="txRight"><div class="txAmount txMuted">→ ${M(t.amount)}</div></div></div></div>`;
   }
-  return beforeTxHtml(t,del,edit);
+  return beforeTxHtml(t,del,edit,effects);
 };
 const originalEditable=transactionEditable;
 transactionEditable=function(t){return t?.type==="project_transfer"?!t.archiveId:originalEditable(t)};
