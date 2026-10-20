@@ -1896,6 +1896,12 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .savingReconcileStatus{margin-top:7px;color:var(--muted);font-size:10.5px;line-height:1.5}
 @media(max-width:380px){.savingOverviewCard{padding-left:14px;padding-right:14px}.savingOverviewResult .savingHeroValue{font-size:29px}.savingOverviewAssetRow strong{font-size:14.5px}}
 
+.shortBalanceEdit{
+  display:inline-flex;align-items:center;gap:5px;flex:none;
+  background:transparent;border:0;padding:5px 0 5px 8px;
+  color:var(--text);font:inherit;font-size:13px;font-weight:800;cursor:pointer
+}
+.shortBalanceEdit span{color:var(--muted);font-size:11px;font-weight:500}
 /* 短期储蓄：紧凑账户卡片 */
 .shortAccountCard{padding:13px 15px}
 .shortAccountHeadline{display:flex;justify-content:space-between;align-items:center;gap:9px;padding-bottom:10px}
@@ -3055,9 +3061,19 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <input id="shortAccountName" maxlength="40" placeholder="例如 支付宝小荷包"></div>
     <div><label for="shortAccountRate">参考年化收益率（%，选填）</label>
       <input id="shortAccountRate" type="number" min="0" max="100" step="0.001" inputmode="decimal" placeholder="例如 1.20"></div>
+    <div><label for="shortAccountActualBalance">当前实际余额（¥）</label>
+      <input id="shortAccountActualBalance" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+    <div id="shortAccountBalanceModeWrap">
+      <label for="shortAccountBalanceMethod">余额变化的记账方式</label>
+      <select id="shortAccountBalanceMethod">
+        <option value="correction">账实校准（余额修正）</option>
+        <option value="ordinary">从普通储蓄转入 / 取回</option>
+      </select>
+    </div>
   </div>
+  <p class="note" id="shortAccountActualHint" style="margin-top:9px"></p>
   <p class="note" id="shortAccountRatePreview" style="margin-top:9px">收益按当前本金与参考年化率估算，实际到账收益通过账户流水登记。</p>
-  <p class="note">账户余额默认锁定于短期储蓄。年化利率仅用于收益预估，实际收益以到账流水为准。</p>
+  <p class="note">直接编辑余额会自动记录差额流水。账实校准用于修正实际资金记录，不代表新收入或本期新攒的钱；如果只是把原有储蓄转进小荷包，请选择“从普通储蓄转入 / 取回”，避免重复记账。</p>
   <div class="actions"><button class="ghost" type="button" onclick="closeSheet('shortAccountSheet')">取消</button><button class="primary" id="saveShortAccount" type="button">保存账户</button></div>
 </div></div>
 <div class="sheet" id="shortTransferSheet"><div class="sheetCard">
@@ -3727,6 +3743,7 @@ function shortAccountBalance(id,asOf=td(),excludeBankId=""){
     if(t.shortAccountId!==id||!t.date||t.date>asOf)return;
     const a=N(t.amount);
     if(t.type==="short_transfer")n+=t.direction==="in"?a:-a;
+    if(t.type==="short_balance_adjustment")n+=N(t.delta);
     if(t.type==="project_transfer"&&t.toProjectId==="__saving__"&&t.savingDestination==="short")n+=a;
     if(t.type==="pocket_to_short")n+=a;
     if(t.type==="extra_saving"&&t.shortAccountId)n+=a;
@@ -3750,8 +3767,9 @@ function shortFlowForRange(start="",end=""){
   const projectReceived=sm(tx.filter(t=>t.type==="project_transfer"&&t.toProjectId==="__saving__"
     &&t.savingDestination==="short"),t=>N(t.amount));
   const projectRepay=sm(tx.filter(t=>t.type==="saving_to_project"),t=>N(t.amount));
-  return {incoming,extraLocked,outgoing,interest,used,bank,projectRepay,projectReceived,
-    delta:incoming+extraLocked+projectReceived-outgoing+interest-used-bank};
+  const balanceAdjustment=sm(tx.filter(t=>t.type==="short_balance_adjustment"),t=>N(t.delta));
+  return {incoming,extraLocked,outgoing,interest,used,bank,projectRepay,projectReceived,balanceAdjustment,
+    delta:incoming+extraLocked+projectReceived-outgoing+interest-used-bank+balanceAdjustment};
 }
 function shortLedgerValid(id){
   const dates=new Set([td()]);
@@ -8723,12 +8741,13 @@ function renderShortAccounts(){
     const rateMeta=estimated===null?" · 年化待填写":
       ` · 参考年化 ${shortRateLabel(a.annualRate)} · 预计30日收益 ${M(estimated)}`;
     return `<div class="shortAccountLine">
-    <div class="shortAccountLineTop"><div class="name">${esc(a.name)}</div><strong>${M(shortAccountBalance(a.id))}</strong></div>
+    <div class="shortAccountLineTop"><div class="name">${esc(a.name)}</div>
+      <button type="button" class="shortBalanceEdit" onclick="openShortAccount('${a.id}')" title="直接编辑当前实际余额">${M(shortAccountBalance(a.id))} <span>✎</span></button></div>
     <div class="shortAccountLineSub"><span class="small">默认锁定${futureCount?` · ${futureCount} 笔待生效`:""}${rateMeta}</span><span>
       <button type="button" onclick="openExtraSaving('short','${a.id}')">转入</button>
       <button type="button" onclick="openShortTransfer('${a.id}','out')">取出</button>
       <button type="button" onclick="openBankFromShort('${a.id}')">转存</button>
-      <button type="button" onclick="openShortAccount('${a.id}')">修改</button>
+      <button type="button" onclick="openShortAccount('${a.id}')">编辑余额 / 账户</button>
     </span></div></div>`;
   }).join(""):'<div class="shortAccountEmpty"><div class="note">在「记额外储蓄」里选择锁定账户，首次记录时可直接创建小荷包。</div><button class="secondary" type="button" onclick="openExtraSaving(&quot;short&quot;)">开始存入</button></div>';
 
