@@ -2948,7 +2948,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       </div>
 
       <div>
-        <label>存入金额</label>
+        <label>初始存入本金</label>
         <input id="bankDepositPrincipal" inputmode="decimal" type="number" min="0" placeholder="30000">
       </div>
       <div>
@@ -3714,8 +3714,11 @@ function shortFlowForRange(start="",end=""){
   const interest=sm(tx.filter(t=>t.type==="short_interest"),t=>N(t.amount));
   const used=sm(tx.filter(t=>t.type==="short_spend"),t=>N(t.amount));
   const bank=sm(startedBankDeposits().filter(d=>d.source==="short"&&(!start||d.startDate>=start)&&(!end||d.startDate<=end)),d=>N(d.principal));
+  const projectReceived=sm(tx.filter(t=>t.type==="project_transfer"&&t.toProjectId==="__saving__"
+    &&t.savingDestination==="short"),t=>N(t.amount));
   const projectRepay=sm(tx.filter(t=>t.type==="saving_to_project"),t=>N(t.amount));
-  return {incoming,extraLocked,outgoing,interest,used,bank,projectRepay,delta:incoming+extraLocked-outgoing+interest-used-bank};
+  return {incoming,extraLocked,outgoing,interest,used,bank,projectRepay,projectReceived,
+    delta:incoming+extraLocked+projectReceived-outgoing+interest-used-bank};
 }
 function shortLedgerValid(id){
   const dates=new Set([td()]);
