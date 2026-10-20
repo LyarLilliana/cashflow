@@ -9311,7 +9311,11 @@ function syncIncomeFromPlan(){
 function projectSuggestionInputs(){
   const selectedPlan=S.incomePlans.find(x=>x.id===incPlan.value);
   const oneOff=incPlan.value==="__extra__" || (selectedPlan&&!isRecurringPlan(selectedPlan));
-  const suggestProjects=activeProjects().filter(p=>projectGap(p)>0);
+  // All active projects accept additional earmarked income, even after the budget target is reached.
+  // Unfunded projects stay first; fully funded projects default to a zero contribution.
+  const suggestProjects=[...activeProjects()].sort((a,b)=>
+    Number(projectGap(b)>0)-Number(projectGap(a)>0)
+  );
   const suggestLightPlans=activeLightPlans().filter(x=>x.status==="planned");
   const repayProjects=oneOff?activeProjects().filter(p=>projectRepayPending(p.id)>0):[];
 
@@ -9322,8 +9326,8 @@ function projectSuggestionInputs(){
   }
 
   projectSuggestMeta.textContent=oneOff
-    ?"专项和已确定准备购买的近期计划都可以从这笔收入里自行预留。"
-    :"专项按周期给出建议；已确定准备购买的近期计划也会放在这里一起预留。";
+    ?"可给任意进行中的专项追加资金，已达到预算的专项也可继续预留；近期计划按需填写。"
+    :"专项按周期建议分配，已达到预算的专项仍可自行追加；近期计划按需预留。";
 
   let projectHtml="";
   if(suggestProjects.length){
@@ -9333,7 +9337,7 @@ function projectSuggestionInputs(){
           return `<div class="formGrid" style="margin-top:8px">
             <div>
               <div class="name">${esc(p.name)}</div>
-              <div class="meta">当前还缺 ${M(projectGap(p))} · 可直接从这笔收入预留</div>
+              <div class="meta">${projectGap(p)>0?`当前还缺 ${M(projectGap(p))} · 可从本次收入预留`:`预算已备妥 · 可继续追加 · 当前可用 ${M(projectAvail(p))}`}</div>
             </div>
             <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0"></div>
           </div>`;
@@ -9354,7 +9358,7 @@ function projectSuggestionInputs(){
         return `<div class="formGrid" style="margin-top:8px">
           <div>
             <div class="name">${esc(p.name)}</div>
-            <div class="meta">当前还缺 ${M(projectGap(p))} · 本次也可以自行预留</div>
+            <div class="meta">${projectGap(p)>0?`当前还缺 ${M(projectGap(p))} · 本次可以自行预留`:`预算已备妥 · 可继续追加 · 当前可用 ${M(projectAvail(p))}`}</div>
           </div>
           <div><input class="projectContrib" data-id="${p.id}" inputmode="decimal" type="number" value="0" min="0"></div>
         </div>`;
@@ -10539,7 +10543,7 @@ function txIncomeProjectRows(t){
   const projectHtml=rows.map(p=>`
     <div class="formGrid" style="margin-top:8px">
       <div><div class="name">${esc(p.name)}</div>
-        <div class="meta">${p.archived?"已归档 · ":""}当前还缺 ${M(projectGap(p))} · 本次已预留 ${M(allocMap.get(p.id)||0)}</div></div>
+        <div class="meta">${p.archived?"已归档 · ":""}${projectGap(p)>0?`当前还缺 ${M(projectGap(p))}`:"预算已备妥 · 可继续追加"} · 本次已预留 ${M(allocMap.get(p.id)||0)}</div></div>
       <div><input class="editIncomeProjectAmount" data-id="${p.id}" inputmode="decimal" type="number" min="0" step="0.01" value="${allocMap.get(p.id)||0}"></div>
     </div>`).join("");
   const repayments=rows.filter(p=>projectRepayPending(p.id)+(repayMap.get(p.id)||0)>0.005)
