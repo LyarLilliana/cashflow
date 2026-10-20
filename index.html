@@ -3069,12 +3069,13 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <select id="shortAccountBalanceMethod">
         <option value="correction">账实校准（余额修正）</option>
         <option value="ordinary">从普通储蓄转入 / 取回</option>
+        <option value="combined">从普通储蓄与日常支出余额合并转入</option>
       </select>
     </div>
   </div>
   <p class="note" id="shortAccountActualHint" style="margin-top:9px"></p>
   <p class="note" id="shortAccountRatePreview" style="margin-top:9px">收益按当前本金与参考年化率估算，实际到账收益通过账户流水登记。</p>
-  <p class="note">直接编辑余额会自动记录差额流水。账实校准用于修正实际资金记录，不代表新收入或本期新攒的钱；如果只是把原有储蓄转进小荷包，请选择“从普通储蓄转入 / 取回”，避免重复记账。</p>
+  <p class="note">直接编辑余额会生成差额流水。账实校准仅适用于外部真实资产登记；已有资金转入短期储蓄时，请按实际来源选择普通储蓄或合并转入。合并转入优先使用普通储蓄，剩余使用日常支出余额，避免重复计入资产。</p>
   <div class="actions"><button class="ghost" type="button" onclick="closeSheet('shortAccountSheet')">取消</button><button class="primary" id="saveShortAccount" type="button">保存账户</button></div>
 </div></div>
 <div class="sheet" id="shortTransferSheet"><div class="sheetCard">
@@ -8834,7 +8835,13 @@ function refreshShortAccountActualHint(){
   }
   const target=Math.round(Number(raw)*100)/100;
   const delta=Math.round((target-now)*100)/100;
-  const source=method==="ordinary"?"与普通储蓄余额互转，储蓄总资产不变":"只校准已记账的短期储蓄资产，不计新收入或本期净攒金额";
+  const available=combinedSavingsAvailable(td());
+  const split=method==="combined"&&delta>0?combinedSavingSplit(delta,available):null;
+  const source=method==="ordinary"?`与普通储蓄余额互转，可用普通储蓄 ${M(available.saving)}`
+    :method==="combined"?(delta>0
+      ?`来源：普通储蓄 ${M(split.saving)} + 日常支出 ${M(split.pocket)}；当前合计可用 ${M(available.total)}${split.valid?"":"，余额不足，请缩减金额或调整来源"}`
+      :"取回金额将转入普通储蓄余额")
+    :"只校准已记账的短期储蓄资产，不计新收入或本期净攒金额";
   hint.textContent=`当前记账余额 ${M(now)} → 拟改为 ${M(target)}。`
     +(Math.abs(delta)<.005?"余额无变化，仅保存账户信息。"
       :`${delta>0?"补记增加":"核减差额"} ${M(Math.abs(delta))}；${source}，保存时自动生成可追溯流水。`);
@@ -8872,8 +8879,12 @@ saveShortAccount.onclick=()=>{
   if(id&&!previousAccount)return msg("储蓄账户已不存在，请重新打开");
   const before=id?Math.max(0,Math.round(shortAccountBalance(id)*100)/100):0;
   const delta=Math.round((actual-before)*100)/100;
-  if(delta>.005&&method==="ordinary"&&delta>combinedSavingsAvailable(td()).saving+.005)
-    return msg(`普通储蓄余额不足：可转入 ${M(combinedSavingsAvailable(td()).saving)}；也可选择账实校准来修正真实账面差额。`);
+  const available=combinedSavingsAvailable(td());
+  if(delta>.005&&method==="ordinary"&&delta>available.saving+.005)
+    return msg(`普通储蓄仅有 ${M(available.saving)}；已有日常资金请改选“合并转入”，账实校准仅用于真实资产登记。`);
+  const split=method==="combined"&&delta>.005?combinedSavingSplit(delta,available):null;
+  if(split&&!split.valid)
+    return msg(`合并可转入 ${M(available.total)}，其中普通储蓄 ${M(available.saving)}、日常支出 ${M(available.pocket)}。`);
 
   const oldAccount=previousAccount?{...previousAccount}:null;
   const accountId=id||("sa"+Date.now()+Math.random().toString(36).slice(2,5));
@@ -8889,11 +8900,15 @@ saveShortAccount.onclick=()=>{
   }
 
   if(Math.abs(delta)>.005){
-    const event=method==="ordinary"
+    const event=(method==="ordinary"||method==="combined")
       ?{id:"sh"+Date.now()+Math.random().toString(36).slice(2,5),
         date:td(),type:"short_transfer",shortAccountId:accountId,
         direction:delta>0?"in":"out",amount:Math.abs(delta),
-        pocketPortion:0,note:"账户余额直接编辑 · 普通储蓄互转"}
+        pocketPortion:split?.pocket||0,savingPortion:delta>0?(split?.saving??delta):0,
+        fundingMode:split&&split.pocket>0?"combined":"saving",
+        note:split&&split.pocket>0
+          ?`账户余额直接编辑 · 普通储蓄 ${M(split.saving)} + 日常支出 ${M(split.pocket)}`
+          :"账户余额直接编辑 · 普通储蓄互转"}
       :{id:"sba"+Date.now()+Math.random().toString(36).slice(2,5),
         date:td(),type:"short_balance_adjustment",shortAccountId:accountId,
         amount:Math.abs(delta),delta,priorBalance:before,targetBalance:actual,
@@ -8910,7 +8925,7 @@ saveShortAccount.onclick=()=>{
   }
   save();closeSheet("shortAccountSheet");render();
   msg(Math.abs(delta)>.005
-    ?`账户已调整为 ${M(actual)}；差额 ${delta>0?"+":"−"}${M(Math.abs(delta))} 已记入${method==="ordinary"?"储蓄互转":"账实校准"}流水。`
+    ?`账户已调整为 ${M(actual)}；差额 ${delta>0?"+":"−"}${M(Math.abs(delta))} 已记入${method==="ordinary"?"普通储蓄互转":method==="combined"?"合并资金转入":"账实校准"}流水。`
     :"短期储蓄账户信息已保存");
 };
 function openShortTransfer(id="",action="out"){
