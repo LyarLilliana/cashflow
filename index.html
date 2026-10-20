@@ -8766,7 +8766,6 @@ function openBankFromShort(id){
   refreshBankDepositForm();
 }
 function refreshShortAccountRatePreview(){
-  const id=shortAccountId.value;
   const raw=shortAccountRate.value.trim();
   const target=document.getElementById("shortAccountRatePreview");
   if(raw===""){
@@ -8778,30 +8777,102 @@ function refreshShortAccountRatePreview(){
     target.textContent="请输入 0 至 100 之间的年化百分比。";
     return;
   }
-  const balance=id?Math.max(0,shortAccountBalance(id)):0;
+  const rawBalance=document.getElementById("shortAccountActualBalance").value;
+  const balance=rawBalance!==""&&Number.isFinite(Number(rawBalance))
+    ?Math.max(0,Number(rawBalance)):0;
   const estimate=balance*rate/100*30/365;
-  target.textContent=`当前余额 ${M(balance)}，参考年化 ${shortRateLabel(rate)}，按当前余额估算未来30日收益 ${M(estimate)}。该预估仅供参考。`;
+  target.textContent=`按填写的余额 ${M(balance)} 和参考年化 ${shortRateLabel(rate)} 估算，未来30日收益约 ${M(estimate)}；实际到账仍按收益流水登记。`;
+}
+function refreshShortAccountActualHint(){
+  const id=shortAccountId.value;
+  const now=id?Math.max(0,shortAccountBalance(id)):0;
+  const raw=document.getElementById("shortAccountActualBalance").value;
+  const hint=document.getElementById("shortAccountActualHint");
+  const method=document.getElementById("shortAccountBalanceMethod").value;
+  if(raw===""||!Number.isFinite(Number(raw))||Number(raw)<0){
+    hint.textContent="请输入非负的实际余额（精确到分）。";
+    return;
+  }
+  const target=Math.round(Number(raw)*100)/100;
+  const delta=Math.round((target-now)*100)/100;
+  const source=method==="ordinary"?"与普通储蓄余额互转，储蓄总资产不变":"只校准已记账的短期储蓄资产，不计新收入或本期净攒金额";
+  hint.textContent=`当前记账余额 ${M(now)} → 拟改为 ${M(target)}。`
+    +(Math.abs(delta)<.005?"余额无变化，仅保存账户信息。"
+      :`${delta>0?"补记增加":"核减差额"} ${M(Math.abs(delta))}；${source}，保存时自动生成可追溯流水。`);
+  refreshShortAccountRatePreview();
 }
 function openShortAccount(id=""){
   const a=(S.shortAccounts||[]).find(x=>x.id===id);
   shortAccountId.value=id;
   document.getElementById("shortAccountName").value=a?.name||"";
   shortAccountRate.value=a?.annualRate===null||a?.annualRate===undefined?"":a.annualRate;
-  shortAccountSheetTitle.textContent=a?"修改短期储蓄账户":"新增短期储蓄账户";
-  refreshShortAccountRatePreview();
+  document.getElementById("shortAccountActualBalance").value=
+    id?Math.max(0,shortAccountBalance(id)).toFixed(2):"0.00";
+  document.getElementById("shortAccountBalanceMethod").value="correction";
+  shortAccountSheetTitle.textContent=a?"编辑短期储蓄账户及余额":"新增短期储蓄账户";
+  refreshShortAccountActualHint();
   shortAccountSheet.classList.add("show");
 }
 shortAccountRate.addEventListener("input",refreshShortAccountRatePreview);
+document.getElementById("shortAccountActualBalance").addEventListener("input",refreshShortAccountActualHint);
+document.getElementById("shortAccountBalanceMethod").addEventListener("change",refreshShortAccountActualHint);
 saveShortAccount.onclick=()=>{
   const id=shortAccountId.value;
   const name=document.getElementById("shortAccountName").value.trim();
   const raw=shortAccountRate.value.trim();
   const rate=raw===""?null:Number(raw);
+  const field=document.getElementById("shortAccountActualBalance").value.trim();
+  const method=document.getElementById("shortAccountBalanceMethod").value;
+  const rawActual=Number(field);
   if(!name)return msg("请输入账户名称");
   if(rate!==null&&(!Number.isFinite(rate)||rate<0||rate>100))return msg("参考年化收益率请输入 0 至 100 之间的数字");
-  if(id){const a=S.shortAccounts.find(x=>x.id===id);if(!a)return;a.name=name;a.annualRate=rate;}
-  else S.shortAccounts.push({id:"sa"+Date.now(),name,annualRate:rate});
-  save();closeSheet("shortAccountSheet");render();msg("短期储蓄账户已保存");
+  if(field===""||!Number.isFinite(rawActual)||rawActual<0||Math.abs(rawActual-Math.round(rawActual*100)/100)>.00001)
+    return msg("请填写非负的实际余额，最多保留两位小数");
+  const actual=Math.round(rawActual*100)/100;
+  const previousAccount=id?S.shortAccounts.find(x=>x.id===id):null;
+  if(id&&!previousAccount)return msg("储蓄账户已不存在，请重新打开");
+  const before=id?Math.max(0,Math.round(shortAccountBalance(id)*100)/100):0;
+  const delta=Math.round((actual-before)*100)/100;
+  if(delta>.005&&method==="ordinary"&&delta>combinedSavingsAvailable(td()).saving+.005)
+    return msg(`普通储蓄余额不足：可转入 ${M(combinedSavingsAvailable(td()).saving)}；也可选择账实校准来修正真实账面差额。`);
+
+  const oldAccount=previousAccount?{...previousAccount}:null;
+  const accountId=id||("sa"+Date.now()+Math.random().toString(36).slice(2,5));
+  const oldTransactions=S.tx;
+  const account=previousAccount||{id:accountId,name,annualRate:rate};
+  const dates=walletFundingCheckDates(td());
+  const beforeWallet=walletFundingSnapshots(dates);
+  if(previousAccount){
+    account.name=name;
+    account.annualRate=rate;
+  }else{
+    S.shortAccounts.push(account);
+  }
+
+  if(Math.abs(delta)>.005){
+    const event=method==="ordinary"
+      ?{id:"sh"+Date.now()+Math.random().toString(36).slice(2,5),
+        date:td(),type:"short_transfer",shortAccountId:accountId,
+        direction:delta>0?"in":"out",amount:Math.abs(delta),
+        pocketPortion:0,note:"账户余额直接编辑 · 普通储蓄互转"}
+      :{id:"sba"+Date.now()+Math.random().toString(36).slice(2,5),
+        date:td(),type:"short_balance_adjustment",shortAccountId:accountId,
+        amount:Math.abs(delta),delta,priorBalance:before,targetBalance:actual,
+        note:previousAccount?"账户实际余额校准":"账户初始余额登记"};
+    S.tx.push(event);
+  }
+  const valid=shortLedgerValid(accountId)
+    &&walletFundingRemainsCovered(beforeWallet,walletFundingSnapshots(dates));
+  if(!valid){
+    S.tx=oldTransactions;
+    if(previousAccount)Object.assign(previousAccount,oldAccount);
+    else S.shortAccounts=S.shortAccounts.filter(x=>x.id!==accountId);
+    return msg("余额调整会导致某日期的账户或普通储蓄不足，请核对已有转存、消费和未来计划。");
+  }
+  save();closeSheet("shortAccountSheet");render();
+  msg(Math.abs(delta)>.005
+    ?`账户已调整为 ${M(actual)}；差额 ${delta>0?"+":"−"}${M(Math.abs(delta))} 已记入${method==="ordinary"?"储蓄互转":"账实校准"}流水。`
+    :"短期储蓄账户信息已保存");
 };
 function openShortTransfer(id="",action="out"){
   if(!(S.shortAccounts||[]).length){openShortAccount();return;}
