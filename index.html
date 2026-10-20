@@ -3246,7 +3246,11 @@ function dayNumber(s){
 }
 function diffDays(a,b){return Math.max(0,Math.round(dayNumber(b)-dayNumber(a)))}
 function md(s=td()){return s.slice(0,7)}
-function M(v){return "¥"+(Math.round(N(v)*100)/100).toLocaleString("zh-CN",{maximumFractionDigits:2})}
+function M(v){
+  const rounded=Math.round(N(v)*100)/100;
+  const display=Math.abs(rounded)<0.005?0:rounded;
+  return "¥"+display.toLocaleString("zh-CN",{maximumFractionDigits:2});
+}
 function sm(a,f){return a.reduce((x,y)=>x+(f?f(y):N(y)),0)}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function msg(t){toast.textContent=t;toast.classList.add("show");setTimeout(()=>toast.classList.remove("show"),1600)}
@@ -3470,9 +3474,15 @@ function transactionBelongsToCycle(t,incomeTx,next){
   const boundCycleId=effectiveExpenseCycleIncomeId(t);
   if(boundCycleId)return boundCycleId===incomeTx.id;
 
-  // Daily living settlement already knows exactly which income reserved that day.
-  if(t.type==="living_settlement"&&t.sourceIncomeId){
-    return t.sourceIncomeId===incomeTx.id;
+  // Keep the funding income as settlement provenance, but attribute the
+  // released pocket funds to the recurring-income cycle open on posting date.
+  // An early recurring income may open while the previous living coverage
+  // still has days left to settle; each release belongs to its posting cycle.
+  if(t.type==="living_settlement"){
+    const postingCycleId=cycleIncomeIdForDate(t.date||t.coveredDate||"");
+    return postingCycleId
+      ?postingCycleId===incomeTx.id
+      :!!t.sourceIncomeId&&t.sourceIncomeId===incomeTx.id;
   }
 
   // Legacy fallback: infer by calendar date + record timestamp.
