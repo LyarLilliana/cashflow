@@ -8697,9 +8697,11 @@ function renderSavings(){
       </div>
 
       ${linked.length?`<div class="meta" style="margin-top:7px">专项关联 ${M(included+added)}，其中归入已有本金 ${M(included)}，新增本金 ${M(added)}</div>`:""}
+      ${linked.length?`<details class="projectLedger" style="margin-top:8px"><summary>专项来源明细 · ${linked.length} 笔</summary>${[...linked].sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(t=>`<div class="projectLedgerRow"><div class="projectLedgerInfo"><div class="projectLedgerName">${esc(S.projects.find(p=>p.id===t.fromProjectId)?.name||"原专项")}</div><div class="projectLedgerMeta">${esc(t.date)} · ${t.bankTransferMode==="increase"?"追加本金":"已含在原本金中"}${t.note?" · "+esc(t.note):""}</div></div><div style="display:flex;align-items:center;gap:7px"><strong>${M(t.amount)}</strong>${t.archiveId?"":`<button type="button" class="ghost" onclick="openProjectTransfer(&quot;${t.fromProjectId}&quot;,&quot;${t.id}&quot;)">编辑</button>`}</div></div>`).join("")}</details>`:""}
       ${d.note?`<div class="meta" style="margin-top:7px">${esc(d.note)}</div>`:""}
 
       <div class="depositActions">
+        <button onclick="openProjectTransfer('', '', 'bank:${d.id}')">专项转入</button>
         <button onclick="editBankDeposit('${d.id}')">修改</button>
       </div>
     </div>`;
