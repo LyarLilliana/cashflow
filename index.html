@@ -8711,7 +8711,8 @@ function renderBankDepositReminder(){
   bankReminderEditBtn.hidden=!r.enabled||bankReminderEditing;
 
   bankReminderCurrent.textContent=M(r.actual);
-  bankReminderComposition.textContent=`短期储蓄 ${M(r.shortSaved)} + 普通储蓄余额 ${M(r.otherSaved)}`;
+  bankReminderComposition.textContent=`短期储蓄 ${M(r.shortSaved)} + 普通储蓄余额 ${M(r.otherSaved)}`
+    +(r.otherSaved<-.005?` · 请核对转入流水的资金来源 ${M(-r.otherSaved)}`:"");
   bankReminderPending.textContent=M(r.pending);
   bankReminderExpected.textContent=M(r.expected);
   bankReminderPending.style.color=r.pending>.005?"var(--accent)":"inherit";
@@ -10421,7 +10422,7 @@ function walletFundingCheckDates(fromDate){
 function walletFundingSnapshots(dates){
   return dates.map(date=>{
     const a=accounting(date);
-    return {date,saving:N(a.saving),uncovered:N(a.uncovered)};
+    return {date,saving:N(a.saving),pocket:N(a.raw.safe),uncovered:N(a.uncovered)};
   });
 }
 function walletFundingRemainsCovered(before,after){
@@ -10429,7 +10430,8 @@ function walletFundingRemainsCovered(before,after){
     const now=after[i];
     return prev.date===now.date
       &&now.uncovered<=prev.uncovered+0.005
-      &&now.saving>=Math.min(0,prev.saving)-0.005;
+      &&now.saving>=Math.min(0,prev.saving)-0.005
+      &&now.pocket>=Math.min(0,prev.pocket)-0.005;
   });
 }
 function combinedSavingsAvailable(asOf=td()){
@@ -11560,7 +11562,9 @@ function openTxEdit(id){
         </div>
       </div>
     `;
-    editTxHint.textContent="可修改日期、金额、账户和备注。保存时核对受影响日期的日常资金及短期账户余额，确保后续转存记录继续有效。";
+    editTxHint.textContent=inTransfer
+      ?"转入金额由普通储蓄与日常支出余额共同承担。普通储蓄出现负数时，请核对并填写实际来自日常支出的份额；保存时同步核对历史及后续资金余额。"
+      :"可修改日期、金额、账户和备注。保存时核对受影响日期的日常资金及短期账户余额，确保后续转存记录继续有效。";
   }else if(t.type==="extra_saving"){
     editTxTitle.textContent="修改额外储蓄";
     editTxFields.innerHTML=`
