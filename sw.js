@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-95-short-transfer-funding-audit";
+const CACHE = "safespend-v10-96-combined-short-savings-funding";
 const ASSETS = [
   "./",
   "./index.html",
