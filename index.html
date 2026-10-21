@@ -3525,6 +3525,11 @@ function transactionBelongsToCycle(t,incomeTx,next){
   // entered before the next recurring income belongs to the previous cycle,
   // even though both events use the same calendar date.
   if(t.type==="living_settlement"){
+    // 结算归属于实际承担这一天基础生活的收入周期。
+    // 补记上一周期的结余应当回到上一周期，避免混入当前零花钱。
+    const fundedCycle=S.tx.find(x=>x.id===t.sourceIncomeId&&isCycleIncomeTx(x));
+    if(fundedCycle)return fundedCycle.id===incomeTx.id;
+
     const date=t.date||t.coveredDate||"";
     const stamp=txStamp(t);
     let postingCycle=null;
@@ -4147,10 +4152,19 @@ function accounting(asOf=td()){
       );
       const netRelease=grossRelease-dailyDraw;
 
-      // 当天剩余基础生活先承担“日常支出”，真正没用掉的部分才回到零花钱。
-      const repaid=creditPocket(netRelease);
+      // 已结束周期的迟到结算归入原周期结转储蓄，不占用新周期零花钱。
+      const belongsToClosedCycle=!!(
+        t.sourceIncomeId
+        && activeCycleIncomeId
+        && t.sourceIncomeId!==activeCycleIncomeId
+        && S.tx.some(x=>x.id===t.sourceIncomeId&&isCycleIncomeTx(x))
+      );
+      if(belongsToClosedCycle)saving+=netRelease;
+      // 当前周期的基础生活结余仍先补回本周期储蓄垫款，再进入零花钱。
+      const repaid=belongsToClosedCycle?0:creditPocket(netRelease);
       effects[t.id]={
         livingRelease:netRelease,
+        closedCycleSavingAdjustment:belongsToClosedCycle?netRelease:0,
         pocketSavingRepaid:repaid,
         livingReleaseGross:grossRelease,
         livingToDaily:dailyDraw,
