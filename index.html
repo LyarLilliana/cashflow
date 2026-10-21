@@ -2944,6 +2944,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
             <option value="combined">合并可用资金（已有储蓄 + 日常剩余）</option>
             <option value="saving">已有储蓄余额（含上周期结转）</option>
             <option value="pocket">本周期日常支出余额</option>
+            <option value="existing">此前已有的外部资金（历史资产补登记）</option>
             <option value="new">真正新增的额外资金（尚未记账）</option>
           </select>
         </div>
@@ -3520,15 +3521,18 @@ function cycleWindowForIncome(incomeTx){
 function transactionBelongsToCycle(t,incomeTx,next){
   if(!t||t.id===incomeTx.id)return false;
 
-  // Keep the funding income as settlement provenance, but attribute the
-  // released pocket funds to the recurring-income cycle open on posting date.
-  // An early recurring income may open while the previous living coverage
-  // still has days left to settle; each release belongs to its posting cycle.
+  // Assign a same-day settlement by its posting timestamp. A settlement
+  // entered before the next recurring income belongs to the previous cycle,
+  // even though both events use the same calendar date.
   if(t.type==="living_settlement"){
-    const postingCycleId=cycleIncomeIdForDate(t.date||t.coveredDate||"");
-    return postingCycleId
-      ?postingCycleId===incomeTx.id
-      :!!t.sourceIncomeId&&t.sourceIncomeId===incomeTx.id;
+    const date=t.date||t.coveredDate||"";
+    const stamp=txStamp(t);
+    let postingCycle=null;
+    cycleIncomeRows().forEach(row=>{
+      if(row.date<date||(row.date===date&&txStamp(row)<=stamp))postingCycle=row;
+    });
+    const postingCycleId=postingCycle?.id||t.sourceIncomeId||"";
+    return postingCycleId===incomeTx.id;
   }
 
   // Explicit cycle ownership on other transactions remains authoritative.
@@ -3965,8 +3969,12 @@ function accounting(asOf=td()){
   });
 
   const accountingDayPriority=t=>{
-    // SafeSpend 按“日期”记账。上一周期结算先执行，当日收入随后建立预算池，
-    // 当日支出最后消费预算池，避免同一天录入顺序造成账单或专项重复扣款。
+    // A settlement recorded before the first same-day recurring income must
+    // credit the previous pocket before that pocket is closed into savings.
+    if(t.type==="living_settlement"){
+      const opening=cycleIncomeRows().find(row=>row.date===t.date);
+      if(opening&&txStamp(t)<txStamp(opening))return -1;
+    }
     if(t.type==="cycle_close_saving")return 0;
     if(t.type==="income")return 1;
     if(t.type==="living_gap_reserve")return 1.5;
@@ -4107,10 +4115,15 @@ function accounting(asOf=td()){
       return;
     }
     if(t.type==="short_transfer"){
-      const pocketPart=t.direction==="in"?Math.min(N(t.amount),Math.max(0,N(t.pocketPortion))):0;
-      saving+=t.direction==="in"?-(N(t.amount)-pocketPart):N(t.amount);
+      const amount=Math.max(0,N(t.amount));
+      const pocketPart=t.direction==="in"?Math.min(amount,Math.max(0,N(t.pocketPortion))):0;
+      // Historical external assets were already owned, but were not in this
+      // ordinary-savings ledger. Import them without debiting today's pocket.
+      const externalPart=t.direction==="in"
+        ?Math.min(amount-pocketPart,Math.max(0,N(t.externalPortion))):0;
+      saving+=t.direction==="in"?-(amount-pocketPart-externalPart):amount;
       raw.safe-=pocketPart;
-      effects[t.id]={internalShortTransfer:true,pocketToShort:pocketPart};
+      effects[t.id]={internalShortTransfer:true,pocketToShort:pocketPart,externalShortImport:externalPart};
       return;
     }
     if(t.type==="short_interest"||t.type==="short_spend"){
@@ -6737,7 +6750,15 @@ function txHtml(t,del=false,edit=false,effects=null){
     const title=t.type==="saving_to_project"?"储蓄余额补回专项":
       move?(t.direction==="in"?"转入短期储蓄":"取回储蓄余额"):positive?"短期储蓄到账收益":"短期储蓄取用";
     const account=t.type==="saving_to_project"?(S.projects.find(p=>p.id===t.projectId)?.name||"专项"):shortSavingsAccountLabel(t.shortAccountId);
-    const fundingMeta=move&&N(t.pocketPortion)>0?` · 现有储蓄 ${M(N(t.amount)-N(t.pocketPortion))} + 日常支出 ${M(t.pocketPortion)}`:"";
+    const externalPart=move&&t.direction==="in"?Math.min(N(t.amount),Math.max(0,N(t.externalPortion))):0;
+    const pocketPart=move&&t.direction==="in"?Math.min(N(t.amount)-externalPart,Math.max(0,N(t.pocketPortion))):0;
+    const ordinaryPart=move&&t.direction==="in"?Math.max(0,N(t.amount)-pocketPart-externalPart):0;
+    const fundingParts=[
+      ordinaryPart>0?"普通储蓄 "+M(ordinaryPart):"",
+      pocketPart>0?"日常支出 "+M(pocketPart):"",
+      externalPart>0?"历史外部资产 "+M(externalPart):""
+    ].filter(Boolean);
+    const fundingMeta=fundingParts.length>1||externalPart>0?" · "+fundingParts.join(" + "):"";
     return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${fundingMeta?"合并资金转入 · ": ""}${title} · ${esc(account)}</div><div class="meta">${t.date}${fundingMeta}${t.note?" · "+esc(t.note):""}</div></div><div class="txRight"><div class="txAmount ${positive?"pos":spend?"neg":"txMuted"}">${positive?"+":spend?"-":"→ "}${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   if(t.type==="extra_saving"){
@@ -8182,10 +8203,16 @@ function savingChangeEvents(){
     }
 
     if(t.type==="short_transfer"){
-      const pocket=N(t.pocketPortion);
-      const saving=t.direction==="in"?Math.max(0,N(t.amount)-pocket):0;
-      const label=pocket>0?"合并可用资金转入":"储蓄余额转入";
-      const detail=pocket>0?`已有储蓄 ${M(saving)} + 日常支出剩余 ${M(pocket)}`:"储蓄资产内部调动";
+      const pocket=Math.max(0,N(t.pocketPortion));
+      const external=t.direction==="in"?Math.min(N(t.amount)-pocket,Math.max(0,N(t.externalPortion))):0;
+      const saving=t.direction==="in"?Math.max(0,N(t.amount)-pocket-external):0;
+      const label=external>0?"历史资产转入":pocket>0?"合并可用资金转入":"储蓄余额转入";
+      const parts=[
+        saving>0?"普通储蓄 "+M(saving):"",
+        pocket>0?"日常支出 "+M(pocket):"",
+        external>0?"此前持有的外部资产 "+M(external):""
+      ].filter(Boolean);
+      const detail=t.direction==="in"?parts.join(" + "):"储蓄资产内部调动";
       events.push({id:t.id,date,name:`${t.direction==="in"?label:"短期储蓄取回"} · ${shortSavingsAccountLabel(t.shortAccountId)}`,
         meta:[detail,t.note].filter(Boolean).join(" · "),amount:N(t.amount),impact:pocket,mode:"move"});
       return;
@@ -8376,11 +8403,16 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
     t.type==="short_balance_adjustment"&&t.date&&t.date<=td()
     &&(!start||t.date>=start)&&(!end||t.date<=end)
   ),t=>N(t.delta));
+  // An existing asset newly brought into the ledger is not newly earned savings.
+  const historicalAssetImports=sm(S.tx.filter(t=>
+    t.type==="short_transfer"&&t.direction==="in"&&t.date&&t.date<=td()
+    &&(!start||t.date>=start)&&(!end||t.date<=end)
+  ),t=>Math.min(N(t.amount),Math.max(0,N(t.externalPortion))));
   // “本周期预计可存”衡量本期储蓄成果，不把专项之间的调拨、
   // 专项转储蓄或专项补偿历史垫付款误认为新存入。
   // 真实普通储蓄、专项及银行资产仍按完整资金流水过账。
   const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth
-    +creditImpact-internalProjectReallocation-shortBalanceCorrection;
+    +creditImpact-internalProjectReallocation-shortBalanceCorrection-historicalAssetImports;
   const pocketClosedThisRange=Math.max(0,N(raw.pocketClosed)-priorCycleCarry);
   const grossSaved=
     N(raw.recurringIncomeSaving)+N(raw.oneOffIncomeSaving)
@@ -8401,7 +8433,7 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
     dailyBeforeBank:ordinaryBooked+pendingPocket+N(raw.bankExisting),
     dailyAfterBank,
     short:shortFlowForRange(start,end),
-    shortTotal,bankPrincipal,bankTotal,interestGrowth,
+    shortTotal,bankPrincipal,bankTotal,interestGrowth,historicalAssetImports,
     pendingPocket,expected,cashflowGrowth,creditImpact,internalProjectReallocation,shortBalanceCorrection,grossSaved
   };
 }
@@ -10499,6 +10531,8 @@ function refreshExtraSavingDestination(){
     ?"额外存下的资金进入储蓄余额，仍按现有规则参与超支兜底；已计入的资金不要重复记为新增。"
     :source==="combined"
       ?"可将上周期结转储蓄与本周期日常支出剩余合并存入，系统先使用已有储蓄，不足部分再使用日常剩余；已结算的基础生活回流已包含在日常余额中。专项、账单预留和原本锁定的资产不会自动挪用。"
+      :source==="existing"
+        ?"此前已经持有、尚未登记到本应用普通储蓄或短期储蓄账本中的真实资产转入。属于历史资产补登记，不扣本期零花钱，不计本期新增储蓄。"
       :source==="saving"
       ?"从已记账的储蓄余额转入，储蓄总额不变；转入后会锁定，不再自动补贴零花钱。"
       :source==="pocket"
@@ -10572,13 +10606,16 @@ saveExtraSaving.onclick=()=>{
   const tx={
     id:"xs"+Date.now()+"_"+Math.random().toString(36).slice(2,6),
     date,
-    type:locked&&(source==="saving"||source==="combined")?"short_transfer":locked&&source==="pocket"?"pocket_to_short":"extra_saving",
+    type:locked&&(source==="saving"||source==="combined"||source==="existing")?"short_transfer":locked&&source==="pocket"?"pocket_to_short":"extra_saving",
     amount,note
   };
   if(locked)tx.shortAccountId=accountId;
   if(tx.type==="short_transfer")tx.direction="in";
   if(combined){tx.pocketPortion=combined.pocket;tx.savingPortion=combined.saving;tx.fundingMode="combined";}
-  const auditing=locked&&source!=="new";
+  if(locked&&source==="existing"){
+    tx.pocketPortion=0;tx.savingPortion=0;tx.externalPortion=amount;tx.fundingMode="existing";
+  }
+  const auditing=locked&&source!=="new"&&source!=="existing";
   const checkpoints=auditing?walletFundingCheckDates(date):[];
   const historyBefore=auditing?walletFundingSnapshots(checkpoints):[];
   if(newAccount)S.shortAccounts.push(newAccount);
