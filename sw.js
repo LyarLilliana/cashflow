@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-96-combined-short-savings-funding";
+const CACHE = "safespend-v10-97-living-settlement-cycle-ledger";
 const ASSETS = [
   "./",
   "./index.html",
