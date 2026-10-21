@@ -10499,8 +10499,8 @@ function refreshExtraSavingCombinedPreview(){
   if(!el)return;
   const locked=extraSavingDestination.value==="short";
   const funding=extraSavingFunding.value;
-  el.style.display=locked&&funding!=="new"?"block":"none";
-  if(!locked||funding==="new")return;
+  el.style.display=locked&&funding!=="new"&&funding!=="existing"?"block":"none";
+  if(!locked||funding==="new"||funding==="existing")return;
   const f=combinedSavingsAvailable(extraSavingDate.value||td());
   const amount=Math.round(N(extraSavingAmount.value)*100)/100;
   if(funding==="combined"){
