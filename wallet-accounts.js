@@ -53,14 +53,51 @@ function refreshSelectors(){
 const field=(id,label)=>'<div class="walletField"><label for="wallet_'+id+'">'+label+'</label><select id="wallet_'+id+'"></select></div>';
 function mount(){
   const style=document.createElement("style");
-  style.textContent='.walletList{display:grid;gap:2px}.walletAccountRow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line);cursor:pointer}.walletAccountRow:last-child{border-bottom:0}.walletAccountRow strong{font-size:17px;font-variant-numeric:tabular-nums}.walletTools{display:flex;gap:8px;margin-top:12px}.walletTools button{flex:1}.walletNegative{color:var(--danger)}.walletSection .walletSummary{font-weight:750;font-variant-numeric:tabular-nums}.walletField select{width:100%}';
+  style.textContent=[
+    '.walletList{display:grid;gap:2px}',
+    '.walletAccountRow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid var(--line);cursor:pointer}',
+    '.walletAccountRow:last-child{border-bottom:0}',
+    '.walletAccountRow strong{font-size:15px;font-variant-numeric:tabular-nums}',
+    '.walletAccountRow .walletAccountArrow{margin-left:6px;color:var(--muted);font-size:13px}',
+    '.walletPlanActions{display:flex;gap:8px;margin-top:11px}',
+    '.walletPlanActions button{flex:1}',
+    '.walletNegative{color:var(--danger)!important}',
+    '.walletSummary{font-weight:750;font-variant-numeric:tabular-nums;white-space:nowrap}',
+    '.walletField select{width:100%}',
+    '.walletNowHead{display:flex;align-items:center;gap:10px;margin-bottom:9px}',
+    '.walletNowHead .name{flex:1}',
+    '.walletNowGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}',
+    '.walletNowCell{min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card,#fff)}',
+    '.walletNowCell .meta{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.walletNowCell strong{display:block;margin-top:4px;font-size:15px;font-weight:750;font-variant-numeric:tabular-nums}',
+    '.walletNowSection .sectionHeader{display:flex;align-items:center;justify-content:space-between;gap:9px}',
+    '.walletNowSection .sectionHeader button{padding:7px 10px;font-size:11px}',
+    '.walletNowSection .walletNote{font-size:11px;color:var(--muted);margin-top:8px}'
+  ].join("");
   document.head.appendChild(style);
-  $("now")?.querySelector(".grid")?.insertAdjacentHTML("afterend",
-    '<div class="section walletSection"><div class="sectionTitle">支付渠道</div><div class="card">'+
-    '<div class="row"><div><div class="name">实际账户余额</div><div class="meta">微信、支付宝与银行卡分别增减；预算分配按原规则计算。</div></div><strong id="walletTotal" class="walletSummary">¥0</strong></div>'+
+  // Keep account setup together with other planning rules.
+  const planSection=document.createElement("div");
+  planSection.className="section walletPlanSection";
+  planSection.innerHTML=
+    '<div class="sectionTitle">支付渠道管理</div><div class="card">'+
+    '<div class="name">账户设置与余额校准</div>'+
+    '<div class="meta">管理微信、支付宝及银行卡等账户。点击账户，可编辑名称并校准实际余额。</div>'+
     '<div class="walletList" id="walletAccountList" style="margin-top:9px"></div>'+
-    '<div class="walletTools"><button class="ghost" id="walletAddBtn" type="button">添加渠道</button><button class="secondary" id="walletTransferBtn" type="button">渠道互转</button></div>'+
-    '<div class="note" style="margin-top:9px">点击账户可校准余额。新建渠道填写当时实有资金；既往无渠道的流水保留原状。支付渠道账本与预算储蓄分开核算。</div></div></div>');
+    '<div class="walletPlanActions"><button class="secondary" id="walletAddBtn" type="button">添加支付渠道</button></div>'+
+    '<div class="note" style="margin-top:9px">账户余额调整单独留存流水，保留既有收入、消费及储蓄计算方式。渠道之间的转账可在“现在”操作。</div>'+
+    '</div>';
+  const planIncome=$("incomePlanList")?.closest(".section");
+  if(planIncome)planIncome.before(planSection);
+  else $("plan")?.appendChild(planSection);
+  // Now focuses on the current balances and an immediate transfer action.
+  $("now")?.querySelector(".grid")?.insertAdjacentHTML("afterend",
+    '<div class="section walletNowSection">'+
+    '<div class="sectionHeader"><div class="sectionTitle">支付渠道余额</div>'+
+    '<button class="sectionToggle" id="walletTransferBtn" type="button">渠道互转</button></div>'+
+    '<div class="card"><div class="walletNowHead"><span class="name">当前账户合计</span>'+
+    '<strong id="walletTotal" class="walletSummary">¥0</strong></div>'+
+    '<div class="walletNowGrid" id="walletNowList"></div>'+
+    '<div class="walletNote">实际渠道余额根据已指定的收入和付款记录更新。</div></div></div>');
   $("incSaving")?.closest("div")?.insertAdjacentHTML("afterend",field("income","到账渠道"));
   $("spendAmount")?.closest("div")?.insertAdjacentHTML("afterend",field("spend","实际付款渠道"));
   $("livingActualSpent")?.closest("div")?.insertAdjacentHTML("afterend",field("living","额外基础生活的付款渠道"));
@@ -96,6 +133,13 @@ function mount(){
     const row=e.target.closest("[data-wallet-id]");
     if(row)openAccount(row.dataset.walletId);
   });
+  $("walletAccountList").addEventListener("keydown",e=>{
+    if(e.key!=="Enter"&&e.key!==" ")return;
+    const row=e.target.closest("[data-wallet-id]");
+    if(!row)return;
+    e.preventDefault();
+    openAccount(row.dataset.walletId);
+  });
   $("wallet_accountSave").onclick=saveAccount;
   $("wallet_accountDelete").onclick=deleteAccount;
   $("wallet_transferSave").onclick=saveTransfer;
@@ -107,10 +151,18 @@ function mount(){
 }
 function render(){
   if(!$("walletAccountList"))return;
-  $("walletTotal").textContent=money(accounts().reduce((sum,a)=>sum+balance(a.id),0));
-  $("walletAccountList").innerHTML=accounts().map(a=>
-    '<div class="walletAccountRow" data-wallet-id="'+clean(a.id)+'"><div><div class="name">'+clean(a.name)+
-    '</div><div class="meta">点击查看或校准</div></div><strong class="'+(balance(a.id)<0?"walletNegative":"")+'">'+money(balance(a.id))+'</strong></div>'
+  const list=accounts().map(a=>({id:a.id,name:a.name,amount:balance(a.id)}));
+  $("walletTotal").textContent=money(list.reduce((sum,a)=>sum+a.amount,0));
+  $("walletNowList").innerHTML=list.length?list.map(a=>
+    '<div class="walletNowCell"><div class="meta">'+clean(a.name)+'</div>'+
+    '<strong class="'+(a.amount<0?"walletNegative":"")+'">'+money(a.amount)+'</strong></div>'
+  ).join(""):'<div class="note" style="grid-column:1/-1">前往“计划”添加支付渠道。</div>';
+  $("walletAccountList").innerHTML=list.map(a=>
+    '<div class="walletAccountRow" data-wallet-id="'+clean(a.id)+'" role="button" tabindex="0">'+
+    '<div><div class="name">'+clean(a.name)+'</div>'+
+    '<div class="meta">管理账户与校准余额</div></div>'+
+    '<div style="display:flex;align-items:center"><strong class="'+(a.amount<0?"walletNegative":"")+'">'+money(a.amount)+'</strong>'+
+    '<span class="walletAccountArrow">›</span></div></div>'
   ).join("");
   refreshSelectors();
 }
