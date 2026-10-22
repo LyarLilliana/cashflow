@@ -86,9 +86,8 @@ function mount(){
     '<div class="walletPlanActions"><button class="secondary" id="walletAddBtn" type="button">添加支付渠道</button></div>'+
     '<div class="note" style="margin-top:9px">账户余额调整单独留存流水，保留既有收入、消费及储蓄计算方式。渠道之间的转账可在“现在”操作。</div>'+
     '</div>';
-  const planIncome=$("incomePlanList")?.closest(".section");
-  if(planIncome)planIncome.before(planSection);
-  else $("plan")?.appendChild(planSection);
+  // Keep earlier Plan sections' collapse-state keys unchanged.
+  $("plan")?.appendChild(planSection);
   // Now focuses on the current balances and an immediate transfer action.
   $("now")?.querySelector(".grid")?.insertAdjacentHTML("afterend",
     '<div class="section walletNowSection">'+
