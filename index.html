@@ -3078,6 +3078,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   <p class="note" id="shortAccountRatePreview" style="margin-top:9px">收益按当前本金与参考年化率估算，实际到账收益通过账户流水登记。</p>
   <p class="note">直接编辑余额会生成差额流水。账实校准仅适用于外部真实资产登记；已有资金转入短期储蓄时，请按实际来源选择普通储蓄或合并转入。合并转入优先使用普通储蓄，剩余使用日常支出余额，避免重复计入资产。</p>
   <div class="actions"><button class="ghost" type="button" onclick="closeSheet('shortAccountSheet')">取消</button><button class="primary" id="saveShortAccount" type="button">保存账户</button></div>
+  <button class="danger" id="deleteShortAccountBtn" type="button" style="display:none;width:100%;margin-top:10px">删除此短期储蓄账户</button>
 </div></div>
 <div class="sheet" id="shortTransferSheet"><div class="sheetCard">
   <h2 class="sheetTitle">锁定储蓄取用</h2>
@@ -3752,6 +3753,7 @@ function virtualCycleCloseEvents(){
 }
 
 // 储蓄存放位置：账户转移只改变持有位置，短期账户不参与消费自动兜底。
+function activeShortAccounts(){return (S.shortAccounts||[]).filter(a=>!a.archived);}
 function shortSavingsAccountLabel(id){return (S.shortAccounts||[]).find(x=>x.id===id)?.name||"短期储蓄";}
 function shortAccountBalance(id,asOf=td(),excludeBankId=""){
   let n=0;
@@ -3791,7 +3793,8 @@ function shortLedgerValid(id){
   const dates=new Set([td()]);
   S.tx.filter(t=>t.shortAccountId===id).forEach(t=>dates.add(t.date));
   S.deposits.filter(d=>d.source==="short"&&d.shortAccountId===id).forEach(d=>dates.add(d.startDate));
-  return [...dates].every(date=>shortAccountBalance(id,date)>=-0.005);
+  return [...dates].every(date=>shortAccountBalance(id,date)>=-0.005)
+    &&(!(S.shortAccounts||[]).some(a=>a.id===id&&a.archived)||Math.abs(shortAccountBalance(id))<0.005);
 }
 function projectRepaymentTotals(projectId,excludeBorrowId=""){
   const borrowed=sm(S.tx.filter(t=>t.type==="expense"&&t.refId===projectId&&t.projectBorrowTemporary&&t.id!==excludeBorrowId),t=>N(t.amount));
@@ -8809,7 +8812,7 @@ function openBankDepositFromReminder(){
   if(!r.enabled)return msg("请先设置银行转存提醒额度");
   if(!r.ready)return msg(`实际已存金额距离可执行转存还差 ${M(r.actualGap)}`);
   openBankDeposit();
-  const largest=(S.shortAccounts||[]).slice().sort((a,b)=>shortAccountBalance(b.id)-shortAccountBalance(a.id))[0];
+  const largest=activeShortAccounts().slice().sort((a,b)=>shortAccountBalance(b.id)-shortAccountBalance(a.id))[0];
   if(largest&&shortAccountBalance(largest.id)>0){
     bankDepositSource.value="short";
     bankShortAccount.value=largest.id;
@@ -8834,7 +8837,8 @@ function shortRateLabel(rate){
   return Number(rate).toFixed(3).replace(/0+$/,"").replace(/[.]$/,"")+"%";
 }
 function renderShortAccounts(){
-  const accounts=S.shortAccounts||[];
+  const accounts=activeShortAccounts();
+  const deletedAccounts=(S.shortAccounts||[]).filter(a=>a.archived);
   shortSavedTotal.textContent=M(shortBalanceTotal());
   shortAccountList.innerHTML=accounts.length?accounts.map(a=>{
     const futureCount=S.tx.filter(t=>t.shortAccountId===a.id&&t.date>td()).length
@@ -8852,10 +8856,16 @@ function renderShortAccounts(){
       <button type="button" onclick="openShortAccount('${a.id}')">编辑余额 / 账户</button>
     </span></div></div>`;
   }).join(""):'<div class="shortAccountEmpty"><div class="note">在「记额外储蓄」里选择锁定账户，首次记录时可直接创建小荷包。</div><button class="secondary" type="button" onclick="openExtraSaving(&quot;short&quot;)">开始存入</button></div>';
-
+  if(deletedAccounts.length){
+    shortAccountList.insertAdjacentHTML("beforeend",'<details class="card" style="margin-top:9px;padding:9px 11px">'+
+      '<summary class="small">已删除账户（'+deletedAccounts.length+'） · 查看及恢复</summary>'+
+      deletedAccounts.map(a=>'<div class="row" style="margin-top:8px"><span class="small">'+esc(a.name)+'</span>'+
+      '<button type="button" class="ghost" data-restore-short="'+esc(a.id)+'">恢复</button></div>').join("")+
+      '</details>');
+  }
 }
 function openBankFromShort(id){
-  const a=S.shortAccounts.find(x=>x.id===id);
+  const a=activeShortAccounts().find(x=>x.id===id);
   if(!a)return;
   const amount=shortAccountBalance(id);
   if(amount<=0)return msg("当前短期账户尚无可转存余额");
@@ -8911,6 +8921,7 @@ function refreshShortAccountActualHint(){
 }
 function openShortAccount(id=""){
   const a=(S.shortAccounts||[]).find(x=>x.id===id);
+  if(a?.archived)return msg("账户已删除，请在已删除账户中恢复");
   shortAccountId.value=id;
   document.getElementById("shortAccountName").value=a?.name||"";
   shortAccountRate.value=a?.annualRate===null||a?.annualRate===undefined?"":a.annualRate;
@@ -8918,9 +8929,41 @@ function openShortAccount(id=""){
     id?Math.max(0,shortAccountBalance(id)).toFixed(2):"0.00";
   document.getElementById("shortAccountBalanceMethod").value="correction";
   shortAccountSheetTitle.textContent=a?"编辑短期储蓄账户及余额":"新增短期储蓄账户";
+  deleteShortAccountBtn.style.display=a?"block":"none";
   refreshShortAccountActualHint();
   shortAccountSheet.classList.add("show");
 }
+
+function deleteShortAccount(){
+  const id=shortAccountId.value,account=(S.shortAccounts||[]).find(a=>a.id===id&&!a.archived);
+  if(!account)return msg("未找到可删除的短期储蓄账户");
+  const balance=Math.round(shortAccountBalance(id)*100)/100;
+  if(Math.abs(balance)>=0.005)return msg("该账户余额 "+M(balance)+"，请先取出或转存，再删除");
+  const pending=S.tx.some(t=>t.shortAccountId===id&&t.date>td())
+    ||S.deposits.some(d=>d.source==="short"&&d.shortAccountId===id&&d.startDate>td());
+  if(pending)return msg("该账户仍有待生效的存取或转存计划，请先处理相关记录");
+  if(!confirm("删除「"+account.name+"」？\n账户将从日常选择列表中移除，历史流水保留。删除不会改变任何储蓄资产。"))return;
+  account.archived=true;
+  account.deletedAt=td();
+  S.tx.push({id:"sad"+Date.now()+"_"+Math.random().toString(36).slice(2,6),
+    type:"short_account_archive",shortAccountId:id,accountName:account.name,date:td()});
+  save();closeSheet("shortAccountSheet");render();msg("账户已删除；可在已删除账户中恢复");
+}
+function restoreShortAccount(id){
+  const account=(S.shortAccounts||[]).find(a=>a.id===id&&a.archived);
+  if(!account)return msg("该账户已经恢复或不存在");
+  if(!confirm("恢复「"+account.name+"」？"))return;
+  account.archived=false;
+  delete account.deletedAt;
+  S.tx.push({id:"sar"+Date.now()+"_"+Math.random().toString(36).slice(2,6),
+    type:"short_account_restore",shortAccountId:id,accountName:account.name,date:td()});
+  save();render();msg("短期储蓄账户已恢复");
+}
+deleteShortAccountBtn.onclick=deleteShortAccount;
+shortAccountList.addEventListener("click",e=>{
+  const btn=e.target.closest("[data-restore-short]");
+  if(btn)restoreShortAccount(btn.dataset.restoreShort);
+});
 shortAccountRate.addEventListener("input",refreshShortAccountRatePreview);
 document.getElementById("shortAccountActualBalance").addEventListener("input",refreshShortAccountActualHint);
 document.getElementById("shortAccountBalanceMethod").addEventListener("change",refreshShortAccountActualHint);
@@ -8991,8 +9034,8 @@ saveShortAccount.onclick=()=>{
     :"短期储蓄账户信息已保存");
 };
 function openShortTransfer(id="",action="out"){
-  if(!(S.shortAccounts||[]).length){openShortAccount();return;}
-  shortTransferAccount.innerHTML=S.shortAccounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("");
+  if(!activeShortAccounts().length){openShortAccount();return;}
+  shortTransferAccount.innerHTML=activeShortAccounts().map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("");
   if(id)shortTransferAccount.value=id;
   shortTransferAction.value=action;shortTransferAmount.value="";
   shortTransferDate.value=td();shortTransferNote.value="";
@@ -9012,7 +9055,7 @@ saveShortTransfer.onclick=()=>{
   const accountId=shortTransferAccount.value,action=shortTransferAction.value;
   const amount=Math.round(N(shortTransferAmount.value)*100)/100;
   const date=shortTransferDate.value||td(),note=shortTransferNote.value.trim();
-  if(!S.shortAccounts.some(a=>a.id===accountId))return msg("请选择储蓄账户");
+  if(!activeShortAccounts().some(a=>a.id===accountId))return msg("请选择储蓄账户");
   if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效金额");
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return msg("请选择有效日期");
   if(action==="in"&&amount>combinedSavingsAvailable(date).saving+0.005)return msg(`该日期储蓄余额可转入 ${M(combinedSavingsAvailable(date).saving)}`);
