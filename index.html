@@ -10858,7 +10858,8 @@ saveBankDeposit.onclick=()=>{
   if(depositType==="fixed"&&termMonths<=0)return msg("请选择或填写定期存款期限");
 
   if(source==="short"){
-    if(!shortAccountId||!(S.shortAccounts||[]).some(a=>a.id===shortAccountId&&(!a.archived||(original?.source==="short"&&original.shortAccountId===a.id))))return msg("请选择可用的短期储蓄账户");
+    const previousBankRecord=id?S.deposits.find(d=>d.id===id):null;
+    if(!shortAccountId||!(S.shortAccounts||[]).some(a=>a.id===shortAccountId&&(!a.archived||(previousBankRecord?.source==="short"&&previousBankRecord.shortAccountId===a.id))))return msg("请选择可用的短期储蓄账户");
     // Backdated deposits and future transfer plans use the selected effective date.
     const available=shortAccountBalance(shortAccountId,startDate,id);
     if(principal>available+0.005)return msg(`该账户可用于转存 ${M(Math.max(0,available))}`);
