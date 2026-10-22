@@ -10740,7 +10740,11 @@ function bankDepositSelectedMonths(){
 function refreshBankDepositForm(){
   const selected=bankShortAccount.value||bankDepositSheet.dataset.sourceShortAccount||"";
   const originalDeposit=(S.deposits||[]).find(d=>d.id===bankDepositId.value);
-  const selectableAccounts=(S.shortAccounts||[]).filter(a=>!a.archived||(originalDeposit?.source==="short"&&originalDeposit.shortAccountId===a.id));
+  const selectableAccounts=activeShortAccounts().map(a=>({id:a.id,name:a.name}));
+  if(originalDeposit?.source==="short"&&deletedShortAccountId(originalDeposit.shortAccountId)){
+    selectableAccounts.push({id:originalDeposit.shortAccountId,
+      name:shortSavingsAccountLabel(originalDeposit.shortAccountId)+"（历史已删除）"});
+  }
   bankShortAccount.innerHTML=selectableAccounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${M(shortAccountBalance(a.id))}</option>`).join("");
   if(selected&&[...bankShortAccount.options].some(x=>x.value===selected))bankShortAccount.value=selected;
   bankShortAccountRow.style.display=bankDepositSource.value==="short"?"block":"none";
@@ -10857,7 +10861,9 @@ saveBankDeposit.onclick=()=>{
 
   if(source==="short"){
     const previousBankRecord=id?S.deposits.find(d=>d.id===id):null;
-    if(!shortAccountId||!(S.shortAccounts||[]).some(a=>a.id===shortAccountId&&(!a.archived||(previousBankRecord?.source==="short"&&previousBankRecord.shortAccountId===a.id))))return msg("请选择可用的短期储蓄账户");
+    if(!shortAccountId||!(activeShortAccounts().some(a=>a.id===shortAccountId)
+      ||(previousBankRecord?.source==="short"&&previousBankRecord.shortAccountId===shortAccountId
+        &&deletedShortAccountId(shortAccountId))))return msg("请选择可用的短期储蓄账户");
     // Backdated deposits and future transfer plans use the selected effective date.
     const available=shortAccountBalance(shortAccountId,startDate,id);
     if(principal>available+0.005)return msg(`该账户可用于转存 ${M(Math.max(0,available))}`);
@@ -10929,6 +10935,9 @@ saveBankDeposit.onclick=()=>{
 deleteBankDeposit.onclick=()=>{
   const id=bankDepositId.value;
   if(!id)return;
+  const original=S.deposits.find(d=>d.id===id);
+  if(original?.source==="short"&&deletedShortAccountId(original.shortAccountId))
+    return msg("该存款关联已删除的短期储蓄账户，直接删除会破坏历史资金对应关系，请保留此存款记录");
   if(bankProjectTransferRows(id).length)return msg("该银行项目已关联专项调拨，请先修改调拨记录");
   if(!confirm("删除这笔银行存款记录？"))return;
 
@@ -11685,7 +11694,7 @@ function openTxEdit(id){
       <div class="formGrid one">
         <div>
           <label>短期储蓄账户</label>
-          <select id="editShortAccount">${(S.shortAccounts||[]).filter(a=>!a.archived||a.id===t.shortAccountId).map(a=>`<option value="${esc(a.id)}" ${a.id===t.shortAccountId?"selected":""}>${esc(a.name)}${a.archived?"（已删除）":""}</option>`).join("")}</select>
+          <select id="editShortAccount">${activeShortAccounts().map(a=>`<option value="${esc(a.id)}" ${a.id===t.shortAccountId?"selected":""}>${esc(a.name)}</option>`).join("")}</select>
         </div>
         <div>
           <label>日期</label>
@@ -11987,7 +11996,7 @@ saveTxEdit.onclick=()=>{
     const pocketValue=inTransfer?Number(document.getElementById("editShortPocket").value):0;
     const pocketAmount=Math.round(pocketValue*100)/100;
 
-    if(!(S.shortAccounts||[]).some(a=>a.id===accountId&&(!a.archived||accountId===t.shortAccountId)))return msg("请选择有效的短期储蓄账户");
+    if(!activeShortAccounts().some(a=>a.id===accountId))return msg("请选择有效的短期储蓄账户");
     if(!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date))return msg("请选择有效的记录日期");
     if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效的金额");
     if(!Number.isFinite(pocketAmount)||pocketAmount<0||pocketAmount>amount)return msg("日常支出转入金额需要介于 0 与总金额之间");
