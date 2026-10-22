@@ -2467,7 +2467,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
             type="search"
             inputmode="search"
             autocomplete="off"
-            placeholder="搜索金额 / 项目 / 备注"
+            placeholder="搜索金额 / 项目 / 渠道 / 备注"
             aria-label="搜索当前范围流水"
           >
         </div>
@@ -7257,7 +7257,11 @@ function transactionSearchText(t){
     t.days,
     t.effectiveDate,
     t.previousAmount,
-    t.action
+    t.action,
+    t.delta,
+    Wallets.account(t.walletAccountId)?.name||"",
+    Wallets.account(t.fromAccountId)?.name||"",
+    Wallets.account(t.toAccountId)?.name||""
   ];
 
   const bucketLabels={
