@@ -1,9 +1,10 @@
-const CACHE = "safespend-v10-97-living-settlement-cycle-ledger";
+const CACHE = "safespend-v10-98-payment-channels-ledger";
 const ASSETS = [
   "./",
   "./index.html",
   "./credit.js",
   "./project-transfer.js",
+  "./wallet-accounts.js",
   "./manifest.webmanifest",
   "./apple-touch-icon.png",
   "./icon-192.png",
