@@ -153,6 +153,9 @@ mountSheet("creditLoanSheet","记录现金借款到账",
  +'<div style="grid-column:1/-1"><label>约定还款日期</label><input id="creditLoanDue" type="date"></div></div>'
  +'<div class="creditTip">借款属于融资，增加现金与待还负债，单独于实际收入统计。</div>'
  +actions("creditLoanSheet","记录到账"));
+el("creditRepaySource").closest("div").insertAdjacentHTML("afterend",Wallets.field("creditRepay","实际还款渠道"));
+el("creditLoanDate").closest("div").insertAdjacentHTML("afterend",Wallets.field("creditLoan","借款到账渠道"));
+Wallets.refreshSelectors();
 document.querySelectorAll("[data-credit-close]").forEach(b=>b.onclick=()=>el(b.dataset.creditClose).classList.remove("show"));
 const open=id=>{el(id).classList.add("show");syncDateDisplays()};
 const close=id=>el(id).classList.remove("show");
@@ -195,6 +198,7 @@ function openRepay(id){
  const r=row(id);if(!r||r.remaining<=.005)return msg("账单已结清");
  el("creditRepayId").value=id;el("creditRepayAmount").value=r.remaining;
  el("creditRepayDate").value=td();el("creditRepayFee").value=0;el("creditRepaySource").value="safe";
+ Wallets.refreshSelectors();el("wallet_creditRepay").value=Wallets.account(S.settings.walletSpendDefault)?S.settings.walletSpendDefault:"";
  el("creditRepayMeta").textContent=(r.account?.name||"信用账户")+" · 待还 "+M(r.remaining)+" · 到期 "+r.due;
  el("creditRepayHint").textContent="已有预留 "+M(r.reserve)+"，实际偿还时优先核销。";
  open("creditRepaySheet");
@@ -211,7 +215,7 @@ el("creditRepaySheetSubmit").onclick=()=>{
  if(source==="saving"&&need+fee>Math.max(0,bal().saving)+.005)return msg("储蓄余额不足");
  S.tx.push({id:uid(),date,type:"credit_repayment",cycleIncomeId:cycleIncomeIdForDate(date),amount,fee,
   creditChargeId:r.id,creditAccountId:r.t.creditAccountId,creditMode:r.mode,
-  creditReservedUsed:reserved,creditSource:source,note:"信用还款本金"});
+  creditReservedUsed:reserved,creditSource:source,walletAccountId:Wallets.selected("creditRepay"),note:"信用还款本金"});
  save();close("creditRepaySheet");render();msg("还款成功记录，本金只核销债务");
 };
 function openFund(id){
@@ -235,6 +239,7 @@ el("creditAddLoan").onclick=()=>{
  if(!accounts.length)return msg("请先启用一个信用账户");
  el("creditLoanAccount").innerHTML=accounts.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>').join("");
  el("creditLoanAmount").value="";el("creditLoanDate").value=td();el("creditLoanDue").value=addMonth(td());
+ Wallets.refreshSelectors();el("wallet_creditLoan").value=Wallets.account(S.settings.walletIncomeDefault)?S.settings.walletIncomeDefault:"";
  open("creditLoanSheet");
 };
 el("creditLoanSheetSubmit").onclick=()=>{
@@ -244,7 +249,7 @@ el("creditLoanSheetSubmit").onclick=()=>{
  if(!date||date>td()||!due||due<date)return msg("请核对到账和还款日期");
  const owed=sm(ledger(),r=>r.t.creditAccountId===a.id?r.remaining:0);
  if(a.limit>0&&owed+amount>a.limit+.005)return msg("借款超过信用额度");
- S.tx.push({id:uid(),date,type:"credit_loan",cycleIncomeId:cycleIncomeIdForDate(date),amount,creditAccountId:a.id,creditDueDate:due,note:"现金借款到账"});
+ S.tx.push({id:uid(),date,type:"credit_loan",cycleIncomeId:cycleIncomeIdForDate(date),amount,creditAccountId:a.id,creditDueDate:due,walletAccountId:Wallets.selected("creditLoan"),note:"现金借款到账"});
  save();close("creditLoanSheet");render();msg("借款到账与待还债务已登记");
 };
 function creditSpendUI(){
@@ -255,6 +260,7 @@ function creditSpendUI(){
  if(!show)el("creditPayment").value="cash";
  const extra=show&&el("creditPayment").value==="credit";
  el("creditSpendExtra").style.display=extra?"":"none";
+ if(el("wallet_spend"))el("wallet_spend").closest(".walletField").style.display=extra?"none":"";
  if(!extra)return;
  const id=el("creditSpendAccount").value;
  el("creditSpendAccount").innerHTML=accounts.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>').join("");
@@ -353,7 +359,7 @@ txHtml=function(t,del=false,edit=false){
   const label=t.type==="credit_opening"?"已有信用债务":t.type==="credit_loan"?"现金借款到账":t.type==="credit_fund"?"信用还款预留":"偿还信用本金";
   return '<div class="item"><div class="txRow"><div class="txLeft"><div class="name">'+label+' · '+esc(account(t.creditAccountId)?.name||"信用账户")+'</div>'
    +'<div class="meta">'+(t.date||"")+(t.creditDueDate?" · 到期 "+t.creditDueDate:"")
-   +(N(t.fee)>0?" · 费用 "+M(t.fee):"")+'</div></div><div class="txRight"><div class="txAmount txMuted">'+M(t.amount)+'</div></div></div></div>';
+   +(N(t.fee)>0?" · 费用 "+M(t.fee):"")+Wallets.inlineTag(t)+'</div></div><div class="txRight"><div class="txAmount txMuted">'+M(t.amount)+'</div></div></div></div>';
  }
  const base=oldTxHtml(t,del,edit);
  if(t.type==="expense"&&t.creditAccountId){
