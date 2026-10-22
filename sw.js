@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-98-payment-channels-ledger";
+const CACHE = "safespend-v10-99-wallet-plan-now-split";
 const ASSETS = [
   "./",
   "./index.html",
