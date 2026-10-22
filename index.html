@@ -12375,8 +12375,14 @@ shareTop.onclick=shareText;shareSummary.onclick=shareText;copySummary.onclick=as
 function dl(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 exportJson.onclick=()=>dl(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}),`SafeSpend备份_${td()}.json`);
 exportCsv.onclick=()=>{
-  const rows=[["日期","类型","来源","金额","备注","关联ID","收入计划ID","零花钱分配","生活分配","账单分配","储蓄分配","专项分配"]];
-  S.tx.forEach(t=>rows.push([t.date,t.type,t.bucket||"",t.amount,t.note||"",t.refId||"",t.planId||"",t.alloc?.safe||"",t.alloc?.living||"",t.alloc?.bills||"",t.alloc?.saving||"",JSON.stringify(t.alloc?.projects||[])]));
+  const walletName=id=>Wallets.account(id)?.name||"";
+  const rows=[["日期","类型","来源","金额","备注","关联ID","收入计划ID","零花钱分配","生活分配","账单分配","储蓄分配","专项分配","支付渠道","转出渠道","转入渠道","渠道余额调整","手续费"]];
+  S.tx.forEach(t=>rows.push([
+    t.date,t.type,t.bucket||"",t.amount??t.delta??"",t.note||"",t.refId||"",t.planId||"",
+    t.alloc?.safe??"",t.alloc?.living??"",t.alloc?.bills??"",t.alloc?.saving??"",
+    JSON.stringify(t.alloc?.projects||[]),
+    walletName(t.walletAccountId),walletName(t.fromAccountId),walletName(t.toAccountId),t.delta??"",t.fee??""
+  ]));
   const csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
   dl(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),`SafeSpend流水_${td()}.csv`);
 };
