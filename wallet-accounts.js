@@ -14,7 +14,8 @@ function effect(t,id){
   if(t.type==="wallet_transfer")return (t.toAccountId===id?round(t.amount):0)-(t.fromAccountId===id?round(t.amount):0);
   if(t.type==="wallet_adjustment")return t.walletAccountId===id?round(t.delta):0;
   if(t.walletAccountId!==id)return 0;
-  if(t.type==="income")return round(t.amount);
+  if(t.type==="income"||t.type==="credit_loan")return round(t.amount);
+  if(t.type==="credit_repayment")return -round(round(t.amount)+round(t.fee));
   if(t.type==="expense"||t.type==="living_batch")return -round(t.amount);
   // Only the additional manual amount is a real payment: batch purchases
   // and ordinary daily purchases already have their own payment records.
@@ -32,21 +33,21 @@ function selectOptions(selected=""){
 function selected(key){
   const id=$("wallet_"+key)?.value||"";
   if(account(id)){
-    if(key==="income")S.settings.walletIncomeDefault=id;
-    else if(["spend","bill","living","batch"].includes(key))S.settings.walletSpendDefault=id;
+    if(["income","creditLoan"].includes(key))S.settings.walletIncomeDefault=id;
+    else if(["spend","bill","living","batch","creditRepay"].includes(key))S.settings.walletSpendDefault=id;
     return id;
   }
   return "";
 }
 function refreshSelectors(){
-  ["income","spend","living","batch","bill","from","to"].forEach(key=>{
+  ["income","spend","living","batch","bill","creditLoan","creditRepay","from","to"].forEach(key=>{
     const el=$("wallet_"+key);
     if(!el)return;
     const old=el.value;
     el.innerHTML=selectOptions(old);
     if(account(old))el.value=old;
-    else if(key==="income")el.value=account(S.settings.walletIncomeDefault)?S.settings.walletIncomeDefault:"";
-    else if(["spend","living","batch","bill"].includes(key))el.value=account(S.settings.walletSpendDefault)?S.settings.walletSpendDefault:"";
+    else if(["income","creditLoan"].includes(key))el.value=account(S.settings.walletIncomeDefault)?S.settings.walletIncomeDefault:"";
+    else if(["spend","living","batch","bill","creditRepay"].includes(key))el.value=account(S.settings.walletSpendDefault)?S.settings.walletSpendDefault:"";
   });
 }
 const field=(id,label)=>'<div class="walletField"><label for="wallet_'+id+'">'+label+'</label><select id="wallet_'+id+'"></select></div>';
@@ -195,5 +196,5 @@ function txHtml(t){
 }
 function renderAll(){if(typeof window.render==="function")window.render();else render();}
 mount();
-window.Wallets={defaults,account,balance,selected,render,injectEditor,editSelected,inlineTag,txHtml,openBillPayment};
+window.Wallets={defaults,account,balance,selected,selectOptions,field,refreshSelectors,render,injectEditor,editSelected,inlineTag,txHtml,openBillPayment};
 })();
