@@ -6656,6 +6656,13 @@ function expenseSourceLabel(t){
 
 function txHtml(t,del=false,edit=false,effects=null){
   if(t.type==="wallet_transfer"||t.type==="wallet_adjustment")return Wallets.txHtml(t);
+  if(t.type==="short_account_archive"||t.type==="short_account_restore"){
+    const restored=t.type==="short_account_restore";
+    return '<div class="item"><div class="txRow"><div class="txLeft"><div class="name">短期储蓄账户'+(restored?"恢复":"删除")+
+      ' · '+esc(t.accountName||shortSavingsAccountLabel(t.shortAccountId))+'</div><div class="meta">'+
+      esc(t.date||"")+' · '+(restored?"账户重新启用":"已从活跃账户列表移除，历史记录保留")+
+      ' · 不影响资产余额</div></div><div class="txRight"><div class="txAmount txMuted">¥0</div></div></div></div>';
+  }
   if(t.type==="short_balance_adjustment"){
     const actual=Number.isFinite(Number(t.targetBalance))?N(t.targetBalance):"";
     const summary=actual===""?"余额已校准":`账户实际余额 ${M(actual)}`;
@@ -6899,6 +6906,7 @@ function transactionActionTitle(t){
         ?"基础生活标准调整"
         :"基础生活标准新增";
   }
+  if(t.type==="short_account_archive"||t.type==="short_account_restore")return `短期储蓄账户${t.type==="short_account_restore"?"恢复":"删除"} · ${t.accountName||shortSavingsAccountLabel(t.shortAccountId)}`;
   if(t.type==="short_balance_adjustment")return `短期储蓄余额校准 · ${shortSavingsAccountLabel(t.shortAccountId)}`;
   if(t.type==="extra_saving")return t.shortAccountId?`额外锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`:"额外储蓄";
   if(t.type==="pocket_to_short")return `零花钱存入锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`;
@@ -7314,6 +7322,7 @@ function transactionSearchText(t){
 
   if(t.type==="living_settlement")parts.push("基础生活 结算");
   if(t.type==="living_batch")parts.push("多日 基础生活 买菜 分摊 预付");
+  if(t.type==="short_account_archive"||t.type==="short_account_restore")parts.push("短期储蓄 账户 删除 恢复",t.accountName);
   if(t.type==="short_balance_adjustment")parts.push("短期储蓄 余额 校准 修正 实际金额",shortSavingsAccountLabel(t.shortAccountId),t.priorBalance,t.targetBalance,t.delta);
   if(t.type==="extra_saving")parts.push("额外储蓄");
   if(t.type==="pocket_to_saving")parts.push("零花钱转储蓄");
@@ -10596,12 +10605,12 @@ function refreshExtraSavingDestination(){
   extraSavingShortFields.style.display=locked?"block":"none";
   if(locked){
     const selected=extraSavingAccount.value;
-    extraSavingAccount.innerHTML=(S.shortAccounts||[])
+    extraSavingAccount.innerHTML=activeShortAccounts()
       .map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("")
       +'<option value="__new__">＋ 新建一个锁定储蓄账户</option>';
     if(selected&&[...extraSavingAccount.options].some(o=>o.value===selected)){
       extraSavingAccount.value=selected;
-    }else if(!(S.shortAccounts||[]).length){
+    }else if(!activeShortAccounts().length){
       extraSavingAccount.value="__new__";
     }
   }
@@ -10664,13 +10673,13 @@ saveExtraSaving.onclick=()=>{
     if(accountId==="__new__"){
       const name=extraSavingNewAccount.value.trim();
       if(!name)return msg("请输入小荷包等锁定储蓄账户名称");
-      if(S.shortAccounts.some(a=>a.name.trim()===name)){
+      if(activeShortAccounts().some(a=>a.name.trim()===name)){
         return msg("已有同名账户，请直接选择已有账户");
       }
       newAccount={id:"sa"+Date.now(),name};
       accountId=newAccount.id;
     }
-    if(!newAccount&&!S.shortAccounts.some(a=>a.id===accountId)){
+    if(!newAccount&&!activeShortAccounts().some(a=>a.id===accountId)){
       return msg("请选择一个短期储蓄账户");
     }
     // Any date can be entered. Fund the movement from balances existing on that date.
@@ -10732,7 +10741,9 @@ function bankDepositSelectedMonths(){
 
 function refreshBankDepositForm(){
   const selected=bankShortAccount.value||bankDepositSheet.dataset.sourceShortAccount||"";
-  bankShortAccount.innerHTML=(S.shortAccounts||[]).map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${M(shortAccountBalance(a.id))}</option>`).join("");
+  const originalDeposit=(S.deposits||[]).find(d=>d.id===bankDepositId.value);
+  const selectableAccounts=(S.shortAccounts||[]).filter(a=>!a.archived||(originalDeposit?.source==="short"&&originalDeposit.shortAccountId===a.id));
+  bankShortAccount.innerHTML=selectableAccounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${M(shortAccountBalance(a.id))}</option>`).join("");
   if(selected&&[...bankShortAccount.options].some(x=>x.value===selected))bankShortAccount.value=selected;
   bankShortAccountRow.style.display=bankDepositSource.value==="short"?"block":"none";
   const fixed=bankDepositType.value==="fixed";
@@ -10847,7 +10858,7 @@ saveBankDeposit.onclick=()=>{
   if(depositType==="fixed"&&termMonths<=0)return msg("请选择或填写定期存款期限");
 
   if(source==="short"){
-    if(!shortAccountId||!(S.shortAccounts||[]).some(a=>a.id===shortAccountId))return msg("请选择短期储蓄账户");
+    if(!shortAccountId||!(S.shortAccounts||[]).some(a=>a.id===shortAccountId&&(!a.archived||(original?.source==="short"&&original.shortAccountId===a.id))))return msg("请选择可用的短期储蓄账户");
     // Backdated deposits and future transfer plans use the selected effective date.
     const available=shortAccountBalance(shortAccountId,startDate,id);
     if(principal>available+0.005)return msg(`该账户可用于转存 ${M(Math.max(0,available))}`);
@@ -11675,7 +11686,7 @@ function openTxEdit(id){
       <div class="formGrid one">
         <div>
           <label>短期储蓄账户</label>
-          <select id="editShortAccount">${(S.shortAccounts||[]).map(a=>`<option value="${esc(a.id)}" ${a.id===t.shortAccountId?"selected":""}>${esc(a.name)}</option>`).join("")}</select>
+          <select id="editShortAccount">${(S.shortAccounts||[]).filter(a=>!a.archived||a.id===t.shortAccountId).map(a=>`<option value="${esc(a.id)}" ${a.id===t.shortAccountId?"selected":""}>${esc(a.name)}${a.archived?"（已删除）":""}</option>`).join("")}</select>
         </div>
         <div>
           <label>日期</label>
@@ -11977,7 +11988,7 @@ saveTxEdit.onclick=()=>{
     const pocketValue=inTransfer?Number(document.getElementById("editShortPocket").value):0;
     const pocketAmount=Math.round(pocketValue*100)/100;
 
-    if(!(S.shortAccounts||[]).some(a=>a.id===accountId))return msg("请选择有效的短期储蓄账户");
+    if(!(S.shortAccounts||[]).some(a=>a.id===accountId&&(!a.archived||accountId===t.shortAccountId)))return msg("请选择有效的短期储蓄账户");
     if(!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date))return msg("请选择有效的记录日期");
     if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效的金额");
     if(!Number.isFinite(pocketAmount)||pocketAmount<0||pocketAmount>amount)return msg("日常支出转入金额需要介于 0 与总金额之间");
