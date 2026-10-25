@@ -12171,6 +12171,7 @@ saveTxEdit.onclick=()=>{
 
 /* Spend */
 function openSpend(){
+  if(window.AA)AA.restoreSpendingForm();
   plannedExpensePayment=null;
   spendBucket.value="safe";
   spendPaymentMode.value="normal";
