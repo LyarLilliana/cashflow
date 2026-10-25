@@ -15,6 +15,7 @@ function effect(t,id){
   if(t.type==="wallet_adjustment")return t.walletAccountId===id?round(t.delta):0;
   if(t.walletAccountId!==id)return 0;
   if(t.type==="income"||t.type==="credit_loan")return round(t.amount);
+  if(t.type==="aa_receive")return round(t.amount);
   if(t.type==="credit_repayment")return -round(round(t.amount)+round(t.fee));
   if(t.type==="expense"||t.type==="living_batch")return -round(t.amount);
   // Only the additional manual amount is a real payment: batch purchases
