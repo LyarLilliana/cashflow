@@ -1951,6 +1951,11 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .ordinaryLedgerChevron{color:var(--muted);transition:transform .2s}
 .ordinaryLedgerDetails[open] .ordinaryLedgerChevron{transform:rotate(180deg)}
 .ordinaryLedgerIntro{font-size:10.5px;color:var(--muted);line-height:1.5;margin:10px 0}
+.ordinaryLedgerToolbar{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-top:12px}
+.ordinaryLedgerToolbar span{font-size:10px;color:var(--muted)}
+.ordinaryLedgerToolbar button{font-size:10.5px;padding:7px 10px;min-height:32px;flex:none}
+.ordinaryBalancePreview{margin:12px 0;padding:10px 12px;background:var(--accentSoft);border-radius:12px;font-size:11px;line-height:1.6}
+.ordinaryLedgerEditBtn{border:0;background:transparent;color:var(--accent);font-size:10px;font-weight:700;padding:5px 0 0}
 .ordinaryLedgerList{max-height:375px;overflow:auto;overscroll-behavior:contain;border-top:1px solid var(--line)}
 .ordinaryLedgerRow{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .ordinaryLedgerBody{flex:1;min-width:0}
@@ -2345,6 +2350,9 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
         <details class="ordinaryLedgerDetails" id="ordinaryLedgerDetails">
           <summary><span>普通储蓄余额明细</span><strong id="ordinarySavingLedgerHeader">¥0</strong><span class="ordinaryLedgerChevron">⌄</span></summary>
+          <div class="ordinaryLedgerToolbar"><span>金额与资金流水一致</span>
+            <button type="button" class="secondary" onclick="openOrdinaryBalanceEditor()">修改普通储蓄余额</button>
+          </div>
           <div class="ordinaryLedgerIntro" id="ordinarySavingLedgerIntro"></div>
           <div class="ordinaryLedgerList" id="ordinarySavingLedgerRows"></div>
         </details>
@@ -3103,6 +3111,20 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   </div>
 </div>
 
+<div class="sheet" id="ordinaryBalanceSheet"><div class="sheetCard">
+  <h2 class="sheetTitle">普通储蓄余额校准</h2>
+  <input type="hidden" id="ordinaryBalanceAdjustmentId">
+  <div class="formGrid one">
+    <div><label>校准日期</label><input type="date" id="ordinaryBalanceAdjustmentDate"></div>
+    <div><label>目标普通储蓄余额</label><input type="number" inputmode="decimal" min="0" step="0.01" id="ordinaryBalanceAdjustmentTarget"></div>
+    <div><label>调整备注</label><input maxlength="100" id="ordinaryBalanceAdjustmentNote" placeholder="例如 与实际资金核对"></div>
+  </div>
+  <div class="ordinaryBalancePreview" id="ordinaryBalanceAdjustmentPreview"></div>
+  <p class="note">余额校准只修正普通储蓄账户资金，与实际银行、微信、支付宝之间的转存或消费分开记录。差额保留流水并从本期新存储蓄中剔除。</p>
+  <div class="actions"><button class="ghost" type="button" onclick="closeSheet('ordinaryBalanceSheet')">取消</button>
+    <button class="primary" id="saveOrdinaryBalanceAdjustment" type="button">保存校准</button></div>
+  <button type="button" class="danger" id="deleteOrdinaryBalanceAdjustment" style="display:none;width:100%;margin-top:10px">删除本条校准</button>
+</div></div>
 <div class="sheet" id="shortAccountSheet"><div class="sheetCard">
   <h2 class="sheetTitle" id="shortAccountSheetTitle">新增短期储蓄账户</h2>
   <input id="shortAccountId" type="hidden">
@@ -4214,6 +4236,11 @@ function accounting(asOf=td()){
       return;
     }
 
+    if(t.type==="ordinary_balance_adjustment"){
+      saving+=N(t.delta);
+      effects[t.id]={ordinaryBalanceCorrection:N(t.delta)};
+      return;
+    }
     if(t.type==="cycle_close_saving"){
       // Close the prior cycle. Record remaining unfunded amounts in the
       // historic shortfall ledger instead of carrying them into new pocket.
@@ -6827,6 +6854,13 @@ function txHtml(t,del=false,edit=false,effects=null){
       esc(t.date||"")+' · '+(restored?"历史账户恢复记录":"账户已删除，历史流水保留")+
       ' · 不影响资产余额</div></div><div class="txRight"><div class="txAmount txMuted">¥0</div></div></div></div>';
   }
+  if(t.type==="ordinary_balance_adjustment"){
+    const delta=N(t.delta);
+    return `<div class="item"><div class="txRow"><div class="txLeft">
+      <div class="name">普通储蓄余额校准</div>
+      <div class="meta">${esc(t.date||"")} · ${esc(t.note||"账实核对")} · 不计本期新存储蓄</div>
+    </div><div class="txRight"><div class="txAmount txMuted">${delta>=0?"+":"−"}${M(Math.abs(delta))}</div></div></div></div>`;
+  }
   if(t.type==="short_balance_adjustment"){
     const actual=Number.isFinite(Number(t.targetBalance))?N(t.targetBalance):"";
     const summary=actual===""?"余额已校准":`账户实际余额 ${M(actual)}`;
@@ -7030,6 +7064,7 @@ function transactionEditable(t){
 
   return [
     "income",
+    "ordinary_balance_adjustment",
     "living_settlement",
     "living_batch",
     "extra_saving",
@@ -7081,6 +7116,7 @@ function transactionActionTitle(t){
   }
   if(t.type==="short_account_archive"||t.type==="short_account_restore")return `短期储蓄账户${t.type==="short_account_restore"?"恢复":"删除"} · ${t.accountName||shortSavingsAccountLabel(t.shortAccountId)}`;
   if(t.type==="short_balance_adjustment")return `短期储蓄余额校准 · ${shortSavingsAccountLabel(t.shortAccountId)}`;
+  if(t.type==="ordinary_balance_adjustment")return "普通储蓄余额校准";
   if(t.type==="extra_saving")return t.shortAccountId?`额外锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`:"额外储蓄";
   if(t.type==="pocket_to_short")return `零花钱存入锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`;
   if(t.type==="pocket_to_saving")return "零花钱转储蓄";
@@ -7140,6 +7176,7 @@ function transactionActionAmountText(t){
     return `${t.effectiveDate} 起 · ${t.action==="delete"?"取消 ":""}${M(t.amount)}/天`;
   }
   if(t.type==="bill_skip")return "无需支付";
+  if(t.type==="ordinary_balance_adjustment")return `${N(t.delta)>=0?"+":"−"}${M(Math.abs(N(t.delta)))}`;
   if(t.amount!==undefined)return M(t.amount);
   return "";
 }
@@ -7181,6 +7218,8 @@ txActionDeleteBtn.onclick=()=>{
 
   if(["project_settlement","project_archive","project_restore"].includes(t.type)){
     removeProjectTimelineTx(id);
+  }else if(t.type==="ordinary_balance_adjustment"){
+    deleteOrdinaryBalanceAdjustment(id,true);
   }else if(t.type==="short_balance_adjustment"){
     deleteShortBalanceAdjustment(id,true);
   }else if(["short_transfer","short_interest","short_spend"].includes(t.type)){
@@ -7502,6 +7541,7 @@ function transactionSearchText(t){
   if(t.type==="living_batch")parts.push("多日 基础生活 买菜 分摊 预付");
   if(t.type==="short_account_archive"||t.type==="short_account_restore")parts.push("短期储蓄 账户 删除 恢复",t.accountName);
   if(t.type==="short_balance_adjustment")parts.push("短期储蓄 余额 校准 修正 实际金额",shortSavingsAccountLabel(t.shortAccountId),t.priorBalance,t.targetBalance,t.delta);
+  if(t.type==="ordinary_balance_adjustment")parts.push("普通储蓄 余额 校准 修正",t.targetBalance,t.delta);
   if(t.type==="extra_saving")parts.push("额外储蓄");
   if(t.type==="pocket_to_saving")parts.push("零花钱转储蓄");
   if(t.type==="pocket_to_short")parts.push("小荷包 锁定储蓄 零花钱转存");
@@ -8180,7 +8220,11 @@ function savingStatsForRange(start="",end=""){
   const shortBalanceAdjustment=sm(S.tx.filter(t=>
     t.type==="short_balance_adjustment"&&inRange(t.date)
   ),t=>N(t.delta));
-  const principalNet=ordinaryGross+bankExternal+bankProjectIncrease+shortProjectIncrease+shortBalanceAdjustment;
+  const ordinaryBalanceAdjustment=sm(S.tx.filter(t=>
+    t.type==="ordinary_balance_adjustment"&&inRange(t.date)
+  ),t=>N(t.delta));
+  const principalNet=ordinaryGross+bankExternal+bankProjectIncrease+shortProjectIncrease
+    +shortBalanceAdjustment+ordinaryBalanceAdjustment;
   const totalGrowth=principalNet+interest;
 
   const cycleCount=S.tx.filter(t=>isCycleIncomeTx(t)&&inRange(t.date)).length;
@@ -8208,6 +8252,7 @@ function savingStatsForRange(start="",end=""){
     bankGrowth,
     principalNet,
     shortBalanceAdjustment,
+    ordinaryBalanceAdjustment,
     growth:totalGrowth,
     income,
     rate:income>0?principalNet/income*100:0
@@ -8437,6 +8482,13 @@ function savingChangeEvents(){
         meta:[detail,t.note].filter(Boolean).join(" · "),amount:N(t.amount),impact:pocket,mode:"move"});
       return;
     }
+    if(t.type==="ordinary_balance_adjustment"){
+      const delta=N(t.delta);
+      events.push({id:t.id,date,name:"普通储蓄余额校准",
+        meta:(t.note||"账实核对")+" · 本期新存统计独立剔除校准",
+        amount:Math.abs(delta),impact:delta,mode:delta>=0?"pos":"neg"});
+      return;
+    }
     if(t.type==="short_balance_adjustment"){
       const delta=N(t.delta);
       events.push({
@@ -8623,6 +8675,10 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
     t.type==="short_balance_adjustment"&&t.date&&t.date<=td()
     &&(!start||t.date>=start)&&(!end||t.date<=end)
   ),t=>N(t.delta));
+  const ordinaryBalanceCorrection=sm(S.tx.filter(t=>
+    t.type==="ordinary_balance_adjustment"&&t.date&&t.date<=td()
+    &&(!start||t.date>=start)&&(!end||t.date<=end)
+  ),t=>N(t.delta));
   // An existing asset newly brought into the ledger is not newly earned savings.
   const historicalAssetImports=sm(S.tx.filter(t=>
     t.type==="short_transfer"&&t.direction==="in"&&t.date&&t.date<=td()
@@ -8632,7 +8688,7 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   // 专项转储蓄或专项补偿历史垫付款误认为新存入。
   // 真实普通储蓄、专项及银行资产仍按完整资金流水过账。
   const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth
-    +creditImpact-internalProjectReallocation-shortBalanceCorrection-historicalAssetImports;
+    +creditImpact-internalProjectReallocation-shortBalanceCorrection-ordinaryBalanceCorrection-historicalAssetImports;
   const pocketClosedThisRange=Math.max(0,N(raw.pocketClosed)-priorCycleCarry);
   const grossSaved=
     N(raw.recurringIncomeSaving)+N(raw.oneOffIncomeSaving)
@@ -8653,7 +8709,7 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
     dailyBeforeBank:ordinaryBooked+pendingPocket+N(raw.bankExisting),
     dailyAfterBank,
     short:shortFlowForRange(start,end),
-    shortTotal,bankPrincipal,bankTotal,interestGrowth,historicalAssetImports,
+    shortTotal,bankPrincipal,bankTotal,interestGrowth,historicalAssetImports,ordinaryBalanceCorrection,
     pendingPocket,expected,cashflowGrowth,creditImpact,internalProjectReallocation,shortBalanceCorrection,grossSaved
   };
 }
@@ -8751,13 +8807,17 @@ function renderSavingAssetSummary(){
   savingAssetMovementHint.hidden=s.bankExternal<=.005
     &&Math.abs(creditChange)<=.005
     &&projectReallocation<=.005
-    &&Math.abs(N(s.shortBalanceCorrection))<=.005;
+    &&Math.abs(N(s.shortBalanceCorrection))<=.005
+    &&Math.abs(N(s.ordinaryBalanceCorrection))<=.005;
   savingAssetMovementHint.textContent=[
     projectReallocation>.005
       ?`历史专项垫款回补及内部资金调拨共 ${M(projectReallocation)}，已反映在账户余额中，不计入本期新存下的钱。`
       :"",
     Math.abs(N(s.shortBalanceCorrection))>.005
       ?`短期储蓄余额核对修正 ${s.shortBalanceCorrection>=0?"+":"−"}${M(Math.abs(s.shortBalanceCorrection))}，只校准已存余额，不计本期新存款。`
+      :"",
+    Math.abs(N(s.ordinaryBalanceCorrection))>.005
+      ?`普通储蓄余额校准 ${s.ordinaryBalanceCorrection>=0?"+":"−"}${M(Math.abs(s.ordinaryBalanceCorrection))}，更新实际资产，本期新存统计已剔除校准差额。`
       :"",
     s.bankExternal>.005
       ?`本期录入的外部银行本金 ${M(s.bankExternal)} 已计入资产总额，本期净存入已剔除既有本金。`
@@ -8927,6 +8987,94 @@ function bankReminderThresholdValue(){
   return Math.max(0,N(S.settings.bankDepositThreshold));
 }
 
+
+function ordinaryBalanceBaseForDate(date,excludeId=""){
+  if(!excludeId)return N(accounting(date).saving);
+  const old=S.tx;
+  try{S.tx=old.filter(t=>t.id!==excludeId);return N(accounting(date).saving);}
+  finally{S.tx=old;}
+}
+function previewOrdinaryBalanceCorrection(){
+  const id=document.getElementById("ordinaryBalanceAdjustmentId").value;
+  const date=document.getElementById("ordinaryBalanceAdjustmentDate").value||td();
+  const input=document.getElementById("ordinaryBalanceAdjustmentTarget").value.trim();
+  const target=input===""?NaN:Number(input);
+  const baseline=ordinaryBalanceBaseForDate(date,id);
+  const difference=Number.isFinite(target)?Math.round((target-baseline)*100)/100:null;
+  document.getElementById("ordinaryBalanceAdjustmentPreview").textContent=
+    "校准前 "+M(baseline)+(difference===null?" · 请填写目标余额":
+    "，校准后 "+M(target)+"，差额 "+(difference>=0?"+":"−")+M(Math.abs(difference)))+
+    "。历史校准将联动后续资金流水。";
+}
+function openOrdinaryBalanceEditor(id=""){
+  const record=id?S.tx.find(t=>t.id===id&&t.type==="ordinary_balance_adjustment"):null;
+  if(id&&!record)return msg("原余额校准记录已更新");
+  document.getElementById("ordinaryBalanceAdjustmentId").value=record?.id||"";
+  document.getElementById("ordinaryBalanceAdjustmentDate").value=record?.date||td();
+  document.getElementById("ordinaryBalanceAdjustmentDate").max=td();
+  document.getElementById("ordinaryBalanceAdjustmentTarget").value=record?
+    Math.max(0,N(record.targetBalance)).toFixed(2):
+    Math.max(0,ordinarySavingsAvailable()).toFixed(2);
+  document.getElementById("ordinaryBalanceAdjustmentNote").value=record?.note||"";
+  document.getElementById("deleteOrdinaryBalanceAdjustment").style.display=record?"":"none";
+  syncDateDisplays();
+  previewOrdinaryBalanceCorrection();
+  document.getElementById("ordinaryBalanceSheet").classList.add("show");
+}
+["ordinaryBalanceAdjustmentDate","ordinaryBalanceAdjustmentTarget"].forEach(id=>{
+  const elem=document.getElementById(id);
+  elem.addEventListener("change",previewOrdinaryBalanceCorrection);
+  elem.addEventListener("input",previewOrdinaryBalanceCorrection);
+});
+function changeOrdinaryBalanceCorrection(mode="save"){
+  const id=document.getElementById("ordinaryBalanceAdjustmentId").value;
+  const record=id?S.tx.find(t=>t.id===id&&t.type==="ordinary_balance_adjustment"):null;
+  if(id&&!record)return msg("请重新打开这条记录");
+  const date=document.getElementById("ordinaryBalanceAdjustmentDate").value||"";
+  const value=document.getElementById("ordinaryBalanceAdjustmentTarget").value.trim();
+  const target=Number(value);
+  if(mode!=="delete"){
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||date>td()||
+      !Number.isFinite(D(date).getTime())||localDateString(D(date))!==date)
+      return msg("请输入有效的历史或当日日期");
+    if(value===""||!Number.isFinite(target)||target<0)return msg("请输入有效的目标储蓄余额");
+  }
+  const checkFrom=mode==="delete"?(record?.date||td()):
+    (record?.date&&record.date<date?record.date:date);
+  const dates=walletFundingCheckDates(checkFrom);
+  const before=walletFundingSnapshots(dates);
+  const old=S.tx;
+  if(mode==="delete"){
+    if(!record)return;
+    S.tx=old.filter(t=>t.id!==id);
+  }else{
+    const beforeSave=ordinaryBalanceBaseForDate(date,id);
+    const delta=Math.round((target-beforeSave)*100)/100;
+    const note=document.getElementById("ordinaryBalanceAdjustmentNote").value.trim();
+    const candidate={id:record?.id||("oba"+Date.now()+Math.random().toString(36).slice(2,6)),
+      type:"ordinary_balance_adjustment",date,delta,targetBalance:target,note};
+    S.tx=[...old.filter(t=>t.id!==id),candidate];
+  }
+  const after=walletFundingSnapshots(dates);
+  if(!walletFundingRemainsCovered(before,after)){
+    S.tx=old;
+    return msg("校准会影响既有支出或未来转存资金，请调整日期或余额");
+  }
+  save();closeSheet("ordinaryBalanceSheet");render();
+  msg(mode==="delete"?"余额校准已撤销":"普通储蓄余额已校准");
+}
+function deleteOrdinaryBalanceAdjustment(id="",confirmed=false){
+  const entry=S.tx.find(t=>t.id===id&&t.type==="ordinary_balance_adjustment");
+  if(!entry)return;
+  if(!confirmed&&!confirm("删除这条普通储蓄余额校准记录？"))return;
+  document.getElementById("ordinaryBalanceAdjustmentId").value=id;
+  changeOrdinaryBalanceCorrection("delete");
+}
+document.getElementById("saveOrdinaryBalanceAdjustment").onclick=()=>changeOrdinaryBalanceCorrection("save");
+document.getElementById("deleteOrdinaryBalanceAdjustment").onclick=()=>{
+  deleteOrdinaryBalanceAdjustment(document.getElementById("ordinaryBalanceAdjustmentId").value);
+};
+
 function ordinaryMovementTitle(row,tx){
   const kind=row.type;
   if(kind==="cycle_close_saving")return "上周期零花结余自动转储蓄";
@@ -8944,6 +9092,7 @@ function ordinaryMovementTitle(row,tx){
     ?"普通储蓄转短期储蓄 · "+shortSavingsAccountLabel(tx?.shortAccountId)
     :"短期储蓄转回普通储蓄 · "+shortSavingsAccountLabel(tx?.shortAccountId);
   if(kind==="extra_saving")return "补录普通储蓄";
+  if(kind==="ordinary_balance_adjustment")return "普通储蓄余额校准";
   if(kind==="saving_to_project")return "普通储蓄补入专项 · "+(S.projects.find(p=>p.id===tx?.projectId)?.name||"专项");
   if(kind==="project_transfer")return "专项转入普通储蓄 · "+(S.projects.find(p=>p.id===tx?.fromProjectId)?.name||"专项");
   if(kind==="project_settlement")return "专项结余转普通储蓄";
@@ -8978,6 +9127,9 @@ function renderOrdinarySavingLedger(){
       <div class="ordinaryLedgerBody">
         <div class="ordinaryLedgerName">${esc(title)}</div>
         <div class="ordinaryLedgerMeta">${esc(row.date||"")}${esc(note)}</div>
+        ${tx&&(tx.type==="ordinary_balance_adjustment"||transactionEditable(tx))
+          ?'<button class="ordinaryLedgerEditBtn" type="button" data-tx-id="'+esc(tx.id)+'">修改记录</button>'
+          :""}
       </div>
       <div class="ordinaryLedgerAside">
         <div class="ordinaryLedgerDelta ${incoming?"in":"out"}">${incoming?"+":"−"}${M(Math.abs(row.delta))}</div>
@@ -8986,6 +9138,13 @@ function renderOrdinarySavingLedger(){
     </div>`;
   }).join(""):'<div class="note">目前普通储蓄余额尚无变动。</div>';
 }
+document.getElementById("ordinarySavingLedgerRows").addEventListener("click",event=>{
+  const button=event.target.closest("button[data-tx-id]");
+  if(!button)return;
+  const t=S.tx.find(row=>row.id===button.dataset.txId);
+  if(t?.type==="ordinary_balance_adjustment")openOrdinaryBalanceEditor(t.id);
+  else if(t&&transactionEditable(t))openTxEdit(t.id);
+});
 
 function ordinaryCycleTransferReminderState(){
   const cycleRows=cycleIncomeRows().filter(t=>t.date&&t.date<=td());
@@ -11644,6 +11803,7 @@ function refreshTransferEditFields(t){
 
 function openTxEdit(id){
   const t=S.tx.find(x=>x.id===id);
+  if(t?.type==="ordinary_balance_adjustment")return openOrdinaryBalanceEditor(id);
   if(t?.aaId&&window.AA)return AA.openLinkedTransaction(t);
   if(!t||!transactionEditable(t))return msg("这条流水没有可还原的输入表单");
 
