@@ -1951,6 +1951,17 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .ordinaryLedgerChevron{color:var(--muted);transition:transform .2s}
 .ordinaryLedgerDetails[open] .ordinaryLedgerChevron{transform:rotate(180deg)}
 .ordinaryLedgerIntro{font-size:10.5px;color:var(--muted);line-height:1.5;margin:10px 0}
+.ordinaryWalletBlock{margin-top:12px;border-top:1px solid var(--line);padding:12px 0}
+.ordinaryWalletHead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ordinaryWalletHead span{font-weight:730;font-size:12px}
+.ordinaryWalletHead button{min-height:32px;padding:6px 10px;font-size:10.5px}
+.ordinaryWalletDistribution{display:grid;gap:6px;margin:12px 0 7px}
+.ordinaryWalletLine{display:flex;align-items:center;justify-content:space-between;font-size:11px;gap:10px}
+.ordinaryWalletLine span{color:var(--muted)}
+.ordinaryWalletLine strong{font-variant-numeric:tabular-nums}
+.ordinaryWalletHint{font-size:10px;line-height:1.6;color:var(--muted)}
+.ordinaryWalletFields{display:grid;gap:12px;margin-top:15px}
+.ordinaryWalletFieldMeta{font-size:10px;color:var(--muted);margin:2px 0 5px}
 .ordinaryLedgerToolbar{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-top:12px}
 .ordinaryLedgerToolbar span{font-size:10px;color:var(--muted)}
 .ordinaryLedgerToolbar button{font-size:10.5px;padding:7px 10px;min-height:32px;flex:none}
@@ -2353,7 +2364,11 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <div class="ordinaryLedgerToolbar"><span>金额与资金流水一致</span>
             <button type="button" class="secondary" onclick="openOrdinaryBalanceEditor()">修改普通储蓄余额</button>
           </div>
-          <div class="ordinaryLedgerIntro" id="ordinarySavingLedgerIntro"></div>
+          <div class="ordinaryWalletBlock"><div class="ordinaryWalletHead"><span>普通储蓄的渠道分布</span>
+<button type="button" class="secondary" onclick="openOrdinaryWalletEditor()">编辑分布</button></div>
+<div id="ordinaryWalletDistribution" class="ordinaryWalletDistribution"></div>
+<div id="ordinaryWalletHint" class="ordinaryWalletHint"></div></div>
+<div class="ordinaryLedgerIntro" id="ordinarySavingLedgerIntro"></div>
           <div class="ordinaryLedgerList" id="ordinarySavingLedgerRows"></div>
         </details>
 
@@ -3111,6 +3126,14 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
   </div>
 </div>
 
+<div class="sheet" id="ordinaryWalletSheet"><div class="sheetCard">
+<h2 class="sheetTitle">普通储蓄支付渠道分布</h2>
+<div class="meta" id="ordinaryWalletEditHeader"></div><div id="ordinaryWalletFields" class="ordinaryWalletFields"></div>
+<div class="ordinaryBalancePreview" id="ordinaryWalletEditTotal"></div>
+<p class="note">渠道分布是对普通储蓄存放位置的核对。修改标记后，普通储蓄总额与渠道实有余额保持原状；资金真实转移时继续通过转账或存款操作记账。</p>
+<div class="actions"><button class="ghost" type="button" onclick="closeSheet('ordinaryWalletSheet')">取消</button>
+<button class="primary" type="button" id="saveOrdinaryWalletAllocation">保存分布</button></div>
+</div></div>
 <div class="sheet" id="ordinaryBalanceSheet"><div class="sheetCard">
   <h2 class="sheetTitle">普通储蓄余额校准</h2>
   <input type="hidden" id="ordinaryBalanceAdjustmentId">
@@ -3156,6 +3179,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     <div><label for="shortTransferAccount">储蓄账户</label><select id="shortTransferAccount"></select></div>
     <div><label for="shortTransferAction">记录类型</label><select id="shortTransferAction">
       <option value="out">取回储蓄余额</option>
+      <option value="in">从普通储蓄转入</option>
       <option value="interest">实际到账收益</option><option value="spend">动用储蓄消费</option>
     </select></div>
     <div><label for="shortTransferAmount">金额</label><input id="shortTransferAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00"></div>
@@ -8988,6 +9012,77 @@ function bankReminderThresholdValue(){
 }
 
 
+
+function ordinaryWalletDistribution(){
+  const accounts=(S.paymentAccounts||[]).filter(a=>a?.id);
+  const stored=S.settings.ordinaryWalletShares||{};
+  const total=Math.max(0,Math.round(N(ordinarySavingsAvailable())*100));
+  let remaining=total,needsReview=false;
+  const allocation={};
+  accounts.forEach(a=>{
+    const wanted=Math.max(0,Math.round(N(stored[a.id])*100));
+    const cap=Math.max(0,Math.round(N(Wallets.balance(a.id))*100));
+    const shown=Math.min(wanted,cap,remaining);
+    allocation[a.id]=shown/100;
+    remaining-=shown;
+    if(shown!==wanted)needsReview=true;
+  });
+  if(Object.keys(stored).some(id=>!accounts.some(a=>a.id===id)&&N(stored[id])>0))needsReview=true;
+  return {accounts,allocation,total:total/100,unassigned:remaining/100,needsReview};
+}
+window.ordinaryWalletShares=()=>ordinaryWalletDistribution().allocation;
+function renderOrdinaryWalletDistribution(){
+  const box=document.getElementById("ordinaryWalletDistribution");
+  if(!box)return;
+  const d=ordinaryWalletDistribution();
+  box.innerHTML=d.accounts.map(a=>`<div class="ordinaryWalletLine"><span>${esc(a.name)}</span><strong>${M(d.allocation[a.id])}</strong></div>`).join("")
+    +`<div class="ordinaryWalletLine"><span>待核对渠道</span><strong>${M(d.unassigned)}</strong></div>`;
+  document.getElementById("ordinaryWalletHint").textContent=
+    (d.needsReview?"部分历史渠道归属超过当前储蓄或渠道余额，请重新核对。 ":"")+
+    (d.unassigned>.005?"点击“编辑分布”，确认这部分普通储蓄实际存放的位置。":"分布合计与当前普通储蓄余额一致。")+
+    " 各支付渠道余额还包括生活及其他资金。";
+}
+function ordinaryWalletDraft(){
+  const inputs=[...document.querySelectorAll("#ordinaryWalletFields [data-ordinary-wallet-id]")];
+  const allocation={};
+  let totalCents=0,error="";
+  for(const input of inputs){
+    const value=input.value.trim()===""?0:Number(input.value);
+    const cents=Math.round(value*100);
+    const cap=Math.max(0,Math.round(N(Wallets.balance(input.dataset.ordinaryWalletId))*100));
+    if(!Number.isFinite(value)||value<0||Math.abs(value-cents/100)>.00001){error="各渠道金额请填写非负的两位小数";break;}
+    if(cents>cap){error="该渠道分配的普通储蓄超过实际渠道余额";break;}
+    allocation[input.dataset.ordinaryWalletId]=cents/100;totalCents+=cents;
+  }
+  const max=Math.max(0,Math.round(N(ordinarySavingsAvailable())*100));
+  if(!error&&totalCents>max)error="渠道分配合计超过普通储蓄余额";
+  return {allocation,total:totalCents/100,remainder:Math.max(0,max-totalCents)/100,error};
+}
+function refreshOrdinaryWalletEditorPreview(){
+  const d=ordinaryWalletDraft();
+  document.getElementById("ordinaryWalletEditTotal").textContent=
+    "已指定 "+M(d.total)+" · 待核对 "+M(d.remainder)+(d.error?" · "+d.error:"");
+}
+function openOrdinaryWalletEditor(){
+  const d=ordinaryWalletDistribution();
+  document.getElementById("ordinaryWalletEditHeader").textContent="普通储蓄余额 "+M(d.total)+"，请标记实际所在的渠道。";
+  document.getElementById("ordinaryWalletFields").innerHTML=d.accounts.map(a=>
+    `<div><label>${esc(a.name)}</label><div class="ordinaryWalletFieldMeta">该渠道实有余额 ${M(Wallets.balance(a.id))}</div>
+    <input type="number" inputmode="decimal" min="0" step="0.01" data-ordinary-wallet-id="${esc(a.id)}"
+    value="${N(d.allocation[a.id]).toFixed(2)}"></div>`
+  ).join("");
+  refreshOrdinaryWalletEditorPreview();
+  document.getElementById("ordinaryWalletSheet").classList.add("show");
+}
+document.getElementById("ordinaryWalletFields").addEventListener("input",refreshOrdinaryWalletEditorPreview);
+document.getElementById("saveOrdinaryWalletAllocation").onclick=()=>{
+  const d=ordinaryWalletDraft();
+  if(d.error)return msg(d.error);
+  S.settings.ordinaryWalletShares=d.allocation;
+  save();closeSheet("ordinaryWalletSheet");render();
+  msg(d.remainder>.005?"渠道分布已保存，剩余部分待核对":"普通储蓄渠道分布已保存");
+};
+
 function ordinaryBalanceBaseForDate(date,excludeId=""){
   if(!excludeId)return N(accounting(date).saving);
   const old=S.tx;
@@ -9109,6 +9204,7 @@ function renderOrdinarySavingLedger(){
   const root=document.getElementById("ordinarySavingLedgerRows");
   if(!root)return;
   const a=accounting();
+  renderOrdinaryWalletDistribution();
   const rows=(a.ordinaryMovements||[]);
   const lookup=new Map(S.tx.map(t=>[t.id,t]));
   const totalIn=sm(rows.filter(t=>t.delta>0),t=>t.delta);
@@ -9179,6 +9275,12 @@ function openOrdinaryCycleTransferBank(){
 
 function renderOrdinaryCycleTransferReminder(){
   const reminder=ordinaryCycleTransferReminderState();
+  const home=document.getElementById("ordinaryTransferHomeCard");
+  const walletSection=document.querySelector("#now .walletNowSection");
+  if(home&&walletSection&&home.nextElementSibling!==walletSection)walletSection.before(home);
+  const saving=document.getElementById("ordinaryTransferSavingCard");
+  const shortAccount=document.querySelector(".shortAccountCard");
+  if(saving&&shortAccount&&saving.nextElementSibling!==shortAccount)shortAccount.before(saving);
   for(const loc of ["Home","Saving"]){
     const card=document.getElementById("ordinaryTransfer"+loc+"Card");
     card.style.display=reminder.visible?"":"none";
