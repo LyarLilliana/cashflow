@@ -7094,7 +7094,12 @@ txActionDeleteBtn.onclick=()=>{
   const t=S.tx.find(x=>x.id===id);
   if(!t)return;
 
-  if(!confirm(`删除“${transactionActionTitle(t)}”这条流水？`))return;
+  if(t.aaId&&window.AA&&(t.type==="aa_open"||t.aaKind==="advance")){
+   closeSheet("txActionSheet");
+   AA.deleteEntry(t.aaId);
+   return;
+ }
+ if(!confirm(`删除“${transactionActionTitle(t)}”这条流水？`))return;
 
   closeSheet("txActionSheet");
 
