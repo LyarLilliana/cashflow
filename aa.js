@@ -57,11 +57,14 @@ function mount(){
    '</div><div class="card"><div class="aaSummary">',
    '<div class="aaCell"><span>待收回</span><strong id="aaReceivable">¥0</strong></div>',
    '<div class="aaCell"><span>待支付</span><strong id="aaPayable">¥0</strong></div>',
-   '<div class="aaCell"><span>累计结清</span><strong id="aaSettled">¥0</strong></div>',
+   '<div class="aaCell"><span>已结清</span><strong id="aaSettled">¥0</strong></div>',
    '</div><details class="aaRecords" id="aaOpenDetails" open><summary id="aaOpenSummary">待处理往来</summary><div id="aaOpenList"></div></details>',
    '<details class="aaRecords" id="aaClosedDetails"><summary id="aaClosedSummary">已结清</summary><div id="aaClosedList"></div></details>',
    '</div></div>'
   ].join(""));
+  const upcomingBox=$("upcomingBox");
+  if(upcomingBox)upcomingBox.insertAdjacentHTML("afterend",
+    '<div class="card" id="aaUpcomingSection" hidden style="margin-top:8px"><div class="name" style="font-size:12px;margin-bottom:6px">AA 待付款</div><div id="aaUpcoming"></div></div>');
   const note=$("spendHint");
   note.insertAdjacentHTML("afterend",'<div style="text-align:right;margin-top:5px"><button class="aaSecondary" type="button" id="aaFromSpend">这笔是 AA 消费？</button></div>');
   document.body.insertAdjacentHTML("beforeend",[
@@ -353,7 +356,7 @@ function render(){
  const closedEntries=entries().filter(a=>totalLeft(a)<=.005).sort((a,b)=>b.date.localeCompare(a.date));
  const receivable=R(openEntries.filter(a=>a.direction==="receivable").reduce((s,a)=>s+totalLeft(a),0));
  const payable=R(openEntries.filter(a=>a.direction==="payable").reduce((s,a)=>s+totalLeft(a),0));
- const cleared=R(entries().reduce((s,a)=>s+settled(a),0));
+ const cleared=R(closedEntries.reduce((s,a)=>s+settled(a),0));
  $("aaReceivable").textContent=money(receivable);
  $("aaPayable").textContent=money(payable);
  $("aaSettled").textContent=money(cleared);
