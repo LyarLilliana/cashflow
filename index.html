@@ -3138,12 +3138,13 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 const KEY="safespend_cashflow_v73";
 const OLD_KEYS=["safespend_cashflow_v72","safespend_cashflow_v71","safespend_cashflow_v70","safespend_cashflow_v69","safespend_cashflow_v68","safespend_cashflow_v67","safespend_cashflow_v66","safespend_cashflow_v65","safespend_cashflow_v64","safespend_cashflow_v63","safespend_cashflow_v62","safespend_cashflow_v61","safespend_cashflow_v60","safespend_cashflow_v59","safespend_cashflow_v58","safespend_cashflow_v57","safespend_cashflow_v56","safespend_cashflow_v55","safespend_cashflow_v54","safespend_cashflow_v53","safespend_cashflow_v52","safespend_cashflow_v51","safespend_cashflow_v50","safespend_cashflow_v49","safespend_cashflow_v48","safespend_cashflow_v47","safespend_cashflow_v46","safespend_cashflow_v45","safespend_cashflow_v44","safespend_cashflow_v43","safespend_cashflow_v42","safespend_cashflow_v41","safespend_cashflow_v40","safespend_cashflow_v39","safespend_cashflow_v38","safespend_cashflow_v37","safespend_cashflow_v36","safespend_cashflow_v35","safespend_cashflow_v34","safespend_cashflow_v33","safespend_cashflow_v32","safespend_cashflow_v31","safespend_cashflow_v30","safespend_cashflow_v29","safespend_cashflow_v28","safespend_cashflow_v27","safespend_cashflow_v26","safespend_cashflow_v25","safespend_cashflow_v24","safespend_cashflow_v23","safespend_cashflow_v22","safespend_cashflow_v21","safespend_cashflow_v20","safespend_cashflow_v19","safespend_cashflow_v18","safespend_cashflow_v17","safespend_cashflow_v16","safespend_cashflow_v15","safespend_cashflow_v14","safespend_cashflow_v13","safespend_cashflow_v12","safespend_cashflow_v11","safespend_cashflow_v10","safespend_cashflow_v9","safespend_cashflow_v8","safespend_cashflow_v7","safespend_cashflow_v6","safespend_cashflow_v5","safespend_cashflow_v4","safespend_cashflow_v3","laiya_cashflow_pwa_v2"];
 const defaults={
-  version:74,
+  version:75,
   settings:{dailyLiving:0,livingRates:[],monthlyGoal:0,bankDepositThreshold:0,creditEnabled:false},
   incomePlans:[],
   bills:[],
   billDeferrals:[],
   plannedExpenses:[],
+  aaEntries:[],
   projects:[],
   deposits:[],
   shortAccounts:[],
@@ -3198,6 +3199,17 @@ function normalize(d){
   s.incomePlans=Array.isArray(d.incomePlans)?d.incomePlans:[];
   s.bills=Array.isArray(d.bills)?d.bills:[];
   s.billDeferrals=Array.isArray(d.billDeferrals)?d.billDeferrals.filter(x=>x?.billId&&x?.cycleDueDate&&x?.payDate):[];
+  s.aaEntries=(Array.isArray(d.aaEntries)?d.aaEntries:[]).filter(a=>a&&a.id).map(a=>({
+    ...a,
+    direction:a.direction==="payable"?"payable":"receivable",
+    title:String(a.title||"AA 往来"),
+    total:Math.max(0,Math.round((Number(a.total)||0)*100)/100),
+    own:Math.max(0,Math.round((Number(a.own)||0)*100)/100),
+    people:(Array.isArray(a.people)?a.people:[]).filter(p=>p&&p.id).map(p=>({
+      ...p,name:String(p.name||"参与者"),
+      amount:Math.max(0,Math.round((Number(p.amount)||0)*100)/100)
+    }))
+  }));
   s.plannedExpenses=Array.isArray(d.plannedExpenses)?d.plannedExpenses:[];
   s.plannedExpenses=s.plannedExpenses.map(x=>({
     ...x,
@@ -3665,9 +3677,11 @@ function cyclePocketSnapshot(incomeTx){
     ),
     t=>{
       const reserveDraw=Math.max(0,N(lightReserveUsage.byExpense[t.id]));
-      const ordinaryAmount=Math.max(0,N(t.amount)-reserveDraw);
+      const ownAmount=t.aaKind==="advance"?Math.min(N(t.amount),Math.max(0,N(t.aaOwnShare))):N(t.amount);
+      const ordinaryAmount=Math.max(0,ownAmount-reserveDraw);
       const livingDraw=Math.min(ordinaryAmount,Math.max(0,N(dailyLivingCover.byTx[t.id])));
-      return Math.max(0,ordinaryAmount-livingDraw);
+      const floated=t.aaKind==="advance"?Math.max(0,N(t.amount)-ownAmount):0;
+      return Math.max(0,ordinaryAmount-livingDraw)+floated;
     }
   );
 
@@ -3717,6 +3731,11 @@ function cyclePocketSnapshot(incomeTx){
       ?N(t.amount)
       :Math.max(0,N(t.amount)-N(t.creditReservedUsed))+N(t.fee));
 
+  const aaPocketReceipts=sm(cycleTx.filter(t=>t.type==="aa_receive"),t=>{
+    const original=S.tx.find(x=>x.aaId===t.aaId&&x.aaKind==="advance");
+    return original&&(original.bucket==="safe"||original.bucket==="living")
+      &&effectiveExpenseCycleIncomeId(original)===incomeTx.id?N(t.amount):0;
+  });
   const pocketBalance=
     pocketInitial
     -pocketSpent
@@ -3725,6 +3744,7 @@ function cyclePocketSnapshot(incomeTx){
     -pocketToSaving
     -pocketToProject
     +creditLoanCash
+    +aaPocketReceipts
     -creditPocketDebit;
 
   return {
@@ -3746,6 +3766,7 @@ function cyclePocketSnapshot(incomeTx){
     pocketToSaving,
     pocketToProject,
     projectSettlementSaving,
+    aaPocketReceipts,
     pocketBalance
   };
 }
@@ -4292,6 +4313,28 @@ function accounting(asOf=td()){
         creditRepayment:t.type==="credit_repayment",creditDebit:amount};
       return;
     }
+    if(t.type==="aa_receive"){
+      // Reimburse the original cash source. A previous cycle's pocket has
+      // already closed into savings, so late recovery credits savings.
+      const original=S.tx.find(x=>x.aaId===t.aaId&&x.aaKind==="advance");
+      if(!original)return;
+      const amount=Math.max(0,N(t.amount));
+      if(original.bucket==="project"&&original.refId){
+        creditProjectFunding(original.refId,amount,t.id);
+      }else if(original.bucket==="saving"){
+        saving+=amount;
+      }else{
+        const originalCycle=effectiveExpenseCycleIncomeId(original);
+        if(originalCycle&&activeCycleIncomeId&&originalCycle!==activeCycleIncomeId){
+          saving+=amount;
+        }else{
+          const repaid=creditPocket(amount);
+          if(repaid>0)effects[t.id]={pocketSavingRepaid:repaid};
+        }
+      }
+      effects[t.id]={...(effects[t.id]||{}),aaRefund:amount,aaId:t.aaId};
+      return;
+    }
     if(t.type!=="expense")return;
     if(t.creditAccountId&&t.creditFundMode==="future"){
       effects[t.id]={creditFutureExpense:true};
@@ -4420,16 +4463,19 @@ function accounting(asOf=td()){
       return;
     }
 
+    const personalAmount=t.aaKind==="advance"
+      ?Math.min(amount,Math.max(0,N(t.aaOwnShare))):amount;
+    const advanceAmount=Math.max(0,amount-personalAmount);
     const plannedReserveDraw=Math.min(
-      amount,
+      personalAmount,
       Math.max(0,N(lightReserveUsage.byExpense[t.id]))
     );
-    const ordinaryAmount=Math.max(0,amount-plannedReserveDraw);
+    const ordinaryAmount=Math.max(0,personalAmount-plannedReserveDraw);
     const livingDraw=Math.min(
       ordinaryAmount,
       Math.max(0,N(dailyLivingCover.byTx[t.id]))
     );
-    const pocketNeed=Math.max(0,ordinaryAmount-livingDraw);
+    const pocketNeed=Math.max(0,ordinaryAmount-livingDraw)+advanceAmount;
 
     const before=N(raw.safe);
     const pocketAvailable=Math.max(0,before);
@@ -4536,6 +4582,7 @@ function cycleStatsForIncome(incomeTx){
     +snap.pocketInitial
     +snap.livingRelease
     +snap.lightPlanReleased
+    +snap.aaPocketReceipts
     -snap.pocketSpent
     -snap.pocketToProject;
 
@@ -4815,7 +4862,7 @@ function livingSettlementPreviewForDate(date,allowance,manual){
     &&!t.settledBillId
     &&t.creditFundMode!=="future"
     &&dailyExpenseMatchesFundedLivingCycle(t,dayInfo)
-  ),t=>Math.max(0,N(t.amount)-Math.max(0,N(reserveUsage[t.id]))));
+  ),t=>Math.max(0,(t.aaKind==="advance"?Math.min(N(t.amount),Math.max(0,N(t.aaOwnShare))):N(t.amount))-Math.max(0,N(reserveUsage[t.id]))));
   const dailyDraw=Math.min(Math.max(0,gross),eligible);
   return {batch,dailyDraw,net:gross-dailyDraw};
 }
@@ -4987,7 +5034,8 @@ function dailyExpenseLivingCoverMap(){
       return;
     }
     const reserveDraw=Math.max(0,N(lightReserveUsage.byExpense[t.id]));
-    const livingEligible=Math.max(0,N(t.amount)-reserveDraw);
+    const personal=t.aaKind==="advance"?Math.min(N(t.amount),Math.max(0,N(t.aaOwnShare))):N(t.amount);
+    const livingEligible=Math.max(0,personal-reserveDraw);
     const draw=Math.min(livingEligible,remaining);
     byTx[t.id]=draw;
     byDate[date]=(byDate[date]||0)+draw;
@@ -6104,6 +6152,7 @@ function render(){
   renderHistory();
   refreshSpendRefs();
   Wallets.render();
+  if(window.AA)AA.render();
 }
 function refreshLivingRuleEditorMeta(){
   const startDate=planLivingStartDate.value||td();
@@ -6675,6 +6724,26 @@ function expenseSourceLabel(t){
 
 function txHtml(t,del=false,edit=false,effects=null){
   if(t.type==="wallet_transfer"||t.type==="wallet_adjustment")return Wallets.txHtml(t);
+  if(t.aaId){
+    const aa=(S.aaEntries||[]).find(a=>a.id===t.aaId);
+    const label=esc(aa?.title||t.note||"AA 往来");
+    const person=esc(t.aaPersonName||aa?.people?.find(p=>p.id===t.aaPersonId)?.name||"");
+    const wallet=Wallets.inlineTag(t);
+    if(t.type==="aa_open"){
+      const mode=aa?.direction==="payable"?"待付款登记":"待收款登记";
+      return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">AA ${mode} · ${label}</div>
+      <div class="meta">${esc(t.date)} · 记账备忘，当前现金维持原状</div></div><div class="txRight"><div class="txAmount txMuted">${M(t.amount)}</div></div></div></div>`;
+    }
+    if(t.type==="aa_receive"){
+      return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">AA 收款核销 · ${label}</div>
+      <div class="meta">${esc(t.date)} · ${person}已还 · 垫付款回收${wallet}</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div></div></div></div>`;
+    }
+    if(t.type==="expense"&&(t.aaKind==="advance"||t.aaKind==="pay")){
+      const upfront=t.aaKind==="advance";
+      return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${upfront?"AA 集体垫付":"AA 付款核销"} · ${label}</div>
+      <div class="meta">${esc(t.date)}${upfront?" · 个人承担 "+M(t.aaOwnShare)+" · 待他人分摊 "+M(Math.max(0,N(t.amount)-N(t.aaOwnShare))):" · 支付给 "+person}${wallet}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div></div></div></div>`;
+    }
+  }
   if(t.type==="short_account_archive"||t.type==="short_account_restore"){
     const restored=t.type==="short_account_restore";
     return '<div class="item"><div class="txRow"><div class="txLeft"><div class="name">短期储蓄账户'+(restored?"恢复":"删除")+
@@ -6873,6 +6942,7 @@ function txHtml(t,del=false,edit=false,effects=null){
 }
 function transactionEditable(t){
   if(!t)return false;
+  if(t.aaId)return true;
   // References to deleted short accounts are historical-only.
   if(deletedShortAccountId(t.shortAccountId))return false;
 
@@ -6903,6 +6973,12 @@ function txButtons(t,del=false,edit=false){
 
 function transactionActionTitle(t){
   if(!t)return "流水";
+  if(t.aaId){
+    const a=(S.aaEntries||[]).find(x=>x.id===t.aaId);
+    const title=a?.title||t.note||"AA 往来";
+    return (t.type==="aa_open"?"AA 往来登记":t.type==="aa_receive"?"AA 收款核销":
+      t.aaKind==="advance"?"AA 集体垫付":"AA 付款核销")+" · "+title;
+  }
 
   if(t.type==="wallet_transfer")return "支付渠道互转";
   if(t.type==="wallet_adjustment")return "支付渠道余额校准";
@@ -9257,7 +9333,10 @@ function actualSpendingDate(t){
 function actualSpendingAmount(t){
   if(!t)return 0;
   if(t.type==="credit_repayment")return Math.max(0,N(t.fee));
-  if(t.type==="expense"||t.type==="short_spend")return Math.max(0,N(t.amount));
+  if(t.type==="expense"||t.type==="short_spend"){
+    if(t.aaKind==="advance")return Math.min(Math.max(0,N(t.amount)),Math.max(0,N(t.aaOwnShare)));
+    return Math.max(0,N(t.amount));
+  }
   if(t.type==="living_batch")return Math.max(0,N(t.amount));
   if(t.type==="living_settlement")return livingSettlementManualActual(t);
   return 0;
@@ -11376,6 +11455,7 @@ function refreshTransferEditFields(t){
 
 function openTxEdit(id){
   const t=S.tx.find(x=>x.id===id);
+  if(t?.aaId&&window.AA)return AA.openLinkedTransaction(t);
   if(!t||!transactionEditable(t))return msg("这条流水没有可还原的输入表单");
 
   editTxId.value=t.id;
@@ -12290,6 +12370,10 @@ saveSpend.onclick=()=>{
 function removeTx(id){
   const target=S.tx.find(x=>x.id===id);
   if(!target)return;
+  if(target.aaId&&window.AA&&(target.type==="aa_open"||target.aaKind==="advance")){
+    AA.deleteEntry(target.aaId);
+    return;
+  }
   if(target.type==="expense"&&target.projectBorrowTemporary){
     const loan=projectRepaymentTotals(target.refId,target.id);
     if(S.tx.some(t=>t.type==="project_borrow_writeoff"&&t.borrowTxId===id))
@@ -12584,5 +12668,6 @@ requestAnimationFrame(()=>{
 </script>
 <script src="./credit.js"></script>
 <script src="./project-transfer.js"></script>
+<script src="./aa.js"></script>
 </body>
 </html>
