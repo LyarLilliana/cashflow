@@ -1,10 +1,11 @@
-const CACHE = "safespend-v10-101-short-savings-hard-delete";
+const CACHE = "safespend-v10-102-aa-settlement";
 const ASSETS = [
   "./",
   "./index.html",
   "./credit.js",
   "./project-transfer.js",
   "./wallet-accounts.js",
+  "./aa.js",
   "./manifest.webmanifest",
   "./apple-touch-icon.png",
   "./icon-192.png",
