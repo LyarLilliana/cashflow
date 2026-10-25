@@ -71,6 +71,7 @@ function mount(){
     '.walletNowCell{min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card,#fff)}',
     '.walletNowCell .meta{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.walletNowCell strong{display:block;margin-top:4px;font-size:15px;font-weight:750;font-variant-numeric:tabular-nums}',
+    '.walletNowOrdinary{font-size:10px;color:var(--accent);margin-top:5px;font-variant-numeric:tabular-nums}',
     '.walletNowSection .sectionHeader{display:flex;align-items:center;justify-content:space-between;gap:9px}',
     '.walletNowSection .sectionHeader button{padding:7px 10px;font-size:11px}',
     '.walletNowSection .walletNote{font-size:11px;color:var(--muted);margin-top:8px}'
@@ -153,9 +154,11 @@ function render(){
   if(!$("walletAccountList"))return;
   const list=accounts().map(a=>({id:a.id,name:a.name,amount:balance(a.id)}));
   $("walletTotal").textContent=money(list.reduce((sum,a)=>sum+a.amount,0));
+  const ordinary=typeof window.ordinaryWalletShares==="function"?window.ordinaryWalletShares():{};
   $("walletNowList").innerHTML=list.length?list.map(a=>
     '<div class="walletNowCell"><div class="meta">'+clean(a.name)+'</div>'+
-    '<strong class="'+(a.amount<0?"walletNegative":"")+'">'+money(a.amount)+'</strong></div>'
+    '<strong class="'+(a.amount<0?"walletNegative":"")+'">'+money(a.amount)+'</strong>'+
+    '<div class="walletNowOrdinary">其中普通储蓄 '+money(ordinary[a.id]||0)+'</div></div>'
   ).join(""):'<div class="note" style="grid-column:1/-1">前往“计划”添加支付渠道。</div>';
   $("walletAccountList").innerHTML=list.map(a=>
     '<div class="walletAccountRow" data-wallet-id="'+clean(a.id)+'" role="button" tabindex="0">'+
@@ -193,6 +196,8 @@ function saveAccount(){
 }
 function deleteAccount(){
   const id=$("wallet_accountId").value,a=account(id);if(!a)return;
+  if(Math.max(0,Number(S.settings?.ordinaryWalletShares?.[id])||0)>.005)
+    return msg("请先在储蓄明细中将此渠道的普通储蓄分布调整为零");
   if(S.tx.some(t=>t.walletAccountId===id||t.fromAccountId===id||t.toAccountId===id))
     return msg("此渠道已有流水，请先变更关联流水");
   if(!confirm("删除支付渠道「"+a.name+"」？"))return;
