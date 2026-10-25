@@ -3357,8 +3357,19 @@ function projectFunded(p){
   const transferIn=sm(S.tx.filter(t=>t.type==="project_transfer"&&t.toProjectId===p.id),t=>N(t.amount));
   return N(p.initialFund)+incomeFunded+pocketFunded+savingFunded+transferIn;
 }
+function projectAaCollected(p){
+  const ids=new Set(S.tx.filter(t=>t.type==="expense"&&t.aaKind==="advance"&&t.bucket==="project"&&t.refId===p.id)
+    .map(t=>t.aaId));
+  return sm(S.tx.filter(t=>t.type==="aa_receive"&&ids.has(t.aaId)),t=>N(t.amount));
+}
+function projectAaUncollected(p){
+  const advances=S.tx.filter(t=>t.type==="expense"&&t.aaKind==="advance"&&t.bucket==="project"&&t.refId===p.id);
+  const owed=sm(advances,t=>Math.max(0,N(t.amount)-N(t.aaOwnShare)));
+  return Math.max(0,owed-projectAaCollected(p));
+}
 function projectSpent(p){
-  // 专项内部的已花 = 实际消费 + 从本专项调出去的金额。
+  // AA 代付先占用专项现金，逐笔回款后核减专项净支出。
+  // 专项内部的已花 = 实际净消费 + 从本专项调出去的金额。
   // 调拨仅属于专项内部预算消耗，全局消费/储蓄净变化均不重复计支出。
   const consumed=sm(S.tx.filter(t=>
     t.type==="expense"&&t.bucket==="project"&&t.refId===p.id&&!t.projectBorrow
@@ -3366,7 +3377,7 @@ function projectSpent(p){
   const transferred=sm(S.tx.filter(t=>
     t.type==="project_transfer"&&t.fromProjectId===p.id
   ),t=>N(t.amount));
-  return consumed+transferred;
+  return Math.max(0,consumed-projectAaCollected(p))+transferred;
 }
 function projectPlannedExpenses(p){
   return [...(p?.plannedExpenses||[])].sort((a,b)=>{
@@ -5755,6 +5766,7 @@ function archiveProject(id){
   if(projectPlannedExpenses(p).length>0)return msg("专项还有待支出规划，请先记为支出或删除规划");
   if(projectGap(p)>0)return msg("专项还有资金缺口，暂时不能结算");
   if(projectRepayPending(p.id)>0)return msg("专项仍有临时挪用待补回，请先完成补回后再结算归档");
+  if(projectAaUncollected(p)>.005)return msg("专项仍有AA垫付款待收回，请先核销回款再归档");
 
   const available=Math.max(0,projectAvail(p));
   const funded=projectFunded(p);
@@ -5928,7 +5940,7 @@ function projectFinanceDetailHtml(p,a){
   const borrowRows=S.tx.filter(t=>t.type==="expense"&&t.bucket==="project"&&t.refId===p.id&&t.projectBorrow)
     .sort((a,b)=>(String(b.date)+String(b.id)).localeCompare(String(a.date)+String(a.id)));
   const spent=projectSpent(p);
-  const consumed=sm(expenses,t=>N(t.amount));
+  const consumed=Math.max(0,sm(expenses,t=>N(t.amount))-projectAaCollected(p));
   const transferredOut=Math.max(0,spent-consumed);
   const repayState=projectRepaymentTotals(p.id);
   const pendingRepay=projectRepayPending(p.id);
@@ -5985,10 +5997,13 @@ const expenseHtml=expenses.length
       const sourceText=b.over>0
         ?`当时专项支付 ${M(b.fromProject)} · ${b.overSource}垫付 ${M(b.over)}`
         :`专项资金 ${M(b.fromProject)}`;
+      const aaReceived=t.aaKind==="advance"?sm(S.tx.filter(x=>x.type==="aa_receive"&&x.aaId===t.aaId),x=>N(x.amount)):0;
+      const aaText=t.aaKind==="advance"
+        ?` · 本人份额 ${M(t.aaOwnShare)} · AA已收回 ${M(aaReceived)} · 待收 ${M(Math.max(0,N(t.amount)-N(t.aaOwnShare)-aaReceived))}`:"";
       return `<div class="projectLedgerRow">
         <div class="projectLedgerInfo">
           <div class="projectLedgerName">${esc(t.note||"专项支出")}</div>
-          <div class="projectLedgerMeta">${t.date} · ${sourceText}</div>
+          <div class="projectLedgerMeta">${t.date} · ${sourceText}${aaText}</div>
         </div>
         <div class="projectLedgerAmount">
           -${M(t.amount)}
@@ -6056,6 +6071,7 @@ const expenseHtml=expenses.length
       ${settledToSaving>0?`<span>已结算转储蓄 ${M(settledToSaving)}</span>`:""}
       ${plannedCashGap>0?`<span style="color:var(--danger)">规划资金还差 ${M(plannedCashGap)}</span>`:""}
       ${pendingRepay>0?`<span style="color:var(--warn)">临时挪用待补回 ${M(pendingRepay)}</span>`:""}
+      ${projectAaUncollected(p)>.005?`<span style="color:var(--warn)">AA 待收回 ${M(projectAaUncollected(p))}</span>`:""}
       ${repayState.repaid>.005?`<span>临时挪用已补回 ${M(Math.min(repayState.borrowed,repayState.repaid))}</span>`:""}
       ${repayState.writtenOff>.005?`<span>临时挪用已核销 ${M(repayState.writtenOff)}</span>`:""}
       ${overBudget>0?`<span style="color:var(--danger)">已超预算 ${M(overBudget)}</span>`:""}
