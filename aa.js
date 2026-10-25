@@ -46,27 +46,65 @@ const uiStyle=[
 '.aaFormMode .selected{background:var(--accentSoft);border-color:var(--accent);color:var(--accent);font-weight:800}',
 '.aaSecondary{font-size:10px;background:#F7F8F5;border:1px solid var(--line);border-radius:10px;color:var(--accent);padding:8px 10px}',
 '.aaTools{display:flex;justify-content:space-between;gap:9px;margin-top:8px}',
-'.aaPeopleRowHead{font-size:11px;font-weight:750;margin:14px 0 6px}'
+'.aaPeopleRowHead{font-size:11px;font-weight:750;margin:14px 0 6px}',
+'.aaMainDisclosure{padding:0;overflow:hidden}',
+'.aaMainDisclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 16px;list-style:none;cursor:pointer}',
+'.aaMainDisclosure>summary::-webkit-details-marker{display:none}',
+'.aaMainTitle{font-size:14px;font-weight:800;white-space:nowrap}',
+'.aaMainSummaryRight{display:flex;gap:8px;align-items:center;min-width:0}',
+'.aaMainBadges{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'.aaMainDisclosure[open] .aaMainArrow{transform:rotate(180deg)}',
+'.aaMainArrow{font-size:13px;color:var(--muted);transition:transform .15s ease}',
+'.aaDisclosureBody{padding:0 14px 14px}',
+'.aaDisclosureTools{display:flex;justify-content:flex-end;margin-top:10px}',
+'.aaDisclosureTools button{font-size:11px;padding:9px 14px;border-radius:12px}',
+'.aaSpendTabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:4px;background:#F5F7F4;border-radius:13px;margin:12px 0 15px}',
+'.aaSpendTabs button{border:0;border-radius:10px;padding:10px 5px;background:transparent;color:var(--muted);font-size:12px;font-weight:700}',
+'.aaSpendTabs button.selected{color:var(--accent);background:#fff;box-shadow:0 2px 8px rgba(20,45,32,.08)}',
+'#aaInlineHost[hidden],#spendRegularForm[hidden]{display:none!important}',
+'#aaInlineHost>.sheetTitle{display:none}',
+'#aaInlineHost .aaFormMode{margin-bottom:5px}'
 ].join("\n");
 function mount(){
   const style=document.createElement("style");style.textContent=uiStyle;document.head.appendChild(style);
-  const grid=document.querySelector("#now > .grid");
-  grid.insertAdjacentHTML("afterend",[
-   '<div class="section" id="aaSection"><div class="sectionHeader">',
-   '<div class="sectionTitle">AA 与往来</div><button class="sectionToggle" type="button" id="aaAdd">新增 AA</button>',
-   '</div><div class="card"><div class="aaSummary">',
+  const paymentSection=document.querySelector("#now .walletNowSection");
+  const target=paymentSection||document.querySelector("#now > .grid");
+  target.insertAdjacentHTML("afterend",[
+   '<div class="section" id="aaSection"><details class="card aaMainDisclosure" id="aaMainDisclosure">',
+   '<summary><span class="aaMainTitle">AA 与往来</span>',
+   '<span class="aaMainSummaryRight"><span class="aaMainBadges" id="aaMainBadges">待收 ¥0 · 待付 ¥0</span><span class="aaMainArrow">⌄</span></span></summary>',
+   '<div class="aaDisclosureBody"><div class="aaSummary">',
    '<div class="aaCell"><span>待收回</span><strong id="aaReceivable">¥0</strong></div>',
    '<div class="aaCell"><span>待支付</span><strong id="aaPayable">¥0</strong></div>',
    '<div class="aaCell"><span>已结清</span><strong id="aaSettled">¥0</strong></div>',
-   '</div><details class="aaRecords" id="aaOpenDetails" open><summary id="aaOpenSummary">待处理往来</summary><div id="aaOpenList"></div></details>',
+   '</div><div class="aaDisclosureTools"><button class="secondary" type="button" id="aaAdd">新增 AA 消费</button></div>',
+   '<details class="aaRecords" id="aaOpenDetails" open><summary id="aaOpenSummary">待处理往来</summary><div id="aaOpenList"></div></details>',
    '<details class="aaRecords" id="aaClosedDetails"><summary id="aaClosedSummary">已结清</summary><div id="aaClosedList"></div></details>',
-   '</div></div>'
+   '</div></details></div>'
   ].join(""));
+  const disclosure=$("aaMainDisclosure");
+  try{disclosure.open=localStorage.getItem("safespend_aa_open_v1")==="1";}catch(e){}
+  disclosure.addEventListener("toggle",()=>{
+    try{localStorage.setItem("safespend_aa_open_v1",disclosure.open?"1":"0");}catch(e){}
+  });
   const upcomingBox=$("upcomingBox");
   if(upcomingBox)upcomingBox.insertAdjacentHTML("afterend",
     '<div class="card" id="aaUpcomingSection" hidden style="margin-top:8px"><div class="name" style="font-size:12px;margin-bottom:6px">AA 待付款</div><div id="aaUpcoming"></div></div>');
-  const note=$("spendHint");
-  note.insertAdjacentHTML("afterend",'<div style="text-align:right;margin-top:5px"><button class="aaSecondary" type="button" id="aaFromSpend">这笔是 AA 消费？</button></div>');
+  // Shared Record Spending form hosts both ordinary and AA entries.
+  const spendCard=$("spendSheet")?.querySelector(".sheetCard");
+  const spendTitle=spendCard?.querySelector(".sheetTitle");
+  if(spendCard&&spendTitle){
+    const tabs=document.createElement("div");
+    tabs.className="aaSpendTabs";tabs.id="aaSpendTabs";
+    tabs.innerHTML='<button type="button" class="selected" id="aaSpendTabNormal">普通支出</button>'+
+      '<button type="button" id="aaSpendTabSplit">AA 分摊</button>';
+    spendTitle.insertAdjacentElement("afterend",tabs);
+    const regular=document.createElement("div");regular.id="spendRegularForm";
+    while(tabs.nextSibling)regular.appendChild(tabs.nextSibling);
+    spendCard.appendChild(regular);
+    const inline=document.createElement("div");inline.id="aaInlineHost";
+    inline.hidden=true;spendCard.appendChild(inline);
+  }
   document.body.insertAdjacentHTML("beforeend",[
    '<div class="sheet" id="aaFormSheet"><div class="sheetCard"><div class="sheetTitle" id="aaFormTitle">新增 AA 往来</div>',
    '<div class="aaFormMode"><button type="button" id="aaModeReceive">我先付款 · 待收</button><button type="button" id="aaModePay">别人付款 · 待付</button></div>',
@@ -99,8 +137,9 @@ function mount(){
    '</div></div>'
   ].join(""));
   document.querySelectorAll("#aaFormSheet,#aaSettleSheet").forEach(s=>s.addEventListener("click",e=>{if(e.target===s)s.classList.remove("show");}));
-  $("aaAdd").onclick=()=>open("receivable");
-  $("aaFromSpend").onclick=()=>open("receivable",true);
+  $("aaAdd").onclick=()=>{openSpend();switchToAA(false);};
+  $("aaSpendTabNormal").onclick=restoreSpendingForm;
+  $("aaSpendTabSplit").onclick=()=>switchToAA(true);
   $("aaModeReceive").onclick=()=>changeMode("receivable");
   $("aaModePay").onclick=()=>changeMode("payable");
   $("aaBucket").onchange=()=>{$("aaProjectWrap").hidden=$("aaBucket").value!=="project";preview();};
@@ -111,13 +150,45 @@ function mount(){
   $("aaOwn").oninput=preview;
   $("aaAddPerson").onclick=()=>addPerson("","");
   $("aaEqual").onclick=evenSplit;
-  $("aaCancel").onclick=()=>closeSheet("aaFormSheet");
+  $("aaCancel").onclick=()=>{
+    if(inlineActive()){
+      closeSheet("spendSheet");
+      restoreSpendingForm();
+    }else closeSheet("aaFormSheet");
+  };
   $("aaSave").onclick=saveEntry;
   $("aaDelete").onclick=()=>deleteEntry(editing);
   $("aaSettleCancel").onclick=()=>closeSheet("aaSettleSheet");
   $("aaSettleSave").onclick=saveSettlement;
   if(typeof enhanceDateInputs==="function")enhanceDateInputs();
   render();
+}
+function inlineActive(){return !!($("aaInlineHost")&&!$("aaInlineHost").hidden);}
+function moveAAFormToInline(){
+  const source=$("aaFormSheet")?.querySelector(".sheetCard");
+  const inline=$("aaInlineHost");
+  if(!source||!inline)return;
+  while(source.firstChild)inline.appendChild(source.firstChild);
+}
+function restoreSpendingForm(){
+  const inline=$("aaInlineHost"),source=$("aaFormSheet")?.querySelector(".sheetCard");
+  if(inline&&source){
+    while(inline.firstChild)source.appendChild(inline.firstChild);
+    inline.hidden=true;
+  }
+  if($("spendRegularForm"))$("spendRegularForm").hidden=false;
+  $("aaSpendTabNormal")?.classList.add("selected");
+  $("aaSpendTabSplit")?.classList.remove("selected");
+}
+function switchToAA(copySpend=true){
+  open("receivable",copySpend,"",true);
+}
+function showAAInline(){
+  moveAAFormToInline();
+  $("spendRegularForm").hidden=true;
+  $("aaInlineHost").hidden=false;
+  $("aaSpendTabNormal").classList.remove("selected");
+  $("aaSpendTabSplit").classList.add("selected");
 }
 function changeMode(direction){
  $("aaDirection").value=direction;
@@ -174,7 +245,8 @@ function fillWallet(selectId,selected=""){
  $(selectId).innerHTML=Wallets.selectOptions(selected);
  $(selectId).value=selected;
 }
-function open(direction="receivable",fromSpend=false,aaId=""){
+function open(direction="receivable",fromSpend=false,aaId="",inline=false){
+ if(!inline)restoreSpendingForm();
  const a=get(aaId);
  editing=a?.id||"";
  $("aaFormTitle").textContent=a?"编辑 AA 往来":"新增 AA 往来";
@@ -202,8 +274,11 @@ function open(direction="receivable",fromSpend=false,aaId=""){
    $("aaModeReceive").disabled=false;$("aaModePay").disabled=false;
  }
  preview();
- $("aaFormSheet").classList.add("show");
- if(fromSpend)closeSheet("spendSheet");
+ if(inline){
+   showAAInline();
+ }else{
+   $("aaFormSheet").classList.add("show");
+ }
  if(typeof syncDateDisplays==="function")syncDateDisplays();
 }
 function readForm(){
@@ -267,7 +342,11 @@ function saveEntry(){
    S.tx.push({id:id("aaop"),date:entry.date,type:"aa_open",aaId:entry.id,amount:entry.direction==="receivable"?R(entry.total-entry.own):entry.own,note:entry.title});
    if(entry.direction==="receivable")S.tx.push(makeAdvance(entry));
  }
- save();closeSheet("aaFormSheet");renderAll();
+ const submittedInline=inlineActive();
+ save();closeSheet("aaFormSheet");
+ if(submittedInline)closeSheet("spendSheet");
+ restoreSpendingForm();
+ renderAll();
  msg(old?"AA 记录已更新":"AA 往来已记录");
 }
 function makeAdvance(a){
@@ -360,6 +439,7 @@ function render(){
  $("aaReceivable").textContent=money(receivable);
  $("aaPayable").textContent=money(payable);
  $("aaSettled").textContent=money(cleared);
+ $("aaMainBadges").textContent="待收 "+money(receivable)+" · 待付 "+money(payable);
  $("aaReceivable").classList.toggle("aaWarn",receivable>0);
  $("aaPayable").classList.toggle("aaWarn",payable>0);
  $("aaOpenSummary").textContent="待处理 "+openEntries.length+" 笔"+(openEntries.length?" · 点按展开 / 收起":"");
@@ -393,6 +473,6 @@ function openLinkedTransaction(t){
  if(t.type==="aa_receive"||(t.type==="expense"&&t.aaKind==="pay"))openSettlement(t.aaId,t.id);
  else open(get(t.aaId)?.direction||"receivable",false,t.aaId);
 }
-window.AA={mount,open,render,openSettlement,openLinkedTransaction,deleteEntry,addPerson,evenSplit};
+window.AA={mount,open,render,openSettlement,openLinkedTransaction,deleteEntry,addPerson,evenSplit,restoreSpendingForm,switchToAA};
 mount();
 })();
