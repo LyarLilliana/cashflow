@@ -1942,6 +1942,31 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .projectRepayInline{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);padding:9px 3px;font-size:11px;color:var(--muted)}
 .projectRepayInline strong{color:var(--text);font-size:12px}
 .projectRepayInline button{padding:5px 12px;min-height:30px;font-size:10.5px;flex-shrink:0}
+
+/* 逐笔普通储蓄余额与周期转存提醒 */
+.ordinaryLedgerDetails{margin-top:13px;border-top:1px solid var(--line);padding-top:11px}
+.ordinaryLedgerDetails>summary{list-style:none;cursor:pointer;display:flex;gap:7px;align-items:center;font-size:12px;font-weight:700}
+.ordinaryLedgerDetails>summary::-webkit-details-marker{display:none}
+.ordinaryLedgerDetails>summary>strong{margin-left:auto;font-size:14px;font-variant-numeric:tabular-nums;color:var(--accent)}
+.ordinaryLedgerChevron{color:var(--muted);transition:transform .2s}
+.ordinaryLedgerDetails[open] .ordinaryLedgerChevron{transform:rotate(180deg)}
+.ordinaryLedgerIntro{font-size:10.5px;color:var(--muted);line-height:1.5;margin:10px 0}
+.ordinaryLedgerList{max-height:375px;overflow:auto;overscroll-behavior:contain;border-top:1px solid var(--line)}
+.ordinaryLedgerRow{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.ordinaryLedgerBody{flex:1;min-width:0}
+.ordinaryLedgerName{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.ordinaryLedgerMeta{font-size:10px;color:var(--muted);line-height:1.5;margin-top:3px}
+.ordinaryLedgerAside{flex:none;text-align:right;min-width:92px}
+.ordinaryLedgerDelta{font-size:12px;font-weight:750;font-variant-numeric:tabular-nums}
+.ordinaryLedgerDelta.in{color:var(--accent)}
+.ordinaryLedgerDelta.out{color:var(--text)}
+.ordinaryLedgerBalance{font-size:10px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+.ordinaryTransferAlert{border-color:#CFE0D8;background:var(--accentSoft)}
+.ordinaryTransferAlert .name{font-size:13px;font-weight:750}
+.ordinaryTransferAlert .meta{margin-top:6px;line-height:1.55}
+.ordinaryTransferActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.ordinaryTransferActions button{flex:1;min-width:120px;min-height:38px;padding:9px 10px;font-size:11px}
+
 </style>
 </head>
 <body class="booting">
@@ -2143,6 +2168,15 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="card stat"><div class="k" id="savingBalLabel">本周期预计可存</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">本周期已分配储蓄与预计零花结余</div></div>
     </div>
 
+    <div class="card ordinaryTransferAlert" id="ordinaryTransferHomeCard" style="display:none;margin-top:12px">
+      <div class="name" id="ordinaryTransferHomeTitle">周期结束 · 普通储蓄待转存</div>
+      <div class="meta" id="ordinaryTransferHomeMeta"></div>
+      <div class="ordinaryTransferActions">
+        <button class="primary" type="button" onclick="openOrdinaryCycleTransferShort()">转入短期储蓄</button>
+        <button class="secondary" type="button" onclick="openOrdinaryCycleTransferBank()">新增银行存款</button>
+      </div>
+    </div>
+
     <div class="card" id="bankReminderNowCard" style="display:none;margin-top:12px">
       <div class="row">
         <div>
@@ -2309,7 +2343,13 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <div class="explainRow total"><span id="bankReminderGapLabel">距离提醒额度</span><strong id="bankReminderGap">—</strong></div>
         </div>
 
-        <div class="progress" style="margin-top:10px"><span id="bankReminderProgress" style="width:0%"></span></div>
+        <details class="ordinaryLedgerDetails" id="ordinaryLedgerDetails">
+          <summary><span>普通储蓄余额明细</span><strong id="ordinarySavingLedgerHeader">¥0</strong><span class="ordinaryLedgerChevron">⌄</span></summary>
+          <div class="ordinaryLedgerIntro" id="ordinarySavingLedgerIntro"></div>
+          <div class="ordinaryLedgerList" id="ordinarySavingLedgerRows"></div>
+        </details>
+
+        <div class="progress" style="margin-top:10px"><span id="bankReminderProgress"' style="width:0%"></span></div>
 
         <div id="bankReminderReady" style="display:none">
           <div class="bankReminderReadyCard">
@@ -2324,6 +2364,14 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         </div>
 
         <div class="note" id="bankReminderHint" style="margin-top:10px"></div>
+      </div>
+    </div>
+    <div class="card ordinaryTransferAlert" id="ordinaryTransferSavingCard" style="display:none;margin-top:12px">
+      <div class="name" id="ordinaryTransferSavingTitle">周期结束 · 普通储蓄待转存</div>
+      <div class="meta" id="ordinaryTransferSavingMeta"></div>
+      <div class="ordinaryTransferActions">
+        <button class="primary" type="button" onclick="openOrdinaryCycleTransferShort()">转入短期储蓄</button>
+        <button class="secondary" type="button" onclick="openOrdinaryCycleTransferBank()">新增银行存款</button>
       </div>
     </div>
     <!-- 2. BANK DEPOSITS -->
@@ -3942,6 +3990,8 @@ function accounting(asOf=td()){
   let autoSavingDebt=0;
   let activeCycleIncomeId="";
   const effects={};
+  // 同一过账引擎同步产出普通储蓄逐笔变动与每笔后的实际余额。
+  const ordinaryMovements=[];
   // Within one income cycle, newly released pocket cash first reimburses
   // savings automatically drawn for earlier pocket overruns in this cycle.
   const creditPocket=value=>{
@@ -4068,6 +4118,8 @@ function accounting(asOf=td()){
     });
 
   ordered.forEach(t=>{
+    const ordinaryBefore=saving;
+    try{
     if(t.type==="living_gap_reserve"){
       const allowance=Math.max(0,N(t.amount));
       const pocketAvailable=Math.max(0,N(raw.safe));
@@ -4520,13 +4572,21 @@ function accounting(asOf=td()){
       uncovered:gap,
       overPlan
     };
+    }finally{
+      const delta=saving-ordinaryBefore;
+      if(Math.abs(delta)>.000001){
+        ordinaryMovements.push({
+          id:t.id,date:t.date||"",type:t.type,delta,balance:saving
+        });
+      }
+    }
   });
 
   const projectFundingDeficits={};
   Object.entries(projectAdvances).forEach(([id,entries])=>{
     projectFundingDeficits[id]=sm(entries,e=>Math.max(0,N(e.remaining)));
   });
-  return {raw,projects,projectFundingDeficits,saving,autoSavingUsed,manualSavingUsed,uncovered,effects,fallbackLivingFunding,lightPlanReserves:lightReserveUsage.remaining};
+  return {raw,projects,projectFundingDeficits,saving,autoSavingUsed,manualSavingUsed,uncovered,effects,ordinaryMovements,fallbackLivingFunding,lightPlanReserves:lightReserveUsage.remaining};
 }
 // 统一以过账引擎的实际分摊为准，历史录入的超支快照仅保留为记录。
 // 后续专项入账或调拨会改变实时资金覆盖情况，统计及流水不得使用旧快照。
@@ -8867,6 +8927,112 @@ function bankReminderThresholdValue(){
   return Math.max(0,N(S.settings.bankDepositThreshold));
 }
 
+function ordinaryMovementTitle(row,tx){
+  const kind=row.type;
+  if(kind==="cycle_close_saving")return "上周期零花结余自动转储蓄";
+  if(kind==="bank_deposit_lock"){
+    const d=S.deposits.find(d=>"bdlock_"+d.id===row.id);
+    return "普通储蓄转银行 · "+(d?.name||"银行存款");
+  }
+  if(kind==="income"){
+    const plan=S.incomePlans.find(p=>p.id===tx?.planId);
+    const name=plan?.name||tx?.planNameAtRecord||tx?.incomeNote||"收入";
+    return (isCycleIncomeTx(tx)?"周期收入储蓄":"单次收入储蓄")+" · "+name;
+  }
+  if(kind==="pocket_to_saving")return "日常支出转入普通储蓄";
+  if(kind==="short_transfer")return row.delta<0
+    ?"普通储蓄转短期储蓄 · "+shortSavingsAccountLabel(tx?.shortAccountId)
+    :"短期储蓄转回普通储蓄 · "+shortSavingsAccountLabel(tx?.shortAccountId);
+  if(kind==="extra_saving")return "补录普通储蓄";
+  if(kind==="saving_to_project")return "普通储蓄补入专项 · "+(S.projects.find(p=>p.id===tx?.projectId)?.name||"专项");
+  if(kind==="project_transfer")return "专项转入普通储蓄 · "+(S.projects.find(p=>p.id===tx?.fromProjectId)?.name||"专项");
+  if(kind==="project_settlement")return "专项结余转普通储蓄";
+  if(kind==="living_settlement")return row.delta>=0?"基础生活结余归还储蓄":"基础生活补结算调整";
+  if(kind==="living_gap_reserve")return "基础生活缺口预留储蓄";
+  if(kind==="living_gap_close")return "基础生活预留结算返还";
+  if(kind==="aa_receive")return "AA 往来款返还储蓄";
+  if(kind==="expense")return "储蓄承担支出"+(tx?.note?" · "+tx.note:"");
+  if(kind==="credit_fund"||kind==="credit_repayment")return "信用还款使用普通储蓄";
+  return row.delta>0?"普通储蓄增加 · "+kind:"普通储蓄减少 · "+kind;
+}
+
+function renderOrdinarySavingLedger(){
+  const root=document.getElementById("ordinarySavingLedgerRows");
+  if(!root)return;
+  const a=accounting();
+  const rows=(a.ordinaryMovements||[]);
+  const lookup=new Map(S.tx.map(t=>[t.id,t]));
+  const totalIn=sm(rows.filter(t=>t.delta>0),t=>t.delta);
+  const totalOut=sm(rows.filter(t=>t.delta<0),t=>-t.delta);
+  const diff=sm(rows,t=>t.delta)-a.saving;
+  document.getElementById("ordinarySavingLedgerHeader").textContent=M(a.saving);
+  const info=`共 ${rows.length} 条 · 累计增加 ${M(totalIn)} · 累计减少 ${M(totalOut)}。逐笔余额与普通储蓄过账引擎一致。`;
+  document.getElementById("ordinarySavingLedgerIntro").textContent=
+    info+(Math.abs(diff)>.005?" 当前记录存在余额核对差额 "+M(diff)+"。":"");
+  root.innerHTML=rows.length?rows.slice().reverse().map(row=>{
+    const tx=lookup.get(row.id)||null;
+    const title=ordinaryMovementTitle(row,tx);
+    const note=tx?.note?` · ${tx.note}`:"";
+    const incoming=row.delta>0;
+    return `<div class="ordinaryLedgerRow">
+      <div class="ordinaryLedgerBody">
+        <div class="ordinaryLedgerName">${esc(title)}</div>
+        <div class="ordinaryLedgerMeta">${esc(row.date||"")}${esc(note)}</div>
+      </div>
+      <div class="ordinaryLedgerAside">
+        <div class="ordinaryLedgerDelta ${incoming?"in":"out"}">${incoming?"+":"−"}${M(Math.abs(row.delta))}</div>
+        <div class="ordinaryLedgerBalance">该笔后 ${M(row.balance)}</div>
+      </div>
+    </div>`;
+  }).join(""):'<div class="note">目前普通储蓄余额尚无变动。</div>';
+}
+
+function ordinaryCycleTransferReminderState(){
+  const cycleRows=cycleIncomeRows().filter(t=>t.date&&t.date<=td());
+  const latest=cycleRows[cycleRows.length-1];
+  const next=nextRecurringIncome()?.nextDate||"";
+  const overdue=!!(latest&&next&&next<=td()&&next>latest.date);
+  const previous=overdue?latest:(cycleRows.length>=2?cycleRows[cycleRows.length-2]:null);
+  const closedAt=overdue?next:(latest?.date||"");
+  const ordinary=Math.max(0,ordinarySavingsAvailable());
+  return {visible:!!previous&&ordinary>.005,closedAt,ordinary,overdue};
+}
+
+function openOrdinaryCycleTransferShort(){
+  const amount=Math.max(0,ordinarySavingsAvailable());
+  if(amount<=.005)return msg("当前普通储蓄余额已转存完毕");
+  openShortTransfer("","in");
+  if(document.getElementById("shortTransferSheet").classList.contains("show")){
+    shortTransferAmount.value=amount.toFixed(2);
+    shortTransferDate.value=td();
+    updateShortTransferHint();
+  }
+}
+
+function openOrdinaryCycleTransferBank(){
+  const amount=Math.max(0,ordinarySavingsAvailable());
+  if(amount<=.005)return msg("当前普通储蓄余额已转存完毕");
+  openBankDeposit();
+  bankDepositSource.value="existing";
+  bankDepositPrincipal.value=amount.toFixed(2);
+  refreshBankDepositForm();
+}
+
+function renderOrdinaryCycleTransferReminder(){
+  const reminder=ordinaryCycleTransferReminderState();
+  for(const loc of ["Home","Saving"]){
+    const card=document.getElementById("ordinaryTransfer"+loc+"Card");
+    card.style.display=reminder.visible?"":"none";
+    if(!reminder.visible)continue;
+    document.getElementById("ordinaryTransfer"+loc+"Title").textContent=
+      reminder.overdue?"收入周期结束 · 待结转转存":"周期结束 · 普通储蓄待转存";
+    document.getElementById("ordinaryTransfer"+loc+"Meta").textContent=
+      `${reminder.closedAt} 周期交接，普通储蓄余额 ${M(reminder.ordinary)}。`+
+      (reminder.overdue?"请先记录下一周期收入完成零花结余结转，再按实际资金去向登记。":
+        "转入短期储蓄或银行后，金额自动从普通储蓄扣除；余额转完后提醒自动收起。");
+  }
+}
+
 function bankReminderState(){
   const cycle=currentCycleStats();
 
@@ -8897,6 +9063,8 @@ function bankReminderState(){
 let bankReminderEditing=false;
 
 function renderBankDepositReminder(){
+  renderOrdinarySavingLedger();
+  renderOrdinaryCycleTransferReminder();
   const r=bankReminderState();
   bankReminderThreshold.value=r.threshold>0?r.threshold:"";
   const showEditor=!r.enabled||bankReminderEditing;
