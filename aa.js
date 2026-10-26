@@ -16,7 +16,7 @@ const left=(a,p,except="")=>Math.max(0,R(R(p.amount)-posted(a,p,except)));
 const totalLeft=a=>R((a.people||[]).reduce((s,p)=>s+left(a,p),0));
 const settled=a=>R((a.people||[]).reduce((s,p)=>s+posted(a,p),0));
 const validDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&d<=td();
-let editing="",settleEdit="",seq=0;
+let editing="",settleEdit="",seq=0,aaHostNode=null;
 const moneyBox=(val)=>money(val);
 const uiStyle=[
 '.aaSummary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}',
@@ -47,7 +47,10 @@ const uiStyle=[
 '.aaSecondary{font-size:10px;background:#F7F8F5;border:1px solid var(--line);border-radius:10px;color:var(--accent);padding:8px 10px}',
 '.aaTools{display:flex;justify-content:space-between;gap:9px;margin-top:8px}',
 '.aaPeopleRowHead{font-size:11px;font-weight:750;margin:14px 0 6px}',
-'.aaMainDisclosure{padding:0;overflow:hidden}',
+'.aaMainDisclosure{padding:0;overflow:hidden;border:0;box-shadow:none;border-radius:15px;background:transparent}',
+'.aaUpcomingGroup{margin-top:0}',
+'.aaUpcomingGroup .aaMainDisclosure>summary{padding:11px 12px}',
+'.aaUpcomingGroup .aaDisclosureBody{padding:0 11px 12px}',
 '.aaMainDisclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 16px;list-style:none;cursor:pointer}',
 '.aaMainDisclosure>summary::-webkit-details-marker{display:none}',
 '.aaMainTitle{font-size:14px;font-weight:800;white-space:nowrap}',
@@ -67,10 +70,10 @@ const uiStyle=[
 ].join("\n");
 function mount(){
   const style=document.createElement("style");style.textContent=uiStyle;document.head.appendChild(style);
-  const paymentSection=document.querySelector("#now .walletNowSection");
-  const target=paymentSection||document.querySelector("#now > .grid");
-  target.insertAdjacentHTML("afterend",[
-   '<div class="section" id="aaSection"><details class="card aaMainDisclosure" id="aaMainDisclosure">',
+  const target=$("upcomingBox");
+  if(!target)throw Error("近期必须处理区域尚未加载");
+  target.insertAdjacentHTML("beforeend",[
+   '<div class="upcomingGroup aaUpcomingGroup" id="aaSection"><details class="aaMainDisclosure" id="aaMainDisclosure" data-disclosure-key="upcoming:aa">',
    '<summary><span class="aaMainTitle">AA 与往来</span>',
    '<span class="aaMainSummaryRight"><span class="aaMainBadges" id="aaMainBadges">待收 ¥0 · 待付 ¥0</span><span class="aaMainArrow">⌄</span></span></summary>',
    '<div class="aaDisclosureBody"><div class="aaSummary">',
@@ -82,14 +85,14 @@ function mount(){
    '<details class="aaRecords" id="aaClosedDetails"><summary id="aaClosedSummary">已结清</summary><div id="aaClosedList"></div></details>',
    '</div></details></div>'
   ].join(""));
+  aaHostNode=$("aaSection");
   const disclosure=$("aaMainDisclosure");
   try{disclosure.open=localStorage.getItem("safespend_aa_open_v1")==="1";}catch(e){}
   disclosure.addEventListener("toggle",()=>{
     try{localStorage.setItem("safespend_aa_open_v1",disclosure.open?"1":"0");}catch(e){}
+    if(typeof rememberDisclosure==="function")rememberDisclosure(disclosure,"upcoming:aa");
   });
-  const upcomingBox=$("upcomingBox");
-  if(upcomingBox)upcomingBox.insertAdjacentHTML("afterend",
-    '<div class="card" id="aaUpcomingSection" hidden style="margin-top:8px"><div class="name" style="font-size:12px;margin-bottom:6px">AA 待付款</div><div id="aaUpcoming"></div></div>');
+  // All receivables and payables live in the AA group within upcoming tasks.
   // Shared Record Spending form hosts both ordinary and AA entries.
   const spendCard=$("spendSheet")?.querySelector(".sheetCard");
   const spendTitle=spendCard?.querySelector(".sheetTitle");
@@ -430,7 +433,11 @@ function renderEntry(a){
  '<button type="button" onclick="AA.open('+"'"+a.direction+"','', '"+safe(a.id)+"'"+')">编辑</button></div></div>';
 }
 function render(){
- if(!$("aaSection"))return;
+ const box=$("upcomingBox");
+ if(aaHostNode&&box&&aaHostNode.parentElement!==box)box.appendChild(aaHostNode);
+ if(!aaHostNode||!box)return;
+ const emptyNote=box.querySelector(":scope > .note");
+ if(emptyNote&&emptyNote.textContent.includes("暂无近期必须处理"))emptyNote.remove();
  const openEntries=entries().filter(a=>totalLeft(a)>.005).sort((a,b)=>(a.dueDate||a.date).localeCompare(b.dueDate||b.date));
  const closedEntries=entries().filter(a=>totalLeft(a)<=.005).sort((a,b)=>b.date.localeCompare(a.date));
  const receivable=R(openEntries.filter(a=>a.direction==="receivable").reduce((s,a)=>s+totalLeft(a),0));
@@ -447,15 +454,8 @@ function render(){
  $("aaClosedDetails").style.display=closedEntries.length?"":"none";
  $("aaClosedSummary").textContent="已结清 "+closedEntries.length+" 笔";
  $("aaClosedList").innerHTML=closedEntries.map(renderEntry).join("");
- // The unopened AA payable belongs with upcoming obligations, not actual expenses.
- const upcoming=$("aaUpcoming");
- if(upcoming){
-  upcoming.innerHTML=openEntries.filter(a=>a.direction==="payable"&&a.dueDate&&a.dueDate<=addDays(td(),14))
-   .map(a=>'<div class="aaEntry"><div class="aaEntryTop"><div><div class="aaEntryTitle">'+safe(a.title)+'</div>'+
-    '<div class="aaEntryMeta">AA 待付 · 约定 '+safe(a.dueDate)+'</div></div><div class="aaEntrySum">'+money(totalLeft(a))+'</div></div>'+
-    '<div class="aaEntryActions"><button class="aaPrimary" onclick="AA.openSettlement('+"'"+safe(a.id)+"'"+')">付款核销</button></div></div>').join("");
-  const wrap=$("aaUpcomingSection");if(wrap)wrap.hidden=!upcoming.innerHTML;
- }
+ if(typeof updateDisclosureAllToggles==="function")updateDisclosureAllToggles();
+
 }
 function renderAll(){
  if(typeof window.render==="function")window.render();
