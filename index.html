@@ -1981,6 +1981,12 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .ordinaryLedgerBody{flex:1;min-width:0}
 .ordinaryLedgerName{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 .ordinaryLedgerMeta{font-size:10px;color:var(--muted);line-height:1.5;margin-top:3px}
+.ordinaryLedgerSource{margin-top:7px;font-size:10.5px;line-height:1.5;overflow-wrap:anywhere}
+.ordinarySourceLabel{color:var(--muted)}
+.ordinaryLedgerOriginMeta{color:var(--muted);font-size:10px;margin-top:2px}
+.ordinaryLedgerLinks{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:5px}
+.ordinaryLedgerSourceBtn{border:0;background:transparent;color:var(--accent);font-size:10.5px;font-weight:700;padding:5px 0}
+.ordinaryLedgerSourceBtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
 .ordinaryLedgerAside{flex:none;text-align:right;min-width:92px}
 .ordinaryLedgerDelta{font-size:12px;font-weight:750;font-variant-numeric:tabular-nums}
 .ordinaryLedgerDelta.in{color:var(--accent)}
@@ -3906,6 +3912,7 @@ function virtualCycleCloseEvents(){
     const next=rows[i+1];
     return {id:`cycleclose_${incomeTx.id}`,date:next.date,
       type:"cycle_close_saving",amount:0,sourceIncomeId:incomeTx.id,
+      nextIncomeId:next.id,
       _sortStamp:Math.max(0,txStamp(next)-0.25)};
   });
 }
@@ -4126,6 +4133,7 @@ function accounting(asOf=td()){
       id:`bdlock_${d.id}`,
       date:d.startDate||td(),
       type:"bank_deposit_lock",
+      bankDepositId:d.id,
       amount:N(d.principal)
     }));
 
@@ -4650,7 +4658,9 @@ function accounting(asOf=td()){
       const delta=saving-ordinaryBefore;
       if(Math.abs(delta)>.000001){
         ordinaryMovements.push({
-          id:t.id,date:t.date||"",type:t.type,delta,balance:saving
+          id:t.id,date:t.date||"",type:t.type,delta,balance:saving,
+          sourceIncomeId:t.sourceIncomeId||"",nextIncomeId:t.nextIncomeId||"",
+          sourceId:t.sourceId||"",bankDepositId:t.bankDepositId||""
         });
       }
     }
@@ -9240,6 +9250,63 @@ document.getElementById("deleteOrdinaryBalanceAdjustment").onclick=()=>{
   deleteOrdinaryBalanceAdjustment(document.getElementById("ordinaryBalanceAdjustmentId").value);
 };
 
+
+function ordinaryLedgerSource(row,tx){
+  // 每个余额影响都从 accounting() 的同一过账事件回溯到原始记录；
+  // 虚拟结转 / 银行锁定属于有明确关联记录的系统过账，不伪装成用户新增的流水。
+  if(tx){
+    const descriptor=transactionActionTitle(tx);
+    const date=tx.date||row.date||"";
+    const amount=tx.type==="living_settlement"
+      ?" · 实际结算 "+M(livingSettlementTotalUsed(tx))
+      :tx.type==="ordinary_balance_adjustment"
+        ?" · 账实校准 "+(N(tx.delta)>=0?"+":"−")+M(Math.abs(N(tx.delta)))
+        :Number.isFinite(Number(tx.amount))
+          ?" · 原流水金额 "+M(N(tx.amount))
+          :"";
+    const wallet=tx.walletAccountId&&Wallets.account(tx.walletAccountId)
+      ?" · "+Wallets.account(tx.walletAccountId).name:"";
+    return {
+      title:descriptor,
+      meta:date+amount+wallet+" · 编号 "+String(tx.id).slice(-8),
+      kind:"tx",ref:tx.id,action:"查看原始流水"
+    };
+  }
+  if(row.type==="cycle_close_saving"){
+    const prior=S.tx.find(t=>t.id===row.sourceIncomeId);
+    const next=S.tx.find(t=>t.id===row.nextIncomeId);
+    const priorName=prior?transactionActionTitle(prior):"上一周期收入";
+    return {
+      title:"系统周期结转 · 关联 "+priorName,
+      meta:(prior?.date||"")+" 周期的剩余零花，于 "+row.date+" 下一周期入账前结转"
+        +(next?" · 下期 "+transactionActionTitle(next):""),
+      kind:prior?"tx":"",ref:prior?.id||"",action:"查看上期收入流水"
+    };
+  }
+  if(row.type==="bank_deposit_lock"){
+    const dep=S.deposits.find(d=>d.id===row.bankDepositId)
+      ||S.deposits.find(d=>"bdlock_"+d.id===row.id);
+    return {
+      title:"银行存款记录 · "+(dep?.name||"原存款"),
+      meta:(dep?.startDate||row.date||"")+" · 来源：普通储蓄 · 本金 "+M(dep?.principal||0),
+      kind:dep?"bank":"",ref:dep?.id||"",action:"查看银行存款"
+    };
+  }
+  if(row.type==="living_gap_reserve"||row.type==="living_gap_close"){
+    const src=S.tx.find(t=>t.id===row.sourceId);
+    return {
+      title:"系统补记生活预留 · 关联 "+(src?transactionActionTitle(src):"延期到账生活周期"),
+      meta:row.date+" · "+(row.type==="living_gap_reserve"
+        ?"收入未到账期间的基础生活预留":"基础生活预留结算返还"),
+      kind:src?"tx":"",ref:src?.id||"",action:"查看关联收入"
+    };
+  }
+  return {title:"系统自动过账 · "+row.type,meta:row.date||"",kind:"",ref:"",action:""};
+}
+function openOrdinaryLedgerSource(kind,ref){
+  if(kind==="bank")return editBankDeposit(ref);
+  if(kind==="tx")return openTxActions(ref);
+}
 function ordinaryMovementTitle(row,tx){
   const kind=row.type;
   if(kind==="cycle_close_saving")return "上周期零花结余自动转储蓄";
@@ -9281,21 +9348,30 @@ function renderOrdinarySavingLedger(){
   const totalOut=sm(rows.filter(t=>t.delta<0),t=>-t.delta);
   const diff=sm(rows,t=>t.delta)-a.saving;
   document.getElementById("ordinarySavingLedgerHeader").textContent=M(a.saving);
-  const info=`共 ${rows.length} 条 · 累计增加 ${M(totalIn)} · 累计减少 ${M(totalOut)}。逐笔余额与普通储蓄过账引擎一致。`;
+  const info=`共 ${rows.length} 条资金变动 · 累计增加 ${M(totalIn)} · 累计减少 ${M(totalOut)}。每笔均关联原始流水或对应自动结转记录，按过账先后显示。`;
   document.getElementById("ordinarySavingLedgerIntro").textContent=
     info+(Math.abs(diff)>.005?" 当前记录存在余额核对差额 "+M(diff)+"。":"");
   root.innerHTML=rows.length?rows.slice().reverse().map(row=>{
     const tx=lookup.get(row.id)||null;
     const title=ordinaryMovementTitle(row,tx);
-    const note=tx?.note?` · ${tx.note}`:"";
+    const source=ordinaryLedgerSource(row,tx);
     const incoming=row.delta>0;
+    const note=tx?.note||tx?.incomeNote||"";
     return `<div class="ordinaryLedgerRow">
       <div class="ordinaryLedgerBody">
         <div class="ordinaryLedgerName">${esc(title)}</div>
-        <div class="ordinaryLedgerMeta">${esc(row.date||"")}${esc(note)}</div>
-        ${tx&&(tx.type==="ordinary_balance_adjustment"||transactionEditable(tx))
-          ?'<button class="ordinaryLedgerEditBtn" type="button" data-tx-id="'+esc(tx.id)+'">修改记录</button>'
-          :""}
+        <div class="ordinaryLedgerMeta">${esc(row.date||"")}${note?" · "+esc(note):""}</div>
+        <div class="ordinaryLedgerSource">
+          <div><span class="ordinarySourceLabel">对应：</span>${esc(source.title)}</div>
+          <div class="ordinaryLedgerOriginMeta">${esc(source.meta)}</div>
+        </div>
+        <div class="ordinaryLedgerLinks">
+          ${source.ref&&source.kind?
+            '<button class="ordinaryLedgerSourceBtn" type="button" data-origin-kind="'+esc(source.kind)+'" data-origin-ref="'+esc(source.ref)+'">'+esc(source.action)+' ›</button>':""}
+          ${tx&&transactionEditable(tx)
+            ?'<button class="ordinaryLedgerEditBtn" type="button" data-tx-id="'+esc(tx.id)+'">修改这笔流水</button>'
+            :""}
+        </div>
       </div>
       <div class="ordinaryLedgerAside">
         <div class="ordinaryLedgerDelta ${incoming?"in":"out"}">${incoming?"+":"−"}${M(Math.abs(row.delta))}</div>
@@ -9305,6 +9381,8 @@ function renderOrdinarySavingLedger(){
   }).join(""):'<div class="note">目前普通储蓄余额尚无变动。</div>';
 }
 document.getElementById("ordinarySavingLedgerRows").addEventListener("click",event=>{
+  const source=event.target.closest("button[data-origin-kind][data-origin-ref]");
+  if(source)return openOrdinaryLedgerSource(source.dataset.originKind,source.dataset.originRef);
   const button=event.target.closest("button[data-tx-id]");
   if(!button)return;
   const t=S.tx.find(row=>row.id===button.dataset.txId);
