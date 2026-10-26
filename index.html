@@ -7747,6 +7747,16 @@ function selectedPlanSourceSavingForRange(start="",end=""){
   let available=Math.max(0,N(allocation.safe));
   let ordinary=0,short=0;
   const sourceEvents=[];
+  const spent={living:0,daily:0,bill:0,project:0,saving:0};
+  const projectFunds={};
+  (allocation.projects||[]).forEach(x=>{
+    projectFunds[x.projectId]=N(projectFunds[x.projectId])+Math.max(0,N(x.amount));
+  });
+  const billFunds={};
+  (allocation.billItems||[]).forEach(x=>{
+    const key=(x.billId||"")+"|"+(x.dueDate||"");
+    billFunds[key]=N(billFunds[key])+Math.max(0,N(x.amount));
+  });
   const shortBalances={};
   const saveEvent=(t,name,amount,positive=true)=>{
     if(amount<=.005)return;
@@ -7788,7 +7798,9 @@ function selectedPlanSourceSavingForRange(start="",end=""){
   const takeOrdinary=(t,amount)=>{
     const taken=Math.min(Math.max(0,ordinary),Math.max(0,N(amount)));
     ordinary=Math.max(0,ordinary-taken);
+    spent.saving+=taken;
     saveEvent(t,"使用本次收入已存储蓄",taken,false);
+    return taken;
   };
   for(const t of transactions){
     if(t.type==="income")continue; // One-off receipts keep independent ownership.
@@ -7798,6 +7810,9 @@ function selectedPlanSourceSavingForRange(start="",end=""){
       const dailyUsed=Math.min(Math.max(0,release),
         Math.max(0,N(livingCover.byDate[day])));
       available=Math.max(0,available+release-dailyUsed);
+      const actual=Math.min(Math.max(0,N(t.allowance)),
+        Math.max(0,livingSettlementEffectiveActual(t)));
+      spent.living+=Math.min(actual,Math.max(0,N(allocation.living)-spent.living));
       continue;
     }
     if(t.type==="pocket_to_saving"){
@@ -7814,12 +7829,17 @@ function selectedPlanSourceSavingForRange(start="",end=""){
       saveEvent(t,"本次生活费零花转短期储蓄",taken);
       continue;
     }
-    if(t.type==="pocket_to_project"){usePocket(t.amount);continue;}
+    if(t.type==="pocket_to_project"){
+      const reserved=usePocket(t.amount);
+      projectFunds[t.projectId]=N(projectFunds[t.projectId])+reserved;
+      continue;
+    }
     if(t.type==="short_spend"){
       const id=t.shortAccountId||"__unassigned__";
       const taken=Math.min(Math.max(0,N(shortBalances[id])),Math.max(0,N(t.amount)));
       shortBalances[id]=Math.max(0,N(shortBalances[id])-taken);
       short=Math.max(0,short-taken);
+      spent.saving+=taken;
       saveEvent(t,"使用本次收入已存短期储蓄",taken,false);
       continue;
     }
@@ -7835,13 +7855,21 @@ function selectedPlanSourceSavingForRange(start="",end=""){
     const impact=effects[t.id]||{};
     if(t.bucket==="saving"){takeOrdinary(t,t.amount);continue;}
     if(t.bucket==="project"){
+      const sourceProject=Math.min(Math.max(0,N(projectFunds[t.refId])),Math.max(0,N(t.amount)));
+      projectFunds[t.refId]=Math.max(0,N(projectFunds[t.refId])-sourceProject);
+      spent.project+=sourceProject;
       const projectEffect=projectExpenseEffect(t,effects);
-      usePocket(projectEffect.pocketCharged);
+      spent.daily+=usePocket(projectEffect.pocketCharged);
       takeOrdinary(t,N(projectEffect.manualSavingDraw)+N(projectEffect.automaticSavingDraw));
       continue;
     }
     if(t.bucket==="bill"||t.settledBillId){
-      usePocket(N(impact.billPocketDraw));
+      const billId=t.settledBillId||t.refId||"";
+      const key=billId+"|"+(t.cycleDueDate||"");
+      const fromBill=Math.min(Math.max(0,N(billFunds[key])),Math.max(0,N(t.amount)));
+      billFunds[key]=Math.max(0,N(billFunds[key])-fromBill);
+      spent.bill+=fromBill;
+      spent.daily+=usePocket(N(impact.billPocketDraw));
       takeOrdinary(t,N(impact.autoDraw));
       continue;
     }
@@ -7853,7 +7881,7 @@ function selectedPlanSourceSavingForRange(start="",end=""){
       const usable=Math.max(0,own-reserve);
       const fromLiving=Math.min(usable,Math.max(0,N(livingCover.byTx[t.id])));
       const floated=t.aaKind==="advance"?Math.max(0,N(t.amount)-own):0;
-      usePocket(Math.max(0,usable-fromLiving)+floated);
+      spent.daily+=usePocket(Math.max(0,usable-fromLiving)+floated);
       takeOrdinary(t,N(impact.autoDraw));
     }
   }
@@ -7873,6 +7901,7 @@ function selectedPlanSourceSavingForRange(start="",end=""){
     income:money(receipt.amount),
     ordinary:money(ordinary),short:money(short),
     total:money(ordinary+short),
+    spend:{...spent,total:money(spent.living+spent.daily+spent.bill+spent.project+spent.saving),rows:[]},
     sourceEvents:sourceEvents.sort((a,b)=>b.date.localeCompare(a.date))
   };
 }
@@ -8394,7 +8423,9 @@ function currentCycleExpectedSaving(){
   return currentCycleSavingPerformance().total;
 }
 function periodOutcomeForRange(start="",end="",mode=historyMode){
-  const spend=spendingBreakdownForRange(start,end);
+  const selectedSource=mode==="cycle"&&selectedStatsCyclePlanId
+    ?selectedPlanSourceSavingForRange(start,end):null;
+  const spend=selectedSource?.spend||spendingBreakdownForRange(start,end);
 
   let savable=periodSavableForRange(start,end,mode);
 
