@@ -11295,6 +11295,9 @@ saveIncome.onclick=()=>{
   if(amount<=0)return msg("请输入到账金额");
   if(!incomeSavingSelectionValid(saving,incSavingDestination.value))
     return msg("请选择有效的优先储蓄账户");
+  if(saving>.005&&incSavingDestination.value.startsWith("short:")
+    &&!Wallets.account(wallet_income.value))
+    return msg("转入短期储蓄时，请选择本次收入的实际到账渠道");
 
   const plan=S.incomePlans.find(x=>x.id===planId);
   const recurring=!!(plan&&isRecurringPlan(plan));
@@ -13130,6 +13133,20 @@ function openTxEdit(id){
 saveTxEdit.onclick=()=>{
   const t=S.tx.find(x=>x.id===editTxId.value);
   if(!t||!transactionEditable(t))return;
+  // Preserve the original transaction before editing plan, date and allocations.
+  const incomeOriginal=t.type==="income"?{...t,alloc:{...(t.alloc||{})}}:null;
+  const editDate=document.getElementById("editIncomeDate")?.value||t.date||td();
+  const incomeAuditStart=editDate<t.date?editDate:(t.date||td());
+  const incomeAuditDays=incomeOriginal?walletFundingCheckDates(incomeAuditStart):[];
+  const incomeFundingBefore=incomeOriginal?walletFundingSnapshots(incomeAuditDays):[];
+  const incomeWalletsBefore=incomeOriginal?(S.paymentAccounts||[]).map(a=>({
+    id:a.id,amounts:incomeAuditDays.map(date=>Wallets.balanceAt(a.id,date))
+  })):[];
+  const restoreIncome=()=>{
+    if(!incomeOriginal)return;
+    Object.keys(t).forEach(key=>{if(!(key in incomeOriginal))delete t[key]});
+    Object.assign(t,incomeOriginal);
+  };
 
   if(t.type==="income"){
     const {selected,plan,recurring,isExtra}=txIncomeEditSelection(t);
@@ -13195,11 +13212,6 @@ saveTxEdit.onclick=()=>{
       t.livingRateAtRecord=t.livingCoverageStart?livingRateForDate(t.date):0;
     }
 
-    const previousIncome={...t,alloc:{...(t.alloc||{})}};
-    const originalIncomeWallet=Wallets.account(t.walletAccountId)?.id||"";
-    const walletCheckDates=walletFundingCheckDates(t.date||td());
-    const originalPhysical=originalIncomeWallet
-      ?walletCheckDates.map(date=>Wallets.balanceAt(originalIncomeWallet,date)):[];
     t.alloc={
       ...(t.alloc||{}),
       saving,
@@ -13215,19 +13227,7 @@ saveTxEdit.onclick=()=>{
     t.alloc.living=N(effective.living);
     t.alloc.bills=N(effective.bills);
     t.alloc.safe=N(effective.safe);
-    const lockedId=t.alloc.savingDestination==="short"?t.alloc.savingShortAccountId:"";
-    const sourceIds=[previousIncome.alloc.savingShortAccountId,lockedId].filter(Boolean);
-    const oldLocked=previousIncome.alloc.savingDestination==="short" ?previousIncome.alloc.savingShortAccountId:"";
-    const validLedger=[...new Set([oldLocked,lockedId])].filter(Boolean)
-      .every(id=>shortLedgerValid(id));
-    const validWallet=!originalIncomeWallet||walletCheckDates.every((date,i)=>
-      Wallets.balanceAt(originalIncomeWallet,date)>=Math.min(0,originalPhysical[i])-0.005
-    );
-    if(!validLedger||!validWallet){
-      Object.keys(t).forEach(k=>{if(!(k in previousIncome))delete t[k]});
-      Object.assign(t,previousIncome);
-      return msg("修改会影响后续短期储蓄或支付渠道余额，请调整账户与金额");
-    }
+
   }else if(t.type==="expense"&&(t.settledBillId||t.billHandledDirect)){
     const billId=document.getElementById("editDirectBillRef").value;
     const amount=Math.max(0,N(document.getElementById("editDirectBillAmount").value));
@@ -13476,6 +13476,24 @@ saveTxEdit.onclick=()=>{
   }
 
   if(["income","expense","living_batch","living_settlement"].includes(t.type))Wallets.editSelected(t);
+  if(incomeOriginal){
+    if(incomeLockedSavingAmount(t)>.005&&!Wallets.account(t.walletAccountId)){
+      restoreIncome();
+      return msg("转入短期储蓄时，请选择实际到账渠道");
+    }
+    const affected=new Set([incomeOriginal.alloc?.savingShortAccountId,t.alloc?.savingShortAccountId]);
+    const validShort=[...affected].filter(Boolean).every(id=>shortLedgerValid(id));
+    const validFunding=walletFundingRemainsCovered(incomeFundingBefore,walletFundingSnapshots(incomeAuditDays));
+    const validPhysical=incomeWalletsBefore.every(wallet=>
+      incomeAuditDays.every((date,i)=>
+        Wallets.balanceAt(wallet.id,date)>=Math.min(0,wallet.amounts[i])-0.005
+      )
+    );
+    if(!validShort||!validFunding||!validPhysical){
+      restoreIncome();
+      return msg("修改会导致储蓄或支付渠道后续余额不足，请核对金额及账户");
+    }
+  }
   // 保存前重新归属历史生活结算，避免更改扣除开关后多算结余。
   if(t.type==="income")syncLivingSettlementTotals();
   t.editedAt=Date.now();
