@@ -2844,7 +2844,11 @@ details[open]>summary .savingsFoldChevron::before,
       <div><label>对应收入计划</label><select id="incPlan"></select></div>
       <div><label>到账金额</label><input id="incAmount" inputmode="decimal" type="number"></div>
       <div><label>下一次周期收入日期</label><input id="incNextDate" type="date"></div>
-      <div><label>本次优先储蓄</label><input id="incSaving" inputmode="decimal" type="number"></div>
+      <div><label>本次优先储蓄</label><input id="incSaving" inputmode="decimal" type="number" min="0" step="0.01"></div>
+      <div id="incSavingDestinationRow" style="display:none">
+        <label for="incSavingDestination">优先储蓄存入账户</label>
+        <select id="incSavingDestination"></select>
+      </div>
       <div id="extraIncomeNoteRow" style="display:none;grid-column:1/-1">
         <label>单次收入备注</label>
         <input id="incIncomeNote" placeholder="例如 奖金、退款、临时补贴">
@@ -4151,6 +4155,47 @@ function virtualCycleCloseEvents(){
 
 // 储蓄存放位置：账户转移只改变持有位置，短期账户不参与消费自动兜底。
 function activeShortAccounts(){return S.shortAccounts||[];}
+function incomeSavingTargetOptions(){
+  return '<option value="ordinary">普通储蓄余额</option>'
+    +activeShortAccounts().map(a=>
+      `<option value="short:${esc(a.id)}">${esc("短期锁定储蓄 · "+a.name)}</option>`
+    ).join("");
+}
+function incomeSavingTargetFromTx(t){
+  return t?.alloc?.savingDestination==="short"&&t?.alloc?.savingShortAccountId
+    ?"short:"+t.alloc.savingShortAccountId:"ordinary";
+}
+function incomeLockedSavingAmount(t){
+  if(t?.type!=="income"||t?.alloc?.savingDestination!=="short"||!t?.alloc?.savingShortAccountId)return 0;
+  return Math.max(0,Math.min(
+    Math.round(N(t.alloc.saving)*100)/100,
+    Math.round(N(effectiveIncomeAllocation(t).saving)*100)/100
+  ));
+}
+function refreshIncomeSavingDestination(edit=false,tx=null){
+  const id=edit?"editIncomeSavingDestination":"incSavingDestination";
+  const row=document.getElementById(id+"Row");
+  const select=document.getElementById(id);
+  const field=document.getElementById(edit?"editIncomeSaving":"incSaving");
+  if(!row||!select||!field)return;
+  const amount=Math.max(0,N(field.value));
+  row.style.display=amount>.005?"":"none";
+  const prior=select.value||((edit&&tx)?incomeSavingTargetFromTx(tx):"ordinary");
+  select.innerHTML=incomeSavingTargetOptions();
+  if([...select.options].some(option=>option.value===prior))select.value=prior;
+  else select.value="ordinary";
+}
+function incomeSavingSelectionValid(amount,target){
+  if(amount<=.005)return true;
+  if(target==="ordinary")return true;
+  if(!String(target||"").startsWith("short:"))return false;
+  return activeShortAccounts().some(a=>a.id===target.slice(6));
+}
+function incomeSavingSelectionAlloc(target,amount){
+  return amount>.005&&String(target).startsWith("short:")
+    ?{savingDestination:"short",savingShortAccountId:target.slice(6)}
+    :{savingDestination:"ordinary",savingShortAccountId:""};
+}
 function shortSavingsAccountLabel(id){
   const account=(S.shortAccounts||[]).find(x=>x.id===id);
   if(account)return account.name;
@@ -4171,6 +4216,7 @@ function shortAccountBalance(id,asOf=td(),excludeBankId=""){
     if(t.type==="short_balance_adjustment")n+=N(t.delta);
     if(t.type==="project_transfer"&&t.toProjectId==="__saving__"&&t.savingDestination==="short")n+=a;
     if(t.type==="pocket_to_short")n+=a;
+    if(t.type==="income"&&incomeSavingTargetFromTx(t)==="short:"+id)n+=incomeLockedSavingAmount(t);
     if(t.type==="extra_saving"&&t.shortAccountId)n+=a;
     if(t.type==="short_interest")n+=a;
     if(t.type==="short_spend")n-=a;
@@ -4183,7 +4229,8 @@ function shortAccountBalance(id,asOf=td(),excludeBankId=""){
 function shortBalanceTotal(){return sm(S.shortAccounts||[],a=>shortAccountBalance(a.id));}
 function shortFlowForRange(start="",end=""){
   const tx=S.tx.filter(t=>t.date&&t.date<=td()&&(!start||t.date>=start)&&(!end||t.date<=end));
-  const incoming=sm(tx.filter(t=>(t.type==="short_transfer"&&t.direction==="in")||t.type==="pocket_to_short"),t=>N(t.amount));
+  const incoming=sm(tx.filter(t=>(t.type==="short_transfer"&&t.direction==="in")||t.type==="pocket_to_short"),t=>N(t.amount))
+    +sm(tx.filter(t=>t.type==="income"&&t.alloc?.savingDestination==="short"),incomeLockedSavingAmount);
   const extraLocked=sm(tx.filter(t=>t.type==="extra_saving"&&!!t.shortAccountId),t=>N(t.amount));
   const outgoing=sm(tx.filter(t=>t.type==="short_transfer"&&t.direction==="out"),t=>N(t.amount));
   const interest=sm(tx.filter(t=>t.type==="short_interest"),t=>N(t.amount));
@@ -4519,7 +4566,7 @@ function accounting(asOf=td()){
         billPools["__legacy__"]=(billPools["__legacy__"]||0)+N(ea.bills);
       }
       refreshBillRaw();
-      saving+=N(ea.saving);
+      saving+=N(ea.saving)-incomeLockedSavingAmount(t);
       ea.projects.forEach(x=>creditProjectFunding(x.projectId,N(x.amount),t.id));
       return;
     }
@@ -7236,6 +7283,8 @@ function txHtml(t,del=false,edit=false,effects=null){
       `基础生活 ${M(ea.living)}`,
       `固定账单 ${M(ea.bills)}`
     ];
+    if(incomeLockedSavingAmount(t)>.005)
+      metaParts.push("存入锁定储蓄 "+esc(shortSavingsAccountLabel(t.alloc.savingShortAccountId)));
     if(t.deductLiving===false)metaParts.push("基础生活本次不扣");
     if(t.deductBills===false)metaParts.push("固定账单本次不扣");
     if(Wallets.inlineTag(t))metaParts.push(Wallets.inlineTag(t).slice(3));
@@ -8073,6 +8122,7 @@ function currentCycleSavingPerformance(){
   const extraShort=sm(rows.filter(t=>t.type==="extra_saving"&&t.shortAccountId),t=>N(t.amount));
   const shortSpent=sm(rows.filter(t=>t.type==="short_spend"),t=>N(t.amount));
   const shortInterest=sm(rows.filter(t=>t.type==="short_interest"),t=>N(t.amount));
+  const incomeLockedShort=sm(rows.filter(t=>t.type==="income"),incomeLockedSavingAmount);
   const pocketSavedToShort=sm(rows.filter(t=>t.type==="pocket_to_short"),t=>N(t.amount))
     +sm(rows.filter(t=>t.type==="short_transfer"&&t.direction==="in"),t=>Math.max(0,N(t.pocketPortion)));
   const projectExpenses=rows.filter(t=>t.type==="expense"&&t.bucket==="project");
@@ -8082,7 +8132,7 @@ function currentCycleSavingPerformance(){
     +Math.min(0,N(cycle.pocketBalance))
     +extraSaving+shortInterest-shortSpent
     -N(cycle.manualSavingUse)-projectSavingsDraw;
-  const short=pocketSavedToShort+extraShort+shortInterest-shortSpent;
+  const short=incomeLockedShort+pocketSavedToShort+extraShort+shortInterest-shortSpent;
   const round=v=>Math.round(v*100)/100;
   return {total:round(total),ordinary:round(total-short),short:round(short)};
 }
@@ -8831,9 +8881,9 @@ function savingChangeEvents(){
           name:oneOff
             ?`单次额外收入储蓄${sourceName?" · "+sourceName:""}`
             :`周期收入储蓄${sourceName?" · "+sourceName:""}`,
-          meta:oneOff
-            ?"单次收入到账时按本次储蓄分配转入"
-            :"周期收入到账时按储蓄计划转入",
+          meta:incomeLockedSavingAmount(t)>.005
+            ?"已锁定至 "+shortSavingsAccountLabel(t.alloc.savingShortAccountId)
+            :(oneOff?"单次收入优先储蓄":"周期收入优先储蓄"),
           amount,
           impact:amount,
           mode:"pos"
@@ -10818,6 +10868,7 @@ function openIncome(){
   if(next) incPlan.value=next.id;
   syncIncomeFromPlan();
   wallet_income.value=Wallets.account(S.settings.walletIncomeDefault)?S.settings.walletIncomeDefault:"";
+  refreshIncomeSavingDestination();
   incomeSheet.classList.add("show");
 }
 incPlan.onchange=syncIncomeFromPlan;
@@ -10876,6 +10927,7 @@ function syncIncomeFromPlan(){
   }
 
   recalcIncome();
+  refreshIncomeSavingDestination();
 }
 function incomeProjectGapNote(p,a){
   const gap=projectPlannedCashGap(p,a),advance=Math.max(0,N(a.projectFundingDeficits?.[p.id]));
@@ -11097,6 +11149,7 @@ function recalcIncomeSummary(){
     incomeWarning.textContent="";
   }
   saveIncome.disabled=false;
+  refreshIncomeSavingDestination();
 }
 [incAmount,incSaving,incNextDate].forEach(x=>x.addEventListener("input",()=>x===incNextDate?recalcIncome():recalcIncomeSummary()));
 [incDeductLiving,incDeductBills].forEach(x=>x.addEventListener("change",recalcIncome));
@@ -11136,6 +11189,8 @@ saveIncome.onclick=()=>{
   const planId=isExtra?"":selectedPlan;
   const incomeNote=isExtra?incIncomeNote.value.trim():"";
   if(amount<=0)return msg("请输入到账金额");
+  if(!incomeSavingSelectionValid(saving,incSavingDestination.value))
+    return msg("请选择有效的优先储蓄账户");
 
   const plan=S.incomePlans.find(x=>x.id===planId);
   const recurring=!!(plan&&isRecurringPlan(plan));
@@ -11192,7 +11247,8 @@ saveIncome.onclick=()=>{
     scheduledDate:pending?.scheduledDate||planNextDateBefore,
     wasPending:!!pending,
     pendingRecordedDate:pending?.pendingRecordedDate||pending?.date||"",
-    alloc:{saving,living,bills,billItems,projects:[...projects,...repayments],lightPlans,safe}
+    alloc:{saving,...incomeSavingSelectionAlloc(incSavingDestination.value,saving),
+      living,bills,billItems,projects:[...projects,...repayments],lightPlans,safe}
   };
 
   if(pending){
@@ -12344,6 +12400,7 @@ function recalcIncomeEditSummary(t){
   warning.textContent=s.free< -0.005
     ?`本次预留合计超过到账金额 ${M(Math.abs(s.free))}，请调整后保存。`:"";
   saveTxEdit.disabled=s.free< -0.005;
+  refreshIncomeSavingDestination(true,t);
 }
 function refreshIncomeEditFields(t){
   const {selected,recurring,isExtra}=txIncomeEditSelection(t);
@@ -12534,6 +12591,10 @@ function openTxEdit(id){
           <input id="editIncomeNext" type="date" value="${esc(t.nextIncomeDate||"")}"></div>
         <div><label>本次优先储蓄</label>
           <input id="editIncomeSaving" inputmode="decimal" type="number" min="0" step="0.01" value="${N(t.alloc?.saving)}"></div>
+        <div id="editIncomeSavingDestinationRow" style="display:none">
+          <label for="editIncomeSavingDestination">优先储蓄存入账户</label>
+          <select id="editIncomeSavingDestination">${incomeSavingTargetOptions()}</select>
+        </div>
         <div id="editIncomeNoteRow" style="grid-column:1/-1">
           <label>单次收入备注</label><input id="editIncomeNote" value="${esc(t.incomeNote||"")}">
         </div>
@@ -12581,6 +12642,10 @@ function openTxEdit(id){
       <div class="note" id="editIncomeWarning" style="margin-top:8px"></div>
     `;
     editTxHint.textContent="修改后会重新计算相应日期的收入分配及关联余额。";
+    document.getElementById("editIncomeSavingDestination").value=
+      [...document.getElementById("editIncomeSavingDestination").options]
+        .some(o=>o.value===incomeSavingTargetFromTx(t))
+        ?incomeSavingTargetFromTx(t):"ordinary";
 
     document.getElementById("editIncomePlan").addEventListener("change",()=>{
       const {plan,recurring}=txIncomeEditSelection(t);
@@ -12606,6 +12671,7 @@ function openTxEdit(id){
     });
     editTxFields.querySelectorAll(".editIncomeProjectAmount,.editIncomeRepayAmount,.editIncomeLightAmount")
       .forEach(el=>el.addEventListener("input",()=>recalcIncomeEditSummary(t)));
+    document.getElementById("editIncomeSavingDestination").addEventListener("change",()=>recalcIncomeEditSummary(t));
     refreshIncomeEditFields(t);
   }else if(t.type==="expense"&&(t.settledBillId||t.billHandledDirect)){
     const billId=t.settledBillId||t.refId||"";
@@ -12967,6 +13033,9 @@ saveTxEdit.onclick=()=>{
     const {amount,saving,next,billItems,bills,projects,repayments,lightPlans}=draft;
     if(amount<=0)return msg("请输入到账金额");
     if(draft.free< -0.005)return msg("本次收入分配超过到账金额，请减少预留金额");
+    const destinationChoice=document.getElementById("editIncomeSavingDestination").value;
+    if(!incomeSavingSelectionValid(saving,destinationChoice))
+      return msg("请选择有效的优先储蓄账户");
     if(recurring&&(!next||next<=t.date))return msg("下一次周期收入日期需要晚于这笔收入日期");
     if(repayments.some(x=>{
       const own=sm((t.alloc?.projects||[]).filter(v=>v.projectId===x.projectId&&v.repayment),v=>N(v.amount));
@@ -13022,9 +13091,15 @@ saveTxEdit.onclick=()=>{
       t.livingRateAtRecord=t.livingCoverageStart?livingRateForDate(t.date):0;
     }
 
+    const previousIncome={...t,alloc:{...(t.alloc||{})}};
+    const originalIncomeWallet=Wallets.account(t.walletAccountId)?.id||"";
+    const walletCheckDates=walletFundingCheckDates(t.date||td());
+    const originalPhysical=originalIncomeWallet
+      ?walletCheckDates.map(date=>Wallets.balanceAt(originalIncomeWallet,date)):[];
     t.alloc={
       ...(t.alloc||{}),
       saving,
+      ...incomeSavingSelectionAlloc(destinationChoice,saving),
       bills,
       billItems,
       projects:[...projects,...repayments],
@@ -13036,6 +13111,19 @@ saveTxEdit.onclick=()=>{
     t.alloc.living=N(effective.living);
     t.alloc.bills=N(effective.bills);
     t.alloc.safe=N(effective.safe);
+    const lockedId=t.alloc.savingDestination==="short"?t.alloc.savingShortAccountId:"";
+    const sourceIds=[previousIncome.alloc.savingShortAccountId,lockedId].filter(Boolean);
+    const oldLocked=previousIncome.alloc.savingDestination==="short" ?previousIncome.alloc.savingShortAccountId:"";
+    const validLedger=[...new Set([oldLocked,lockedId])].filter(Boolean)
+      .every(id=>shortLedgerValid(id));
+    const validWallet=!originalIncomeWallet||walletCheckDates.every((date,i)=>
+      Wallets.balanceAt(originalIncomeWallet,date)>=Math.min(0,originalPhysical[i])-0.005
+    );
+    if(!validLedger||!validWallet){
+      Object.keys(t).forEach(k=>{if(!(k in previousIncome))delete t[k]});
+      Object.assign(t,previousIncome);
+      return msg("修改会影响后续短期储蓄或支付渠道余额，请调整账户与金额");
+    }
   }else if(t.type==="expense"&&(t.settledBillId||t.billHandledDirect)){
     const billId=document.getElementById("editDirectBillRef").value;
     const amount=Math.max(0,N(document.getElementById("editDirectBillAmount").value));
