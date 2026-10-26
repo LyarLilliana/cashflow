@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-118-savings-balance-reconcile";
+const CACHE = "safespend-v10-119-ordinary-calibration-checkpoint";
 const ASSETS = [
   "./",
   "./index.html",
