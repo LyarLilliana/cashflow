@@ -2532,8 +2532,8 @@ details[open]>summary .savingsFoldChevron::before,
                 <div class="explainRow"><span id="savingCyclePlannedLabel">期间实际变动</span><strong id="savingCyclePlanned">¥0</strong></div>
                 <div class="explainRow"><span id="savingCycleRemainderLabel">预计结余</span><strong id="savingCycleRemainder">¥0</strong></div>
                 <div class="explainRow"><span>转入银行</span><strong id="savingDailyBankTransfer">¥0</strong></div>
-                <div class="explainRow"><span>转入短期储蓄</span><strong id="savingShortInboundDetail">¥0</strong></div>
-                <div class="explainRow"><span>短期储蓄转回</span><strong id="savingShortOutboundDetail">¥0</strong></div>
+                <div class="explainRow"><span>本期存入短期储蓄</span><strong id="savingShortInboundDetail">¥0</strong></div>
+                <div class="explainRow"><span>本期动用短期储蓄</span><strong id="savingShortOutboundDetail">¥0</strong></div>
                 <div class="savingOverviewDetailTitle bank">银行资产</div>
                 <div class="explainRow"><span>银行本金变动</span><strong id="savingBankPrincipal">¥0</strong></div>
                 <div class="explainRow"><span>预估利息变动</span><strong id="savingBankInterest">¥0</strong></div>
@@ -2693,8 +2693,8 @@ details[open]>summary .savingsFoldChevron::before,
           <div class="summaryGroup">
             <div class="summaryRow"><span>普通储蓄净变化</span><strong id="savingGrowthOrdinary">¥0</strong></div>
             <div class="summaryRow"><span>短期储蓄净变化</span><strong id="savingGrowthShort">¥0</strong></div>
-            <div class="summaryRow"><span>银行本金净变化</span><strong id="savingGrowthBank">¥0</strong></div>
-            <div class="summaryRow"><span>本周期预计结余</span><strong id="savingGrowthPending">¥0</strong></div>
+            <div class="summaryRow"><span>银行新增储蓄</span><strong id="savingGrowthBank">¥0</strong></div>
+            <div class="summaryRow"><span>待决定转存零花</span><strong id="savingGrowthPending">¥0</strong></div>
             <div class="summaryRow summaryTotal"><span>所选期间储蓄净变化</span><strong id="savingGrowthTotal">¥0</strong></div>
           </div>
           <div class="summaryNote" id="savingGrowthNote"></div>
@@ -8216,7 +8216,7 @@ function periodSavingsPerformance(start="",end=""){
     if(target==="short")short+=n;
     else ordinary+=n;
     events.push({id:"performance_"+t.id+"_"+events.length,date:t.date||"",
-      name,meta,amount:Math.abs(n),impact:n,mode:n>=0?"pos":"neg"});
+      name,meta,amount:Math.abs(n),impact:n,target,mode:n>=0?"pos":"neg"});
   };
   const rows=S.tx.filter(t=>inRange(t.date))
     .sort((a,b)=>a.date.localeCompare(b.date)||txStamp(a)-txStamp(b));
@@ -9519,9 +9519,12 @@ function renderSavingAssetSummary(){
   const moved=N(s.bankExisting);
   savingDailyBankTransfer.textContent=moved>.005?`-${M(moved)}`:M(0);
   savingDailyBankTransfer.style.color=moved>.005?"var(--muted)":"inherit";
-  const lockedIn=N(s.short.incoming)+N(s.short.extraLocked);
-  savingShortInboundDetail.textContent=lockedIn>.005?`-${M(lockedIn)}`:M(0);
-  savingShortOutboundDetail.textContent=M(s.short.outgoing);
+  const shortInflows=sm(s.performance.events.filter(ev=>
+    ev.mode==="pos"&&ev.target==="short"),ev=>N(ev.impact));
+  const shortOutflows=sm(s.performance.events.filter(ev=>
+    ev.mode==="neg"&&ev.target==="short"),ev=>Math.abs(N(ev.impact)));
+  savingShortInboundDetail.textContent=M(shortInflows);
+  savingShortOutboundDetail.textContent=M(shortOutflows);
   savingBankPrincipal.textContent=M(s.bankPrincipal);
   savingBankInterest.textContent=M(s.interestGrowth);
 
