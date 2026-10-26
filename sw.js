@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-118-clean-interface-copy";
+const CACHE = "safespend-v10-120-clean-interface-copy";
 const ASSETS = [
   "./",
   "./index.html",
