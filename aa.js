@@ -50,6 +50,11 @@ const uiStyle=[
 '.aaMainDisclosure{padding:0;overflow:hidden;border:0;box-shadow:none;border-radius:15px;background:transparent}',
 '.aaUpcomingGroup{margin-top:0}',
 '.aaUpcomingGroup .aaMainDisclosure>summary{padding:11px 12px}',
+'.aaUpcomingGroup{border-bottom:1px solid var(--line);margin:0 0 5px}',
+'.aaUpcomingGroup .aaMainTitle{font-size:12.5px}',
+'.aaResolveConfirmRow{display:flex;align-items:flex-start;gap:9px;margin:8px 0 12px;padding:10px 11px;border:1px solid var(--line);border-radius:11px;font-size:11px;color:var(--text);line-height:1.6}',
+'.aaResolveConfirmRow input{width:17px;height:17px;flex:none;margin-top:1px;accent-color:var(--accent)}',
+'.aaResolveConfirmRow[hidden]{display:none!important}',
 '.aaUpcomingGroup .aaDisclosureBody{padding:0 11px 12px}',
 '.aaResolveOptions{display:grid;gap:8px;margin:12px 0}',
 '.aaResolveOption{padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;text-align:left;font-size:12px;color:var(--text)}',
@@ -146,8 +151,8 @@ function mount(){
    '</div></div>',
    '<div class="sheet" id="aaResolveSheet"><div class="sheetCard"><h2 class="sheetTitle">结束 AA · 最终处理</h2>',
    '<div class="meta" id="aaResolveTitle"></div><div class="aaResolveOptions">',
-   '<button type="button" class="aaResolveOption" id="aaResolveExpense">最后由我承担 · 普通支出</button>',
-   '<button type="button" class="aaResolveOption" id="aaResolveVoid">交易取消 · 不支出</button></div>',
+   '<button type="button" class="aaResolveOption" id="aaResolveExpense">不再 AA · 转个人独立支出</button>',
+   '<button type="button" class="aaResolveOption" id="aaResolveVoid">取消交易 · 最终不支出</button></div>',
    '<div class="aaResolveInputs" id="aaResolvePayFields" hidden>',
    '<div><label>已实际补付的金额</label><input id="aaResolveAmount" type="number" min="0" step="0.01" inputmode="decimal"></div>',
    '<div><label>实际付款日期</label><input id="aaResolveDate" type="date"></div>',
@@ -155,6 +160,8 @@ function mount(){
    '<div id="aaResolveProjectWrap" hidden><label>对应专项</label><select id="aaResolveProject"></select></div>',
    '<div><label>实际付款渠道</label><select id="aaResolveWallet"></select></div></div>',
    '<div class="aaResolveHint" id="aaResolveHint"></div>',
+   '<label class="aaResolveConfirmRow" id="aaResolveRefundConfirmWrap" hidden><input type="checkbox" id="aaResolveRefundConfirm">',
+   '<span>确认相关已付资金确实退回、已收 AA 回款也已妥善退还或清算。取消后原收付款保留为已取消历史流水，不再影响余额。</span></label>',
    '<div><label>处理备注（选填）</label><input id="aaResolveNote" maxlength="100" placeholder="例如 取消集体活动"></div>',
    '<div class="actions"><button class="ghost" type="button" id="aaResolveCancel">返回</button><button class="primary" type="button" id="aaResolveConfirm">确认处理</button></div>',
    '</div></div>'
@@ -468,6 +475,7 @@ function openResolution(aaId){
  fillProjects("aaResolveProject");
  fillWallet("aaResolveWallet",S.settings.walletSpendDefault||"");
  $("aaResolveNote").value="";
+ $("aaResolveRefundConfirm").checked=false;
  chooseResolution("expense");
  $("aaResolveSheet").classList.add("show");
  if(typeof syncDateDisplays==="function")syncDateDisplays();
@@ -480,8 +488,15 @@ function chooseResolution(mode){
  $("aaResolveVoid").classList.toggle("selected",mode==="void");
  $("aaResolvePayFields").hidden=mode!=="expense"||a.direction==="receivable";
  $("aaResolveProjectWrap").hidden=$("aaResolveBucket").value!=="project";
+ const related=S.tx.filter(t=>t.aaId===a.id);
+ const fundsMoved=related.some(t=>t.type==="expense"||t.type==="aa_receive");
+ $("aaResolveRefundConfirmWrap").hidden=mode!=="void"||!fundsMoved;
  if(mode==="void"){
-   $("aaResolveHint").textContent="仅在整笔交易最终没有发生，或所有实际款项已退回时使用。确认后将撤销原 AA 关联的垫付、收款及付款记录，恢复对应预算和渠道余额。";
+   const expenses=R(related.filter(t=>t.type==="expense").reduce((n,t)=>n+R(t.amount),0));
+   const receipts=R(related.filter(t=>t.type==="aa_receive").reduce((n,t)=>n+R(t.amount),0));
+   $("aaResolveHint").textContent="此前实际已付 "+money(expenses)+"，收回 "+money(receipts)+"。"+
+      (fundsMoved?"资金确实全部退回或清算后方可取消。已取消的原收付会保留为历史记录。":
+       "尚无实际付款，取消后不产生支出。");
  }else if(a.direction==="receivable"){
    $("aaResolveHint").textContent="你已支付过的整个消费仍是原来的实际支出，这里仅结束尚未收回的 AA 款项，不会再次扣款。已收到的还款继续保留在流水中。";
  }else{
@@ -559,9 +574,10 @@ function renderEntry(a){
     "";
  const buttons=a.resolution?"":rest>.005?
    '<div class="aaEntryActions"><button type="button" onclick="AA.openSettlement('+"'"+safe(a.id)+"'"+')">'+(isReceive?"收到还款":"支付核销")+'</button>'+
-   '<button type="button" data-aa-resolve-id="'+safe(a.id)+'">改为个人支出 / 取消</button>'+
+   '<button type="button" data-aa-resolve-id="'+safe(a.id)+'">最终处理</button>'+
    '<button type="button" onclick="AA.open('+"'"+a.direction+"','', '"+safe(a.id)+"'"+')">编辑</button></div>':
-   '<div class="aaEntryActions"><button type="button" onclick="AA.open('+"'"+a.direction+"','', '"+safe(a.id)+"'"+')">编辑</button></div>';
+   '<div class="aaEntryActions"><button type="button" data-aa-resolve-id="'+safe(a.id)+'">最终处理</button>'+
+   '<button type="button" onclick="AA.open('+"'"+a.direction+"','', '"+safe(a.id)+"'"+')">编辑</button></div>';
  return '<div class="aaEntry"><div class="aaEntryTop"><div>'+
  '<div class="aaEntryTitle">'+safe(a.title)+' · '+(isReceive?"我先付款":"别人先付款")+'</div>'+
  '<div class="aaEntryMeta">'+safe(a.date)+(a.dueDate?" · 约定 "+safe(a.dueDate):"")+
@@ -573,10 +589,11 @@ function renderEntry(a){
 
 function render(){
  const box=$("upcomingBox");
- if(aaHostNode&&box&&aaHostNode.parentElement!==box)box.appendChild(aaHostNode);
+ if(aaHostNode&&box&&aaHostNode.parentElement!==box)box.prepend(aaHostNode);
  if(!aaHostNode||!box)return;
  const emptyNote=box.querySelector(":scope > .note");
- if(emptyNote&&emptyNote.textContent.includes("暂无近期必须处理"))emptyNote.remove();
+ if(emptyNote&&emptyNote.textContent.includes("暂无近期必须处理")&&entries().length)emptyNote.remove();
+ if(aaHostNode!==box.firstElementChild)box.prepend(aaHostNode);
  const openEntries=entries().filter(a=>totalLeft(a)>.005).sort((a,b)=>(a.dueDate||a.date).localeCompare(b.dueDate||b.date));
  const closedEntries=entries().filter(a=>totalLeft(a)<=.005).sort((a,b)=>b.date.localeCompare(a.date));
  const receivable=R(openEntries.filter(a=>a.direction==="receivable").reduce((s,a)=>s+totalLeft(a),0));
