@@ -2346,7 +2346,7 @@ details[open]>summary .savingsFoldChevron::before,
       <div class="row">
         <div>
           <div class="name" id="bankReminderNowTitle">预计储蓄达到银行转存额度</div>
-          <div class="meta" id="bankReminderNowMeta">可以考虑把这笔钱存入银行。</div>
+          <div class="meta" id="bankReminderNowMeta"></div>
         </div>
         <button class="primary" id="bankReminderNowBtn">新增银行存款</button>
       </div>
@@ -2556,7 +2556,7 @@ details[open]>summary .savingsFoldChevron::before,
             <div class="row">
               <div>
                 <div class="name" id="bankReminderReadyTitle">已经达到银行转存额度</div>
-                <div class="meta" id="bankReminderReadyMeta">可以把这部分储蓄余额存入银行。</div>
+                <div class="meta" id="bankReminderReadyMeta"></div>
               </div>
               <button class="primary" id="bankReminderDepositBtn">新增银行存款</button>
             </div>
@@ -2776,7 +2776,7 @@ details[open]>summary .savingsFoldChevron::before,
           <span id="incDeductLivingLabel">本次扣除</span>
         </label>
       </div>
-      <div class="meta" id="incLivingMeta">周期性收入会覆盖自己的生活周期；相同日历日只扣一次。</div>
+      <div class="meta" id="incLivingMeta"></div>
       <div style="margin-top:8px;font-weight:750" id="incLivingGuide">¥0</div>
     </div>
     <div class="subCard">
@@ -2788,12 +2788,12 @@ details[open]>summary .savingsFoldChevron::before,
           <span id="incDeductBillsLabel">本次扣除</span>
         </label>
       </div>
-      <div class="meta" id="incBillsMeta">按本次收入承担的账单预留；不扣除时账单仍会保留。</div>
+      <div class="meta" id="incBillsMeta"></div>
       <div style="margin-top:8px;font-weight:750" id="incBills">¥0</div>
     </div>
     <div class="subCard">
       <div class="name">专项 / 近期计划预留</div>
-      <div class="meta" id="projectSuggestMeta">专项和已经确定准备购买的近期计划，可以一起从这笔收入中预留。</div>
+      <div class="meta" id="projectSuggestMeta"></div>
       <div id="projectSuggest" style="margin-top:8px"></div>
     </div>
     <div class="explain">
@@ -3049,7 +3049,7 @@ details[open]>summary .savingsFoldChevron::before,
       <div class="livingHistoryHead">
         <div>
           <div class="name">既往基础生活</div>
-          <div class="meta">漏结算的日期按计划自动补记，点整行即可补改真实支出。</div>
+          
         </div>
         <div class="livingHistoryCount" id="pastLivingCount">0 条</div>
       </div>
@@ -6894,12 +6894,12 @@ function renderNow(){
   // 只有日常资金池实际出现负余额才提示缺口。储蓄净动用可由既有资产覆盖。
   const cycleGap=Math.max(0,-N(cycle.pocketBalance));
   const gapHtml=cycleGap>0
-    ?`<div class="upcomingAlert"><div class="item"><div class="row"><div><div class="name">本周期日常预算超额</div><div class="meta">日常预算不足，建议核对收入分配及支出。</div></div><div class="amount neg">${M(cycleGap)}</div></div></div></div>`
+    ?`<div class="upcomingAlert"><div class="item"><div class="row"><div><div class="name">本周期日常预算超额</div><div class="meta">日常预算不足</div></div><div class="amount neg">${M(cycleGap)}</div></div></div></div>`
     :"";
 
   upcomingBox.innerHTML=(gapHtml||groups.length)
     ?gapHtml+groups.join("")
-    :'<div class="note">暂无近期必须处理的固定项目、专项或短期计划支出。</div>';
+    :'<div class="note">暂无待处理</div>';
 
   const projectPlans=activeProjects().map(p=>({
     p,
@@ -9772,7 +9772,7 @@ function renderShortAccounts(){
       <button type="button" onclick="openBankFromShort('${a.id}')">转存</button>
       <button type="button" onclick="openShortAccount('${a.id}')">编辑余额 / 账户</button>
     </span></div></details>`;
-  }).join(""):'<div class="shortAccountEmpty"><div class="note">在「记额外储蓄」里选择锁定账户，首次记录时可直接创建小荷包。</div><button class="secondary" type="button" onclick="openExtraSaving(&quot;short&quot;)">开始存入</button></div>';
+  }).join(""):'<div class="shortAccountEmpty"><div class="note">暂无账户</div><button class="secondary" type="button" onclick="openExtraSaving(&quot;short&quot;)">开始存入</button></div>';
 }
 function openBankFromShort(id){
   const a=activeShortAccounts().find(x=>x.id===id);
@@ -9803,7 +9803,7 @@ function refreshShortAccountRatePreview(){
   const balance=rawBalance!==""&&Number.isFinite(Number(rawBalance))
     ?Math.max(0,Number(rawBalance)):0;
   const estimate=balance*rate/100*30/365;
-  target.textContent=`按填写的余额 ${M(balance)} 和参考年化 ${shortRateLabel(rate)} 估算，未来30日收益约 ${M(estimate)}；实际到账仍按收益流水登记。`;
+  target.textContent=`预计30日收益 ${M(estimate)}`;
 }
 function refreshShortAccountActualHint(){
   const id=shortAccountId.value;
@@ -10206,7 +10206,7 @@ function renderSavings(){
       </div>
       </div>
     </details>`;
-  }).join(""):'<div class="note">还没有银行存款。可以记录活期或不同期限的定期存款，并按录入利率估算利息。</div>';
+  }).join(""):'<div class="note">暂无银行存款</div>';
 }
 
 function actualSpendingDate(t){
@@ -10788,8 +10788,8 @@ function refreshIncomeGapHints(){
     const btn=row.querySelector(".incomeFillPlannedGap");
     if(btn)btn.hidden=due<=.005;
   });
-  if(count)projectSuggestMeta.textContent=`${count} 个专项的支出规划当前还差 ${M(total)}。可点击“补入规划差额”从本次收入预留。${remaining>.005?`本次拟分配后预计仍需补入 ${M(remaining)}。`:"本次拟分配预计可覆盖现有缺口。"}已达到预算的专项仍可继续追加。`;
-  else projectSuggestMeta.textContent="可向任意进行中的专项继续分配资金；若有支出规划缺口，会单独提示并支持补入。";
+  projectSuggestMeta.textContent=count
+    ?`${count} 项待补 ${M(remaining)}`:"";
 }
 function fillIncomeProjectGap(projectId){
   const input=[...projectSuggest.querySelectorAll(".projectContrib")].find(x=>x.dataset.id===projectId);
@@ -10821,14 +10821,12 @@ function projectSuggestionInputs(){
   const repayProjects=oneOff?activeProjects().filter(p=>projectRepayPending(p.id)>0):[];
 
   if(!suggestProjects.length&&!suggestLightPlans.length&&!repayProjects.length){
-    projectSuggestMeta.textContent="当前没有需要预留的专项，也没有已确定准备购买的近期计划。";
+    projectSuggestMeta.textContent="";
     projectSuggest.innerHTML='<div class="note">暂无需要预留的项目。</div>';
     return;
   }
 
-  projectSuggestMeta.textContent=oneOff
-    ?"可给任意进行中的专项追加资金，已达到预算的专项也可继续预留；近期计划按需填写。"
-    :"专项按周期建议分配，已达到预算的专项仍可自行追加；近期计划按需预留。";
+  projectSuggestMeta.textContent="";
 
   let projectHtml="";
   if(suggestProjects.length){
@@ -10914,27 +10912,27 @@ function recalcIncome(){
   updateIncomeDeductionLabels("inc");
 
   if(!incDeductLiving.checked){
-    incLivingMeta.textContent="本次收入不预留基础生活额度；实际生活支出仍按已有生活预算或日常支出规则登记。";
+    incLivingMeta.textContent="本次不扣除基础生活";
   }else if(lp.missingWindow){
-    incLivingMeta.textContent="目前没有可用于计算的下一次周期收入日期，基础生活暂不扣除。";
+    incLivingMeta.textContent="暂无下一次周期收入日期";
   }else if(lp.extra){
-    incLivingMeta.textContent="单次额外收入没有独立生活周期；本次基础生活扣除为 ¥0。设置的“本次优先储蓄”会直接联动到储蓄资产、储蓄变化和结果统计。";
+    incLivingMeta.textContent="单次额外收入 · 生活预留 ¥0";
   }else if(recurring&&!incNextDate.value){
     incLivingMeta.textContent="请先确认下一次周期收入日期。";
   }else if(lp.skippedDays>0){
-    incLivingMeta.textContent=`从今天到 ${lp.end} 共 ${lp.totalDays} 天，其中 ${lp.skippedDays} 天已被其他收入周期覆盖，本次只扣 ${lp.days.length} 天；如跨基础生活标准调整日，已逐日按对应标准计算。`;
+    incLivingMeta.textContent=`本次扣 ${lp.days.length} 天 · 已由其他周期覆盖 ${lp.skippedDays} 天`;
   }else if((lp.breakdown||[]).length>1){
     const parts=lp.breakdown.map(x=>`${x.start}${x.end!==x.start?"–"+x.end:""}：${M(x.amount)}/天`).join("；");
-    incLivingMeta.textContent=`本次覆盖 ${lp.days.length} 天，跨基础生活标准调整日，已逐日计算：${parts}`;
+    incLivingMeta.textContent=`${lp.days.length} 天 · ${parts}`;
   }else{
-    incLivingMeta.textContent=`从今天到下一次周期收入 ${lp.end}，共 ${lp.totalDays} 天，本次扣除 ${lp.days.length} 天基础生活。`;
+    incLivingMeta.textContent=`本次预留 ${lp.days.length} 天 · 至 ${lp.end}`;
   }
 
   const bills=incDeductBills.checked&&end?dueBillsBetween(td(),end):[];
   incBills.textContent=M(sm(bills,x=>x.amount));
   incBillsMeta.textContent=incDeductBills.checked
-    ?(end?"本次预留尚未支付、尚未由其他收入覆盖的账单；付款时只核销一次。":"尚无可计算的下一收入日期，暂不预留账单。")
-    :"本次不预留固定账单，账单仍保留待支付，付款时按实际资金来源核销。";
+    ?(end?"":"暂无下一次周期收入日期")
+    :"本次不扣除固定账单";
 
   projectSuggestionInputs();
   recalcIncomeSummary();
@@ -11350,7 +11348,7 @@ function renderPastLivingSettlements(){
         </div>
       </div>`;
     }).join("")
-    :'<div class="note" style="padding:14px 2px">当前还没有既往基础生活记录。</div>';
+    :'<div class="note" style="padding:14px 2px">暂无结算记录</div>';
 }
 function openPastLivingSettlements(){
   showLivingPanel("history");
@@ -11872,7 +11870,7 @@ saveBankDeposit.onclick=()=>{
     const restored=old&&old.source==="existing"?N(old.principal):0;
     const available=Math.max(0,N(bal().saving)+restored);
     if(principal>available){
-      return msg(`当前储蓄余额余额于银行存款的金额为 ${M(available)}`);
+      return msg(`可用于银行存款的储蓄余额为 ${M(available)}`);
     }
   }
 
@@ -13515,7 +13513,7 @@ function summary(){
 本周期账单待支付：${currentCycleBillStatus().complete?"已完成":currentCycleBillStatus().none?"暂无":M(currentCycleBillStatus().outstandingAmount)}
 当前专项余额合计：${M(projectTotal)}
 当前仍需覆盖的日常资金缺口：${M(Math.max(0,-N(a.raw.safe)))}
-当前储蓄余额余额：${M(ordinarySavingsAvailable())}
+当前普通储蓄余额：${M(ordinarySavingsAvailable())}
 银行转存提醒额度：${bankReminderThresholdValue()>0?M(bankReminderThresholdValue()):"未设置"}
 
 收入计划：
