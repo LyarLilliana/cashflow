@@ -107,8 +107,8 @@ function mount(){
   if(!target)throw Error("近期必须处理区域尚未加载");
   target.insertAdjacentHTML("beforeend",[
    '<div class="upcomingGroup aaUpcomingGroup" id="aaSection"><details class="aaMainDisclosure" id="aaMainDisclosure" data-disclosure-key="upcoming:aa">',
-   '<summary><span class="aaMainTitle">AA 与往来</span>',
-   '<span class="aaMainSummaryRight"><span class="aaMainBadges" id="aaMainBadges">0 笔待处理</span><span class="aaMainArrow">⌄</span></span></summary>',
+   '<summary class="upcomingGroupTitle disclosureSummary"><span class="upcomingGroupTitleMain">AA 与往来</span>',
+   '<span class="upcomingGroupTitleRight"><span class="upcomingGroupCount" id="aaMainBadges">0 笔</span><span class="disclosureState" aria-hidden="true"></span></span></summary>',
    '<div class="aaDisclosureBody"><div class="aaInlineTotals" aria-label="AA 往来统计">',
    '<span class="aaInlineItem">待收 <strong id="aaReceivable">¥0</strong></span>',
    '<span class="aaInlineItem">待付 <strong id="aaPayable">¥0</strong></span>',
@@ -640,11 +640,11 @@ function render(){
  $("aaReceivable").textContent=money(receivable);
  $("aaPayable").textContent=money(payable);
  $("aaSettled").textContent=money(cleared);
- $("aaMainBadges").textContent=openEntries.length?openEntries.length+" 笔待处理":"暂无待处理";
+ $("aaMainBadges").textContent=openEntries.length+" 笔";
  $("aaReceivable").classList.toggle("aaWarn",receivable>0);
  $("aaPayable").classList.toggle("aaWarn",payable>0);
- $("aaOpenSummary").textContent="待处理 "+openEntries.length+" 笔"+(openEntries.length?" · 点按展开 / 收起":"");
- $("aaOpenList").innerHTML=openEntries.map(renderEntry).join("")||'<div class="note" style="padding:9px 0">暂无待处理 AA。可以随时新增集体消费或待付记录。</div>';
+ $("aaOpenSummary").textContent="待处理 · "+openEntries.length+" 笔";
+ $("aaOpenList").innerHTML=openEntries.map(renderEntry).join("")||'<div class="note" style="padding:9px 0">暂无待处理往来</div>';
  $("aaClosedDetails").style.display=closedEntries.length?"":"none";
  $("aaClosedSummary").textContent="已处理 "+closedEntries.length+" 笔";
  $("aaClosedList").innerHTML=closedEntries.map(renderEntry).join("");
