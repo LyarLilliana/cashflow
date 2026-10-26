@@ -2187,7 +2187,7 @@ details[open]>summary .savingsFoldChevron::before,
 
       <div class="card monthlyGoalCard">
         <div class="name">月度储蓄目标</div>
-        <div class="meta">用于目标展示和储蓄进度参考，可以随时调整。</div>
+        
         <div style="height:10px"></div>
         <label>目标金额，可留空</label>
         <input id="planMonthlyGoal" inputmode="decimal" type="number" min="0" placeholder="例如 900">
@@ -2200,7 +2200,7 @@ details[open]>summary .savingsFoldChevron::before,
       <div class="sectionTitle">收入计划</div>
       <div class="card">
         <div class="step"><div class="stepNo">2</div><div style="flex:1">
-          <div class="name">告诉 App 钱什么时候来、每次来多少</div>
+          <div class="name">新增收入计划</div>
           
           <div style="height:10px"></div>
           <div class="formGrid">
@@ -2306,7 +2306,7 @@ details[open]>summary .savingsFoldChevron::before,
     <div class="card hero">
       <div class="eyebrow">当前零花钱</div>
       <div class="heroValue" id="safeNow">¥0</div>
-      <div class="heroSub" id="safeSub">完成计划后，记录一笔收入。App 会扣除本周期基础生活、固定账单、专项和计划储蓄，再计算真正可以自由花的零花钱。</div>
+      
       <div class="heroAction">
         <button class="primary" style="flex:1" onclick="openIncome()">记录收入</button>
         <button class="secondary" style="flex:1" onclick="openSpend()">记一笔支出</button>
@@ -2322,14 +2322,14 @@ details[open]>summary .savingsFoldChevron::before,
         <div class="explainRow"><span>建议每日零花钱</span><strong id="dailyFree">¥0</strong></div>
         <div class="explainRow"><span>今日基础生活剩余</span><strong id="dailyLivingRemaining">¥0</strong></div>
         <div class="explainRow total"><span>建议每日总可花</span><strong id="dailyTotalSpend">¥0</strong></div>
-        <div class="dailyBudgetMeta" id="dailyTotalMeta">今日总可花 = 基础生活剩余 + 建议每日零花钱</div>
+        
       </div>
     </div>
 
     <div class="grid">
-      <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div><div class="s">与上方“当前零花钱”完全一致</div></div>
+      <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div></div>
       <div class="card stat"><div class="k">本周期账单</div><div class="v" id="billBal">¥0</div><div class="s" id="billBalSub">本周期尚待支付的固定账单</div></div>
-      <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div><div class="s">已为专项准备好的钱</div></div>
+      <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div></div>
       <div class="card stat"><div class="k" id="savingBalLabel">本周期预计可存</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">本周期已分配储蓄与预计零花结余</div></div>
     </div>
 
@@ -2375,7 +2375,7 @@ details[open]>summary .savingsFoldChevron::before,
 
     <div class="section">
       <div class="sectionTitle">最近流水</div>
-      <div class="small" style="margin:-3px 2px 7px;color:var(--muted)">只显示最近8条</div>
+      
       <div class="card txList" id="recentTx"></div>
     </div>
   </section>
@@ -2622,8 +2622,8 @@ details[open]>summary .savingsFoldChevron::before,
       <div class="grid">
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
-        <div class="card stat"><div class="k" id="mOutcomeLabel">本月预计可存</div><div class="v" id="mExpectedSaving">¥0</div><div class="s" id="mExpectedSavingSub">按本月各资金桶实际归属独立结算</div></div>
-        <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">—</div><div class="s" id="mRateSub">本月预计可存 ÷ 本月总收入</div></div>
+        <div class="card stat"><div class="k" id="mOutcomeLabel">本月预计可存</div><div class="v" id="mExpectedSaving">¥0</div></div>
+        <div class="card stat"><div class="k">储蓄率</div><div class="v" id="mRate">—</div></div>
       </div>
 
       <div class="resultRangeBar">
@@ -3037,9 +3037,7 @@ details[open]>summary .savingsFoldChevron::before,
         <div class="explainRow total"><span id="livingReleaseLabel">结算后转入零花钱</span><strong id="livingReleaseAmount">¥0</strong></div>
       </div>
 
-      <div class="note" style="margin-top:9px">
-        多日基础生活会先直接占用当天预留。这里只填写当天另外发生的基础生活支出。
-      </div>
+      
 
       <div class="actions">
         <button class="ghost" onclick="closeSheet('livingSheet')">关闭</button>
@@ -3294,9 +3292,7 @@ details[open]>summary .savingsFoldChevron::before,
       </div>
     </div>
 
-    <div class="note" style="margin-top:10px">
-      定期存款会保存“存入金额 + 当时年利率 + 存期”，并自动计算预计到期日；活期存款没有固定存期，会持续按录入利率估算。页面按单利逐日估算利息，实际计息、结息和提前支取规则以银行产品为准。
-    </div>
+    
 
     <div class="actions">
       <button class="danger" id="deleteBankDeposit" style="display:none">删除存款</button>
@@ -3348,7 +3344,7 @@ details[open]>summary .savingsFoldChevron::before,
   </div>
   <p class="note" id="shortAccountActualHint" style="margin-top:9px"></p>
   <p class="note" id="shortAccountRatePreview" style="margin-top:9px"></p>
-  <p class="note">余额校准仅用于账实不符；转存请使用转入功能。</p>
+  
   <div class="actions"><button class="ghost" type="button" onclick="closeSheet('shortAccountSheet')">取消</button><button class="primary" id="saveShortAccount" type="button">保存账户</button></div>
   <button class="danger" id="deleteShortAccountBtn" type="button" style="display:none;width:100%;margin-top:10px">删除此短期储蓄账户</button>
 </div></div>
@@ -6579,7 +6575,7 @@ function renderPlan(){
       <div class="meta">${p.freq==="none"?(p.nextDate||"额外收入 · 日期可选"):(p.nextDate||"未设日期")} · ${freqLabel(p.freq)} · 储蓄 ${saveRuleLabel(p)} · 点击修改</div></div>
       <div style="text-align:right"><div class="amount">${M(p.amount)}</div>
       <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteIncomePlan('${p.id}')">删除</button></div></div>
-    </div>`).join(""):'<div class="note">还没有收入计划。先告诉 App 你什么时候收钱、每次多少钱，以及这笔钱想存多少。</div>';
+    </div>`).join(""):'<div class="note">暂无收入计划</div>';
 
   billList.innerHTML=S.bills.length?S.bills.map(b=>`
     <div class="item" onclick="editBill('${b.id}')"><div class="row"><div><div class="name">${esc(b.name)}</div>
@@ -6784,23 +6780,8 @@ function renderNow(){
     dailyTotalSpend.textContent=M(dailyTotal);
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
     const todayLivingSettled=!!livingSettlementForDate(td());
-    dailyTotalMeta.textContent=fallbackFunding
-      ?`今日基础生活临时由零花 ${M(fallbackFunding.pocketReserved)} + 已有储蓄 ${M(fallbackFunding.savingReserved)} 承担${fallbackFunding.uncoveredReserved>0?"；资金缺口 "+M(fallbackFunding.uncoveredReserved):""}；剩余 ${M(livingRemaining)}`
-      :todayLivingSettled
-        ?`今日基础生活 ¥0 · 建议零花 ${M(dailyPocket)}`
-        :batchToday>0
-          ?`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
-          :`今日基础生活剩余 ${M(livingRemaining)} + 建议零花 ${M(dailyPocket)}`;
-
-    safeSub.textContent=pendingNext
-      ?`${next.name} 原定 ${next.nextDate} 到账，当前已记录暂未到账。今天的基础生活会先由零花钱承担，零花钱不足的部分再由此前已形成的储蓄补位。`
-      :b.safe<0
-        ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。超出的部分会直接减少“本周期储蓄净变化”。下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。`
-        :cycleExpectedSaving<0
-          ?`本周期预计可存 ${M(cycleExpectedSaving)}，依据现有收入及实际消费计算。已积累的储蓄余额可在储蓄页查看。下一笔收入预计 ${next.nextDate} 到账 ${M(next.amount)}。`
-          :`下一笔计划收入是 ${next.name}，预计 ${next.nextDate} 到账 ${M(next.amount)}。未转存的零花钱仍保持可花，周期结束时剩余部分再并入最终储蓄。`;
     nextIncomeBox.innerHTML=pendingNext
-      ?`<div class="row"><div><div class="name">${esc(next.name)} · 待到账</div><div class="meta">原定 ${next.nextDate} · 已记录暂未到账 · 到账后从“记录收入”更新</div></div><div class="amount">${M(next.amount)}</div></div>`
+      ?`<div class="row"><div><div class="name">${esc(next.name)} · 待到账</div><div class="meta">原定 ${next.nextDate}</div></div><div class="amount">${M(next.amount)}</div></div>`
       :`<div class="row"><div><div class="name">${esc(next.name)}</div><div class="meta">${next.nextDate} · ${freqLabel(next.freq)} · 计划储蓄 ${saveRuleLabel(next)}</div></div><div class="amount pos">${M(next.amount)}</div></div>`;
   }else{
     const dailyPocket=Math.max(0,b.safe);
@@ -6816,14 +6797,6 @@ function renderNow(){
     dailyTotalSpend.textContent=M(dailyTotal);
     dailyTotalSpend.style.color=dailyTotal<0?"var(--danger)":"var(--accent)";
     const todayLivingSettled=!!livingSettlementForDate(td());
-    dailyTotalMeta.textContent=todayLivingSettled
-      ?`今日基础生活 ¥0 · 当前零花 ${M(dailyPocket)}`
-      :batchToday>0
-        ?`今日基础生活剩余 ${M(livingRemaining)} + 当前零花 ${M(dailyPocket)}；多日支出已占用 ${M(batchToday)}`
-        :`今日基础生活剩余 ${M(livingRemaining)} + 当前零花 ${M(dailyPocket)}`;
-    safeSub.textContent=b.safe<0
-      ?`当前零花钱已经超计划 ${M(Math.abs(b.safe))}。计划页里还没有未来收入日期。`
-      :"计划页里还没有未来收入日期。先完善收入计划，再记录现在。";
     nextIncomeBox.innerHTML='<div class="note">暂无未来收入计划。</div>';
   }
   whySafe.textContent=M(b.safe);
@@ -7020,10 +6993,7 @@ function renderNow(){
           ${actions}
         </div>
       </details>`;
-    }).join("")+`
-      <div class="projectFundingFootnote">
-        * 结算并归档时可将结余转入储蓄余额或其他专项；保留结余则继续使用当前专项。
-      </div>`;
+    }).join("");
   }else{
     projectFundingSection.style.display="none";
     projectFundingBox.innerHTML="";
@@ -9234,8 +9204,8 @@ function renderSavingStats(){
   const check=summary.ordinaryBooked+summary.shortTotal+bankOwnChange+summary.pendingPocket;
   const assets=savingsAssetComponentsAt();
   savingGrowthNote.textContent=Math.abs(check-N(summary.cashflowGrowth))>.015
-    ?"所选期间储蓄变动需核对"
-    :`当前已存 ${M(assets.short+assets.ordinary)}，期间净变化按期初至期末实际余额结算。`;
+    ?"储蓄变动需核对":"";
+  savingGrowthNote.hidden=!savingGrowthNote.textContent;
   savingChangeList.innerHTML=events.length
     ?events.slice(0,30).map(ev=>`
       <div class="savingChangeRow">
@@ -10332,10 +10302,6 @@ function renderHistory(){
 
   const outcomeLabels=periodOutcomeLabels(historyMode);
   mOutcomeLabel.textContent=outcomeLabels.outcome;
-  mExpectedSavingSub.textContent=rs.expected<-.005
-    ?`已存入资金与储蓄取用都已计入本期净变化；当前储蓄余额余额 ${M(accounting().saving)}`
-    :outcomeLabels.sub;
-  mRateSub.textContent=outcomeLabels.rateSub;
 
   const incomeRateText=rs.rate===null
     ?"—"
