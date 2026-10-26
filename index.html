@@ -6729,23 +6729,10 @@ function renderNow(){
 
   // 本周期净储蓄归属于收入周期，与结果页“当前周期”共用同一现金流口径。
   // 小荷包和银行是累计储蓄的存放账户，不参与本期成果的重复计数。
-  const cycleBounds=currentCycleResultBounds();
-  const cycleSavings=cycle.income
-    ?savingSummaryForRange(cycleBounds.start,cycleBounds.end,true)
-    :{cashflowGrowth:0,pendingPocket:0};
   const cycleExpectedSaving=currentCycleExpectedSaving();
-  const cyclePlanned=N(cycle.plannedSaving);
-  const cyclePending=N(cycleSavings.pendingPocket);
-  const otherAdjustment=cycleExpectedSaving-cyclePlanned-cyclePending;
-  const cycleAdjustHint=Math.abs(otherAdjustment)>.005
-    ?` · 其他净调整 ${otherAdjustment<0?"-":"+"}${M(Math.abs(otherAdjustment))}`
-    :"";
-
   savingBalLabel.textContent="本周期预计可存";
   savingBal.textContent=M(cycleExpectedSaving);
-  savingBalSub.textContent=cycle.income
-    ?`计划储蓄 ${M(cyclePlanned)} · 预计零花结余 ${M(cyclePending)}${cycleAdjustHint}`
-    :"记录周期收入后开始计算本周期预计可存";
+  savingBalSub.textContent="";
 
   if(activeProjects().length===0){
     projectBal.textContent="暂无专项";
@@ -7989,11 +7976,31 @@ function periodSavableForRange(start="",end="",mode=historyMode){
   return {income,expected:N(savings.cashflowGrowth)};
 }
 
-function currentCycleExpectedSaving(){
+// This cycle counts money actively saved. Uncommitted pocket cash remains
+// spendable, while asset corrections and prior-cycle closeouts stay historical.
+function currentCycleSavingPerformance(){
   const cycle=currentCycleStats();
-  if(!cycle.income)return 0;
-  const bounds=currentCycleResultBounds();
-  return N(savingSummaryForRange(bounds.start,bounds.end,true).cashflowGrowth);
+  if(!cycle.income)return {total:0,ordinary:0,short:0};
+  const rows=cycleTransactionsForIncome(cycle.income);
+  const extraSaving=sm(rows.filter(t=>t.type==="extra_saving"),t=>N(t.amount));
+  const extraShort=sm(rows.filter(t=>t.type==="extra_saving"&&t.shortAccountId),t=>N(t.amount));
+  const shortSpent=sm(rows.filter(t=>t.type==="short_spend"),t=>N(t.amount));
+  const shortInterest=sm(rows.filter(t=>t.type==="short_interest"),t=>N(t.amount));
+  const pocketSavedToShort=sm(rows.filter(t=>t.type==="pocket_to_short"),t=>N(t.amount))
+    +sm(rows.filter(t=>t.type==="short_transfer"&&t.direction==="in"),t=>Math.max(0,N(t.pocketPortion)));
+  const projectExpenses=rows.filter(t=>t.type==="expense"&&t.bucket==="project");
+  const projectEffects=projectExpenses.length?accounting().effects:{};
+  const projectSavingsDraw=sm(projectExpenses,t=>Math.max(0,N(projectEffects[t.id]?.autoDraw)));
+  const total=N(cycle.plannedSaving)+N(cycle.pocketToSaving)
+    +Math.min(0,N(cycle.pocketBalance))
+    +extraSaving+shortInterest-shortSpent
+    -N(cycle.manualSavingUse)-projectSavingsDraw;
+  const short=pocketSavedToShort+extraShort+shortInterest-shortSpent;
+  const round=v=>Math.round(v*100)/100;
+  return {total:round(total),ordinary:round(total-short),short:round(short)};
+}
+function currentCycleExpectedSaving(){
+  return currentCycleSavingPerformance().total;
 }
 function periodOutcomeForRange(start="",end="",mode=historyMode){
   const spend=spendingBreakdownForRange(start,end);
@@ -8985,12 +8992,15 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
     ?sm(virtualCycleCloseEvents().filter(t=>t.date===start),
       t=>N(accounting().effects[t.id]?.cycleCloseSaving))
     :0;
-  const ordinaryBooked=closing.ordinary-opening.ordinary-priorCycleCarry;
-  const shortTotal=closing.short-opening.short;
-  const bankPrincipal=closing.bankPrincipal-opening.bankPrincipal;
-  const interestGrowth=closing.bankInterest-opening.bankInterest;
+  const activeCycle=currentCycleStats();
+  const incomeCycle=!!(cycleMode&&activeCycle.income&&start===activeCycle.income.date);
+  const saved=incomeCycle?currentCycleSavingPerformance():null;
+  const ordinaryBooked=incomeCycle?saved.ordinary:closing.ordinary-opening.ordinary-priorCycleCarry;
+  const shortTotal=incomeCycle?saved.short:closing.short-opening.short;
+  const bankPrincipal=incomeCycle?0:closing.bankPrincipal-opening.bankPrincipal;
+  const interestGrowth=incomeCycle?0:closing.bankInterest-opening.bankInterest;
   const bankTotal=bankPrincipal+interestGrowth;
-  const pendingPocket=N(raw.pendingPocket);
+  const pendingPocket=incomeCycle?0:N(raw.pendingPocket);
   const dailyAfterBank=ordinaryBooked+pendingPocket;
   const expected=dailyAfterBank+shortTotal+bankTotal;
 
@@ -9019,7 +9029,7 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   // 真实普通储蓄、专项及银行资产仍按完整资金流水过账。
   // Period savings change reconciles to actual ordinary, locked and bank balances.
   // Balance corrections affect real holdings and belong in the period delta.
-  const cashflowGrowth=Math.round((
+  const cashflowGrowth=incomeCycle?saved.total:Math.round((
     ordinaryBooked+shortTotal+bankPrincipal-N(raw.bankExternal)+pendingPocket
   )*100)/100;
   const pocketClosedThisRange=Math.max(0,N(raw.pocketClosed)-priorCycleCarry);
@@ -9075,12 +9085,17 @@ function savingsAssetReconciliationForRange(start="",end="",summary=null){
     :0;
   const opening=(openingDate?savingsAssetBalanceAt(openingDate):0)+priorCycleCarry;
   const closing=savingsAssetBalanceAt(closingDate);
-  const booked=closing-opening;
+  // Cycle opening includes handover and any same-day historical corrections.
+  const activeCycle=currentCycleStats();
+  const incomeCycle=!!(summary?.cycleMode&&activeCycle.income&&start===activeCycle.income.date);
+  const booked=incomeCycle?N(summary.cashflowGrowth):closing-opening;
+  const adjustedOpening=incomeCycle?closing-booked:opening;
   const pending=summary?N(summary.pendingPocket):0;
   const forecast=closing+pending;
   const projectedChange=booked+pending;
   const breakdownGap=summary?projectedChange-N(summary.expected):0;
-  return {opening,closing,booked,pending,forecast,projectedChange,breakdownGap,priorCycleCarry};
+  return {opening:adjustedOpening,closing,booked,pending,forecast,projectedChange,breakdownGap,
+    priorCycleCarry:incomeCycle?0:priorCycleCarry};
 }
 
 function selectedSavingRangeSummary(){
@@ -9191,7 +9206,20 @@ function renderSavingAssetSummary(){
 
 function renderSavingStats(){
   const summary=selectedSavingRangeSummary();
-  const events=filteredSavingChangeEvents(summary.range.start,summary.range.end);
+  let events=filteredSavingChangeEvents(summary.range.start,summary.range.end);
+  if(summary.cycleMode&&currentCycleStats().income){
+    const active=currentCycleStats().income;
+    const ids=new Set([active.id,...cycleTransactionsForIncome(active).map(t=>t.id)]);
+    events=events.filter(ev=>{
+      const sourceId=ev.id.startsWith("savingUse_")?ev.id.slice("savingUse_".length):ev.id;
+      if(!ids.has(sourceId))return false;
+      const source=S.tx.find(t=>t.id===sourceId);
+      if(!source||["ordinary_balance_adjustment","short_balance_adjustment",
+        "project_settlement","project_transfer","saving_to_project"].includes(source.type))return false;
+      if(source.type==="short_transfer"&&source.direction==="in"&&N(source.pocketPortion)<=0)return false;
+      return Math.abs(N(ev.impact))>.005;
+    });
+  }
   savingChangeCount.textContent=`${events.length} 条变化`;
   const signed=v=>Math.abs(N(v))<=.005?M(0):(N(v)>0?"+":"−")+M(Math.abs(N(v)));
   const bankOwnChange=summary.bankPrincipal-N(summary.bankExternal);
