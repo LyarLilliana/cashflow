@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-119-ordinary-calibration-checkpoint";
+const CACHE = "safespend-v10-118-clean-interface-copy";
 const ASSETS = [
   "./",
   "./index.html",
