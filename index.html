@@ -2597,33 +2597,14 @@ details[open]>summary .savingsFoldChevron::before,
       <div class="card summaryLedgerCard">
         <details class="savingsChangeDisclosure">
           <summary>查看储蓄变化构成<span aria-hidden="true">⌄</span></summary>
-        <div class="name" id="savingGrowthTitle">储蓄增长构成</div>
-        <div class="meta" id="savingGrowthMeta" hidden></div>
-
-        <div class="summaryGroup">
-          <div class="summaryGroupTitle" id="savingIncreaseTitle">增加</div>
-          <div class="summaryRow"><span>周期收入储蓄</span><strong id="savingRecurringIncomePart">¥0</strong></div>
-          <div class="summaryRow"><span>单次额外收入储蓄</span><strong id="savingOneOffIncomePart">¥0</strong></div>
-          <div class="summaryRow"><span>周期结束结余</span><strong id="savingCycleClosePart">¥0</strong></div>
-          <div class="summaryRow"><span>当前周期预计结余</span><strong id="savingPendingPart">¥0</strong></div>
-          <div class="summaryRow"><span>零花钱转储蓄</span><strong id="savingTransferPart">¥0</strong></div>
-          <div class="summaryRow"><span>专项调拨与结余转储蓄</span><strong id="savingProjectSurplusPart">¥0</strong></div>
-          <div class="summaryRow"><span>额外储蓄</span><strong id="savingExtraPart">¥0</strong></div>
-          <div class="summaryRow"><span>外部存入银行</span><strong id="savingExternalBankPart">¥0</strong></div>
-          <div class="summaryRow"><span>银行预估利息</span><strong id="savingInterestGrowthPart">¥0</strong></div>
-          <div class="summaryRow"><span>短期储蓄到账收益</span><strong id="savingShortInterestPart">¥0</strong></div>
-        </div>
-
-        <div class="summaryGroup">
-          <div class="summaryGroupTitle" id="savingAdjustTitle">调整</div>
-          <div class="summaryRow"><span id="savingUseLabel">储蓄取用 / 超支扣减</span><strong id="savingUsePart">¥0</strong></div>
-          <div class="summaryRow"><span>储蓄余额转银行</span><strong id="savingBankTransferPart">¥0</strong></div>
-          <div class="summaryRow"><span>短期储蓄取用</span><strong id="savingShortUsePart">¥0</strong></div>
-          <div class="summaryRow"><span>储蓄补回专项</span><strong id="savingProjectRepayPart">¥0</strong></div>
-          <div class="summaryRow summaryTotal"><span id="savingGrowthTotalLabel">预计储蓄增长总和</span><strong id="savingGrowthTotal">¥0</strong></div>
-        </div>
-
-        <div class="summaryNote" id="savingGrowthNote">“当前周期预计结余”会随继续消费变化；周期结束后才正式沉淀为储蓄。</div>
+          <div class="summaryGroup">
+            <div class="summaryRow"><span>普通储蓄净变化</span><strong id="savingGrowthOrdinary">¥0</strong></div>
+            <div class="summaryRow"><span>短期储蓄净变化</span><strong id="savingGrowthShort">¥0</strong></div>
+            <div class="summaryRow"><span>银行本金净变化</span><strong id="savingGrowthBank">¥0</strong></div>
+            <div class="summaryRow"><span>本周期预计结余</span><strong id="savingGrowthPending">¥0</strong></div>
+            <div class="summaryRow summaryTotal"><span>所选期间储蓄净变化</span><strong id="savingGrowthTotal">¥0</strong></div>
+          </div>
+          <div class="summaryNote" id="savingGrowthNote"></div>
         </details>
       </div>
 
@@ -8857,7 +8838,7 @@ function savingChangeEvents(){
     if(t.type==="ordinary_balance_adjustment"){
       const delta=N(t.delta);
       events.push({id:t.id,date,name:"普通储蓄余额校准",
-        meta:(t.note||"账实核对")+" · 本期新存统计独立剔除校准",
+        meta:(t.note||"账实核对")+" · 已同步计入期间储蓄净变化",
         amount:Math.abs(delta),impact:delta,mode:delta>=0?"pos":"neg"});
       return;
     }
@@ -9059,8 +9040,11 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   // “本周期预计可存”衡量本期储蓄成果，不把专项之间的调拨、
   // 专项转储蓄或专项补偿历史垫付款误认为新存入。
   // 真实普通储蓄、专项及银行资产仍按完整资金流水过账。
-  const cashflowGrowth=expected-N(raw.bankExternal)-interestGrowth
-    +creditImpact-internalProjectReallocation-shortBalanceCorrection-ordinaryBalanceCorrection-historicalAssetImports;
+  // Period savings change reconciles to actual ordinary, locked and bank balances.
+  // Balance corrections affect real holdings and belong in the period delta.
+  const cashflowGrowth=Math.round((
+    ordinaryBooked+shortTotal+bankPrincipal-N(raw.bankExternal)+pendingPocket
+  )*100)/100;
   const pocketClosedThisRange=Math.max(0,N(raw.pocketClosed)-priorCycleCarry);
   const grossSaved=
     N(raw.recurringIncomeSaving)+N(raw.oneOffIncomeSaving)
@@ -9182,13 +9166,13 @@ function renderSavingAssetSummary(){
     &&Math.abs(N(s.ordinaryBalanceCorrection))<=.005;
   savingAssetMovementHint.textContent=[
     projectReallocation>.005
-      ?`历史专项垫款回补及内部资金调拨共 ${M(projectReallocation)}，已反映在账户余额中，不计入本期新存下的钱。`
+      ?`历史专项垫款回补及内部资金调拨共 ${M(projectReallocation)}，已计入储蓄余额。`
       :"",
     Math.abs(N(s.shortBalanceCorrection))>.005
-      ?`短期储蓄余额核对修正 ${s.shortBalanceCorrection>=0?"+":"−"}${M(Math.abs(s.shortBalanceCorrection))}，只校准已存余额，不计本期新存款。`
+      ?`短期储蓄余额核对修正 ${s.shortBalanceCorrection>=0?"+":"−"}${M(Math.abs(s.shortBalanceCorrection))}，已计入期间资产净变化。`
       :"",
     Math.abs(N(s.ordinaryBalanceCorrection))>.005
-      ?`普通储蓄余额校准 ${s.ordinaryBalanceCorrection>=0?"+":"−"}${M(Math.abs(s.ordinaryBalanceCorrection))}，更新实际资产，本期新存统计已剔除校准差额。`
+      ?`普通储蓄余额校准 ${s.ordinaryBalanceCorrection>=0?"+":"−"}${M(Math.abs(s.ordinaryBalanceCorrection))}，已计入期间资产净变化。`
       :"",
     s.bankExternal>.005
       ?`本期录入的外部银行本金 ${M(s.bankExternal)} 已计入资产总额，本期净存入已剔除既有本金。`
@@ -9229,53 +9213,22 @@ function renderSavingAssetSummary(){
 
 
 function renderSavingStats(){
-  const s=selectedSavingRangeSummary();
-  const range=s.range;
-  const cycleMode=s.cycleMode;
-
-  const events=filteredSavingChangeEvents(range.start,range.end);
+  const summary=selectedSavingRangeSummary();
+  const events=filteredSavingChangeEvents(summary.range.start,summary.range.end);
   savingChangeCount.textContent=`${events.length} 条变化`;
-
-  savingRecurringIncomePart.textContent=M(s.recurringIncomeSaving);
-  savingOneOffIncomePart.textContent=M(s.oneOffIncomeSaving);
-  savingCycleClosePart.textContent=M(s.pocketClosed);
-  savingPendingPart.textContent=M(s.pendingPocket);
-  savingPendingPart.style.color=s.pendingPocket<0
-    ?"var(--danger)"
-    :s.pendingPocket>0
-      ?"var(--accent)"
-      :"inherit";
-  savingTransferPart.textContent=M(s.transfers);
-  savingProjectSurplusPart.textContent=M(s.projectSurplus);
-  savingExtraPart.textContent=M(s.extra);
-  savingExternalBankPart.textContent=M(s.bankExternal);
-
-  const deductionsShown=N(s.deductions);
-  savingUsePart.textContent=deductionsShown>0?`-${M(deductionsShown)}`:M(0);
-  savingUsePart.style.color=deductionsShown>0
-    ?(cycleMode?"var(--muted)":"var(--danger)")
-    :"inherit";
-
-  savingBankTransferPart.textContent=s.bankExisting>0?`${M(s.bankExisting)} → 银行`:M(0);
-  savingBankTransferPart.style.color=s.bankExisting>0?"var(--muted)":"inherit";
-
-  savingInterestGrowthPart.textContent=M(s.interestGrowth);
-  savingInterestGrowthPart.style.color=s.interestGrowth>0?"var(--accent)":"inherit";
-
-  savingShortInterestPart.textContent=M(s.short.interest);
-  savingShortUsePart.textContent=s.short.used>0?`-${M(s.short.used)}`:M(0);
-  savingProjectRepayPart.textContent=s.short.projectRepay>0?`-${M(s.short.projectRepay)}`:M(0);
-  savingGrowthTotal.textContent=M(s.cashflowGrowth);
-  savingGrowthTotal.style.color=s.cashflowGrowth<0?"var(--warn)":"var(--accent)";
-
-  savingGrowthTitle.textContent=cycleMode?"当前周期储蓄资金流水":"期间储蓄资金流水";
-  savingGrowthMeta.textContent="";
-  savingIncreaseTitle.textContent=cycleMode?"当前周期构成":"增加";
-  savingAdjustTitle.textContent=cycleMode?"范围调整":"调整";
-  savingUseLabel.textContent=cycleMode?"储蓄兜底 / 直接取用（参考）":"储蓄取用 / 超支扣减";
-  savingGrowthTotalLabel.textContent="所选期间预计可存（净变化）";
-  savingGrowthNote.textContent=`账户资产预计变动 ${M(s.expected)}；短期储蓄账实校准 ${M(s.shortBalanceCorrection)}、专项内部资金重归属 ${M(s.internalProjectReallocation)}、外部已有银行本金 ${M(s.bankExternal)}、预估银行利息 ${M(s.interestGrowth)} 分开核算，信用调整 ${M(s.creditImpact)}；本期预计可存 ${M(s.cashflowGrowth)}。各账户实际余额照常显示。`;
-
+  const signed=v=>Math.abs(N(v))<=.005?M(0):(N(v)>0?"+":"−")+M(Math.abs(N(v)));
+  const bankOwnChange=summary.bankPrincipal-N(summary.bankExternal);
+  savingGrowthOrdinary.textContent=signed(summary.ordinaryBooked);
+  savingGrowthShort.textContent=signed(summary.shortTotal);
+  savingGrowthBank.textContent=signed(bankOwnChange);
+  savingGrowthPending.textContent=signed(summary.pendingPocket);
+  savingGrowthTotal.textContent=signed(summary.cashflowGrowth);
+  savingGrowthTotal.style.color=summary.cashflowGrowth<-.005?"var(--warn)":"var(--accent)";
+  const check=summary.ordinaryBooked+summary.shortTotal+bankOwnChange+summary.pendingPocket;
+  const assets=savingsAssetComponentsAt();
+  savingGrowthNote.textContent=Math.abs(check-N(summary.cashflowGrowth))>.015
+    ?"所选期间储蓄变动需核对"
+    :`当前已存 ${M(assets.short+assets.ordinary)}，期间净变化按期初至期末实际余额结算。`;
   savingChangeList.innerHTML=events.length
     ?events.slice(0,30).map(ev=>`
       <div class="savingChangeRow">
@@ -9662,13 +9615,28 @@ document.getElementById("ordinarySavingLedgerRows").addEventListener("click",eve
 });
 
 function ordinaryCycleTransferReminderState(){
-  const cycleRows=cycleIncomeRows().filter(t=>t.date&&t.date<=td());
-  const latest=cycleRows[cycleRows.length-1];
+  const cycles=cycleIncomeRows().filter(t=>t.date&&t.date<=td());
+  const latest=cycles[cycles.length-1];
   const next=nextRecurringIncome()?.nextDate||"";
   const overdue=!!(latest&&next&&next<=td()&&next>latest.date);
-  const previous=overdue?latest:(cycleRows.length>=2?cycleRows[cycleRows.length-2]:null);
+  const previous=overdue?latest:(cycles.length>=2?cycles[cycles.length-2]:null);
   const closedAt=overdue?next:(latest?.date||"");
-  const ordinary=Math.max(0,ordinarySavingsAvailable());
+  const current=Math.max(0,ordinarySavingsAvailable());
+  let ordinary=current;
+  if(!overdue&&latest&&previous){
+    const account=accounting();
+    const closingCarry=sm((account.ordinaryMovements||[]).filter(row=>
+      row.type==="cycle_close_saving"&&row.date===latest.date&&row.nextIncomeId===latest.id
+    ),row=>N(row.delta));
+    // Only older-cycle funds are eligible. Today's fresh earnings and
+    // living settlement remainder remain in the current cycle.
+    let older=Math.max(0,N(accounting(addDays(latest.date,-1)).saving)+closingCarry);
+    (account.ordinaryMovements||[]).forEach(row=>{
+      if(row.date<latest.date||row.type==="cycle_close_saving")return;
+      if(N(row.delta)<0)older=Math.max(0,older+N(row.delta));
+    });
+    ordinary=Math.min(current,older);
+  }
   return {visible:!!previous&&ordinary>.005,closedAt,ordinary,overdue};
 }
 
@@ -9707,9 +9675,7 @@ function renderOrdinaryCycleTransferReminder(){
     document.getElementById("ordinaryTransfer"+loc+"Title").textContent=
       reminder.overdue?"收入周期结束 · 待结转转存":"周期结束 · 普通储蓄待转存";
     document.getElementById("ordinaryTransfer"+loc+"Meta").textContent=
-      `${reminder.closedAt} 周期交接，普通储蓄余额 ${M(reminder.ordinary)}。`+
-      (reminder.overdue?"请先记录下一周期收入完成零花结余结转，再按实际资金去向登记。":
-        "转入短期储蓄或银行后，金额自动从普通储蓄扣除；余额转完后提醒自动收起。");
+      `${reminder.closedAt} 周期交接 · 待转存 ${M(reminder.ordinary)}`;
   }
 }
 
