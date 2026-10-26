@@ -82,7 +82,6 @@ function mount(){
     '.walletNowCell{min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card,#fff)}',
     '.walletNowCell .meta{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.walletNowCell strong{display:block;margin-top:4px;font-size:15px;font-weight:750;font-variant-numeric:tabular-nums}',
-    '.walletNowOrdinary{font-size:10px;color:var(--accent);margin-top:5px;font-variant-numeric:tabular-nums}',
     '.walletNowSection .sectionHeader{display:flex;align-items:center;justify-content:space-between;gap:9px}',
     '.walletNowSection .sectionHeader .sectionTitle{min-width:0}',
     '.walletNowSection .walletNowHeaderActions{display:flex;align-items:center;gap:6px;flex-shrink:0}',
@@ -198,11 +197,9 @@ function render(){
   if(!$("walletAccountList"))return;
   const list=accounts().map(a=>({id:a.id,name:a.name,amount:balance(a.id)}));
   $("walletTotal").textContent=money(list.reduce((sum,a)=>sum+a.amount,0));
-  const ordinary=typeof window.ordinaryWalletShares==="function"?window.ordinaryWalletShares():{};
   $("walletNowList").innerHTML=list.length?list.map(a=>
     '<div class="walletNowCell"><div class="meta">'+clean(a.name)+'</div>'+
-    '<strong class="'+(a.amount<0?"walletNegative":"")+'">'+money(a.amount)+'</strong>'+
-    '<div class="walletNowOrdinary">其中普通储蓄 '+money(ordinary[a.id]||0)+'</div></div>'
+    '<strong class="'+(a.amount<0?"walletNegative":"")+'">'+money(a.amount)+'</strong></div>'
   ).join(""):'<div class="note" style="grid-column:1/-1">前往“计划”添加支付渠道。</div>';
   $("walletAccountList").innerHTML=list.map(a=>
     '<div class="walletAccountRow" data-wallet-id="'+clean(a.id)+'" role="button" tabindex="0">'+
