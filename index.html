@@ -3212,6 +3212,10 @@ details[open]>summary .savingsFoldChevron::before,
             <option value="new">真正新增的额外资金（尚未记账）</option>
           </select>
         </div>
+        <div style="margin-top:9px">
+          <label for="extraSavingWallet">实际转出账户</label>
+          <select id="extraSavingWallet"></select>
+        </div>
       </div>
       <div id="extraSavingCombinedPreview" class="note" style="grid-column:1/-1;display:none"></div>
       <div style="grid-column:1/-1">
@@ -3375,6 +3379,7 @@ details[open]>summary .savingsFoldChevron::before,
       <option value="in">从普通储蓄转入</option>
       <option value="interest">实际到账收益</option><option value="spend">动用储蓄消费</option>
     </select></div>
+    <div id="shortTransferWalletRow"><label for="shortTransferWallet" id="shortTransferWalletLabel">资金来源账户</label><select id="shortTransferWallet"></select></div>
     <div><label for="shortTransferAmount">金额</label><input id="shortTransferAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00"></div>
     <div><label for="shortTransferDate">实际日期</label><input id="shortTransferDate" type="date"></div>
     <div><label for="shortTransferNote">用途备注</label><input id="shortTransferNote" maxlength="80" placeholder="可选"></div>
@@ -4333,6 +4338,9 @@ function accounting(asOf=td()){
     if(t.type==="living_settlement"){
       const opening=cycleIncomeRows().find(row=>row.date===t.date);
       if(opening&&txStamp(t)<txStamp(opening))return -1;
+      // The dated daily allowance is settled before any same-day pocket
+      // transfers, regardless of when a retrospective settlement was entered.
+      return 1.75;
     }
     if(t.type==="cycle_close_saving")return 0;
     if(t.type==="income")return 1;
@@ -7295,7 +7303,10 @@ function txHtml(t,del=false,edit=false,effects=null){
       externalPart>0?"历史外部资产 "+M(externalPart):""
     ].filter(Boolean);
     const fundingMeta=fundingParts.length>1||externalPart>0?" · "+fundingParts.join(" + "):"";
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${fundingMeta?"合并资金转入 · ": ""}${title} · ${esc(account)}</div><div class="meta">${t.date}${fundingMeta}${t.note?" · "+esc(t.note):""}</div></div><div class="txRight"><div class="txAmount ${positive?"pos":spend?"neg":"txMuted"}">${positive?"+":spend?"-":"→ "}${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+    const walletFrom=Wallets.account(t.walletFromAccountId)?.name||"";
+    const walletTo=Wallets.account(t.walletToAccountId)?.name||"";
+    const walletMeta=walletFrom?" · 从"+walletFrom+"转出":walletTo?" · 转回"+walletTo:"";
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${fundingMeta?"合并资金转入 · ": ""}${title} · ${esc(account)}</div><div class="meta">${t.date}${fundingMeta}${walletMeta}${t.note?" · "+esc(t.note):""}</div></div><div class="txRight"><div class="txAmount ${positive?"pos":spend?"neg":"txMuted"}">${positive?"+":spend?"-":"→ "}${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   if(t.type==="extra_saving"){
     const location=t.shortAccountId?`锁定于 ${esc(shortSavingsAccountLabel(t.shortAccountId))}`:"计入储蓄余额";
@@ -9978,24 +9989,63 @@ saveShortAccount.onclick=()=>{
     ?`账户已调整为 ${M(actual)}；差额 ${delta>0?"+":"−"}${M(Math.abs(delta))} 已记入${method==="ordinary"?"普通储蓄互转":method==="combined"?"合并资金转入":"账实校准"}流水。`
     :"短期储蓄账户信息已保存");
 };
+
+// Payment-channel movements must follow the physical source/destination while
+// the locked-savings budget remains an independent ledger.
+function shortWalletAccountOptions(selected="",date=td()){
+  const list=(S.paymentAccounts||[]).filter(a=>a?.id);
+  return '<option value="">暂不指定实际账户</option>'+list.map(a=>
+    `<option value="${esc(a.id)}" ${a.id===selected?"selected":""}>${esc(a.name)} · ${M(Wallets.balanceAt(a.id,date))}</option>`
+  ).join("");
+}
+function shortWalletTransferSourcePart(t){
+  if(t?.type!=="short_transfer"||t.direction!=="in")return 0;
+  const amount=Math.max(0,N(t.amount));
+  return Math.max(0,amount-Math.max(0,N(t.pocketPortion))-Math.max(0,N(t.externalPortion)));
+}
+function applyShortWalletAllocation(t,reverse=false){
+  if(t?.type!=="short_transfer")return;
+  const inbound=t.direction==="in";
+  const id=inbound?t.walletFromAccountId:t.walletToAccountId;
+  if(!id||!Wallets.account(id))return;
+  const amount=inbound?-shortWalletTransferSourcePart(t):Math.max(0,N(t.amount));
+  if(Math.abs(amount)<0.005)return;
+  const shares=S.settings.ordinaryWalletShares||(S.settings.ordinaryWalletShares={});
+  shares[id]=Math.max(0,Math.round((Math.max(0,N(shares[id]))+(reverse?-amount:amount))*100)/100);
+}
+function shortWalletFundingValid(fromDate,ids=[]){
+  if(!ids.length)return true;
+  const dates=walletFundingCheckDates(fromDate);
+  return [...new Set(ids)].filter(Boolean).every(id=>dates.every(d=>Wallets.balanceAt(id,d)>=-0.005));
+}
+
 function openShortTransfer(id="",action="out"){
   if(!activeShortAccounts().length){openShortAccount();return;}
   shortTransferAccount.innerHTML=activeShortAccounts().map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("");
   if(id)shortTransferAccount.value=id;
   shortTransferAction.value=action;shortTransferAmount.value="";
   shortTransferDate.value=td();shortTransferNote.value="";
+  shortTransferWallet.innerHTML=shortWalletAccountOptions("",td());
   updateShortTransferHint();syncDateDisplays();
   shortTransferSheet.classList.add("show");
 }
 function updateShortTransferHint(){
   const date=shortTransferDate.value||td();
   const balance=shortAccountBalance(shortTransferAccount.value,date),action=shortTransferAction.value;
-  const note=action==="in"?"转入后锁定，退出储蓄余额兜底池":action==="out"?"转回储蓄余额，解锁后可再次调配":action==="interest"?"仅登记实际到账的收益":"属于主动储蓄取用，同时记录消费";
-  shortTransferHint.textContent=`${date} 账面余额 ${M(balance)}。 ${note}。`+(date>td()?" 未来日期按待生效计划保存，届时才调整实际余额。":"");
+  const hasChannel=action==="in"||action==="out";
+  shortTransferWalletRow.style.display=hasChannel?"block":"none";
+  shortTransferWalletLabel.textContent=action==="in"?"实际转出账户":"实际转回账户";
+  const selected=shortTransferWallet.value;
+  shortTransferWallet.innerHTML=shortWalletAccountOptions(selected,date);
+  const wallet=Wallets.account(shortTransferWallet.value);
+  const walletLabel=wallet?`，${wallet.name} 当前 ${M(Wallets.balanceAt(wallet.id,date))}`:"";
+  const note=action==="in"?"普通储蓄转入锁定账户，资金渠道同步扣减":action==="out"?"锁定账户资金转回普通储蓄，到账渠道同步增加":action==="interest"?"仅登记到账收益":"属于主动储蓄取用，同时记录消费";
+  shortTransferHint.textContent=`${date} 锁定账户余额 ${M(balance)}${walletLabel}。 ${note}。`+(date>td()?" 未来日期到期后才更新余额。":"");
 }
 shortTransferAccount.addEventListener("change",updateShortTransferHint);
 shortTransferDate.addEventListener("change",updateShortTransferHint);
 shortTransferAction.addEventListener("change",updateShortTransferHint);
+shortTransferWallet.addEventListener("change",updateShortTransferHint);
 saveShortTransfer.onclick=()=>{
   const accountId=shortTransferAccount.value,action=shortTransferAction.value;
   const amount=Math.round(N(shortTransferAmount.value)*100)/100;
@@ -10008,13 +10058,23 @@ saveShortTransfer.onclick=()=>{
     return msg(`该日账户余额为 ${M(Math.max(0,shortAccountBalance(accountId,date)))}`);
   const type=action==="interest"?"short_interest":action==="spend"?"short_spend":"short_transfer";
   const t={id:"sh"+Date.now(),date,type,shortAccountId:accountId,amount,note};
-  if(type==="short_transfer")t.direction=action;
-  S.tx.push(t);
-  if(!shortLedgerValid(accountId)){
-    S.tx=S.tx.filter(x=>x.id!==t.id);
-    return msg("后续日期余额不足，请调整记录日期或金额");
+  if(type==="short_transfer"){
+    t.direction=action;
+    const walletId=shortTransferWallet.value;
+    if(walletId&& !Wallets.account(walletId))return msg("请选择有效的支付渠道");
+    if(walletId)t[action==="in"?"walletFromAccountId":"walletToAccountId"]=walletId;
   }
-  save();closeSheet("shortTransferSheet");render();msg("短期储蓄记录已保存");
+  const priorDates=walletFundingCheckDates(date);
+  const priorBudget=walletFundingSnapshots(priorDates);
+  S.tx.push(t);
+  if(!shortLedgerValid(accountId)
+    ||!walletFundingRemainsCovered(priorBudget,walletFundingSnapshots(priorDates))
+    ||!shortWalletFundingValid(date,[t.walletFromAccountId])){
+    S.tx=S.tx.filter(x=>x.id!==t.id);
+    return msg("转账后的账户余额或后续资金不足，请核对来源、日期与金额");
+  }
+  applyShortWalletAllocation(t);
+  save();closeSheet("shortTransferSheet");render();msg("短期储蓄与实际支付渠道余额已联动");
 };
 function deleteShortBalanceAdjustment(id,alreadyConfirmed=false){
   const t=S.tx.find(x=>x.id===id&&x.type==="short_balance_adjustment");
@@ -10043,6 +10103,7 @@ function deleteShortRecord(id,alreadyConfirmed=false){
     S.tx=original;
     return msg("删除后其他余额或后续转存资金不足，请先核对后续资金调动");
   }
+  applyShortWalletAllocation(t,true);
   save();render();msg("记录已删除，相关余额已重新计算");
 }
 function refreshProjectRepaySourceHint(){
@@ -11591,6 +11652,8 @@ function refreshExtraSavingDestination(){
   }
   extraSavingNewAccountRow.style.display=locked&&extraSavingAccount.value==="__new__"?"block":"none";
   const source=extraSavingFunding.value;
+  const oldWallet=extraSavingWallet.value;
+  extraSavingWallet.innerHTML=shortWalletAccountOptions(oldWallet,extraSavingDate.value||td());
   refreshExtraSavingCombinedPreview();
   extraSavingDestinationHint.textContent=!locked
     ?"额外存下的资金进入储蓄余额，仍按现有规则参与超支兜底；已计入的资金不要重复记为新增。"
@@ -11614,6 +11677,7 @@ function openExtraSaving(destination="ordinary",accountId=""){
   extraSavingAccount.value=accountId||"";
   extraSavingNewAccount.value="";
   extraSavingFunding.value=destination==="short"?"combined":"new";
+  extraSavingWallet.value="";
   refreshExtraSavingDestination();
   if(accountId&&[...extraSavingAccount.options].some(x=>x.value===accountId)){
     extraSavingAccount.value=accountId;
@@ -11675,6 +11739,10 @@ saveExtraSaving.onclick=()=>{
     amount,note
   };
   if(locked)tx.shortAccountId=accountId;
+  if(locked&&extraSavingWallet.value){
+    if(!Wallets.account(extraSavingWallet.value))return msg("请选择有效的实际资金账户");
+    tx.walletFromAccountId=extraSavingWallet.value;
+  }
   if(tx.type==="short_transfer")tx.direction="in";
   if(combined){tx.pocketPortion=combined.pocket;tx.savingPortion=combined.saving;tx.fundingMode="combined";}
   if(locked&&source==="existing"){
@@ -11696,6 +11764,12 @@ saveExtraSaving.onclick=()=>{
     if(newAccount)S.shortAccounts=S.shortAccounts.filter(a=>a.id!==newAccount.id);
     return msg("这笔资金在该日期之后已用于其他支出或转存，请调整金额或日期");
   }
+  if(tx.walletFromAccountId&&!shortWalletFundingValid(date,[tx.walletFromAccountId])){
+    S.tx=S.tx.filter(t=>t.id!==tx.id);
+    if(newAccount)S.shortAccounts=S.shortAccounts.filter(a=>a.id!==newAccount.id);
+    return msg("实际转出账户余额不足，请调整账户、金额或日期");
+  }
+  applyShortWalletAllocation(tx);
 
   save();
   closeSheet("extraSavingSheet");
