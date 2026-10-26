@@ -84,6 +84,8 @@ function mount(){
     '.walletNowCell strong{display:block;margin-top:4px;font-size:15px;font-weight:750;font-variant-numeric:tabular-nums}',
     '.walletNowOrdinary{font-size:10px;color:var(--accent);margin-top:5px;font-variant-numeric:tabular-nums}',
     '.walletNowSection .sectionHeader{display:flex;align-items:center;justify-content:space-between;gap:9px}',
+    '.walletNowSection .sectionHeader .sectionTitle{min-width:0}',
+    '.walletNowSection .walletNowHeaderActions{display:flex;align-items:center;gap:6px;flex-shrink:0}',
     '.walletNowSection .sectionHeader button{padding:7px 10px;font-size:11px}',
     '.walletNowSection .walletNote{font-size:11px;color:var(--muted);margin-top:8px}'
   ].join("");
@@ -103,13 +105,16 @@ function mount(){
   $("plan")?.appendChild(planSection);
   // Now focuses on the current balances and an immediate transfer action.
   $("now")?.querySelector(".grid")?.insertAdjacentHTML("afterend",
-    '<div class="section walletNowSection">'+
+    '<div class="section walletNowSection" id="walletNowSection">'+
     '<div class="sectionHeader"><div class="sectionTitle">支付渠道余额</div>'+
-    '<button class="sectionToggle" id="walletTransferBtn" type="button">渠道互转</button></div>'+
+    '<div class="walletNowHeaderActions">'+
+    '<button class="sectionToggle" id="walletTransferBtn" type="button">渠道互转</button>'+
+    '<button class="sectionToggle" id="walletNowToggle" type="button" aria-controls="walletNowBody" aria-expanded="true">收起</button></div></div>'+
+    '<div class="sectionBody" id="walletNowBody">'+
     '<div class="card"><div class="walletNowHead"><span class="name">当前账户合计</span>'+
     '<strong id="walletTotal" class="walletSummary">¥0</strong></div>'+
     '<div class="walletNowGrid" id="walletNowList"></div>'+
-    '</div></div>');
+    '</div></div></div>');
   $("incSaving")?.closest("div")?.insertAdjacentHTML("afterend",field("income","到账渠道"));
   $("spendAmount")?.closest("div")?.insertAdjacentHTML("afterend",field("spend","实际付款渠道"));
   $("livingActualSpent")?.closest("div")?.insertAdjacentHTML("afterend",field("living","额外基础生活的付款渠道"));
@@ -138,6 +143,7 @@ function mount(){
   document.body.insertAdjacentHTML("beforeend",markup);
   $("walletAddBtn").onclick=()=>openAccount("");
   $("walletTransferBtn").onclick=openTransfer;
+  initWalletNowFold();
   $("wallet_accountCancel").onclick=()=>closeSheet("walletAccountSheet");
   $("wallet_transferCancel").onclick=()=>closeSheet("walletTransferSheet");
   $("wallet_billCancel").onclick=()=>closeSheet("walletBillSheet");
@@ -160,6 +166,33 @@ function mount(){
     closeSheet("walletBillSheet");
     markBillHandled(d.billId,d.dueDate,id);
   };
+}
+const WALLET_FOLD_STORAGE="safespend_section_ui_v1";
+const WALLET_FOLD_KEY="now:walletBalancesCollapsed";
+function setWalletNowCollapsed(collapsed){
+  const section=$("walletNowSection"),body=$("walletNowBody"),button=$("walletNowToggle");
+  if(!section||!body||!button)return;
+  section.classList.toggle("collapsed",collapsed);
+  body.hidden=collapsed;
+  button.textContent=collapsed?"展开":"收起";
+  button.setAttribute("aria-expanded",String(!collapsed));
+}
+function initWalletNowFold(){
+  let collapsed=false;
+  try{
+    const state=JSON.parse(localStorage.getItem(WALLET_FOLD_STORAGE)||"{}");
+    collapsed=!!(state&&state[WALLET_FOLD_KEY]);
+  }catch(e){}
+  setWalletNowCollapsed(collapsed);
+  $("walletNowToggle").addEventListener("click",()=>{
+    const next=!$("walletNowSection").classList.contains("collapsed");
+    setWalletNowCollapsed(next);
+    try{
+      const state=JSON.parse(localStorage.getItem(WALLET_FOLD_STORAGE)||"{}")||{};
+      state[WALLET_FOLD_KEY]=next;
+      localStorage.setItem(WALLET_FOLD_STORAGE,JSON.stringify(state));
+    }catch(e){}
+  });
 }
 function render(){
   if(!$("walletAccountList"))return;
