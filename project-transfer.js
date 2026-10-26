@@ -34,7 +34,7 @@ modal.innerHTML=`
       <div><label for="projectTransferFrom">转出专项</label><select id="projectTransferFrom"></select></div>
       <div><label for="projectTransferTo">转入专项或储蓄</label><select id="projectTransferTo"></select></div>
       <div id="projectTransferSavingsRow" style="display:none;grid-column:1/-1">
-        <label for="projectTransferSavingsTarget">具体储蓄去向</label><select id="projectTransferSavingsTarget"></select><div class="note">选择具体储蓄账户，银行存款可关联到已有整笔存款。</div>
+        <label for="projectTransferSavingsTarget">具体储蓄去向</label><select id="projectTransferSavingsTarget"></select>
       </div>
       <div id="projectTransferBankModeRow" style="display:none;grid-column:1/-1">
         <label for="projectTransferBankMode">银行本金处理</label>
@@ -42,7 +42,7 @@ modal.innerHTML=`
           <option value="included">关联至已记录的整笔银行存款（本金保持原值）</option>
           <option value="increase">追加到现有本金（银行总额增加）</option>
         </select>
-        <div class="note">银行原本金已包含转入专项资金时选“关联”，以防资产重复计算。确实额外存入时选“追加”。</div>
+        
       </div>
       <div><label for="projectTransferAmount">调拨金额</label><input id="projectTransferAmount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00"></div>
       <div><label for="projectTransferDate">调拨日期</label><input id="projectTransferDate" type="date"></div>
@@ -73,7 +73,7 @@ settle.innerHTML=`
         <option value="increase">追加到银行本金（总额增加）</option>
       </select>
     </div>
-    <div class="note" style="margin-top:10px">选择保留资金时，专项将继续处于进行中状态，资金可用于后续规划。</div>
+    
     <div class="actions">
       <button type="button" class="secondary" id="projectSettlementCancel">取消</button>
       <button type="button" class="primary" id="projectSettlementConfirm">确认结算</button>
