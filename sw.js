@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-109-ordinary-nonzero-savings-ledger";
+const CACHE = "safespend-v10-110-aa-upcoming-final-outcome";
 const ASSETS = [
   "./",
   "./index.html",
