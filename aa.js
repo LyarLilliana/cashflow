@@ -13,7 +13,7 @@ const entries=()=>Array.isArray(S.aaEntries)?S.aaEntries:[];
 const get=aaId=>entries().find(x=>x.id===aaId);
 const posted=(a,p,except="")=>R(S.tx.filter(t=>t.aaId===a.id&&t.aaPersonId===p.id&&t.id!==except&&(t.type==="aa_receive"||(t.type==="expense"&&t.aaKind==="pay"))).reduce((s,t)=>s+R(t.amount),0));
 const left=(a,p,except="")=>Math.max(0,R(R(p.amount)-posted(a,p,except)));
-const totalLeft=a=>R((a.people||[]).reduce((s,p)=>s+left(a,p),0));
+const totalLeft=a=>a.resolution?0:R((a.people||[]).reduce((s,p)=>s+left(a,p),0));
 const settled=a=>R((a.people||[]).reduce((s,p)=>s+posted(a,p),0));
 const validDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&d<=td();
 let editing="",settleEdit="",seq=0,aaHostNode=null;
@@ -279,6 +279,7 @@ function fillWallet(selectId,selected=""){
 function open(direction="receivable",fromSpend=false,aaId="",inline=false){
  if(!inline)restoreSpendingForm();
  const a=get(aaId);
+ if(a?.resolution)return msg("此笔 AA 已结束，请在已处理记录查看");
  editing=a?.id||"";
  $("aaFormTitle").textContent=a?"编辑 AA 往来":"新增 AA 往来";
  $("aaDelete").style.display=a?"block":"none";
@@ -387,6 +388,7 @@ function makeAdvance(a){
 }
 function openSettlement(aaId,txId=""){
  const a=get(aaId);if(!a)return;
+ if(a.resolution)return msg("此笔 AA 已结束，不再产生收付核销");
  const t=S.tx.find(x=>x.id===txId&&x.aaId===aaId);
  settleEdit=t?.id||"";
  $("aaSettleSheet").dataset.aaId=aaId;
@@ -546,17 +548,28 @@ function saveResolution(){
  msg(mode==="expense"?"AA 已结转为个人承担":"AA 已取消，不计入实际支出");
 }
 function renderEntry(a){
- const rest=totalLeft(a),isReceive=a.direction==="receivable",people=a.people||[];
+ const isReceive=a.direction==="receivable",people=a.people||[];
+ const rest=totalLeft(a);
  const lines=people.map(p=>safe(p.name)+"："+money(posted(a,p))+" / "+money(p.amount)).join("；");
+ const resolutionText=a.resolution==="expense"?"已转个人支出":a.resolution==="void"?"已取消":rest>.005?(isReceive?"待收 ":"待付 ")+money(rest):"已结清";
+ const outcomeMeta=a.resolution==="expense"?
+    " · 最终个人承担 "+money(a.resolutionAmount)+" · 不再 AA"+(a.resolutionDueAtClose>.005?" · 放弃待结清 "+money(a.resolutionDueAtClose):""):
+    a.resolution==="void"?" · 原支付与收款流水已撤销":
+    "";
+ const buttons=a.resolution?"":rest>.005?
+   '<div class="aaEntryActions"><button type="button" onclick="AA.openSettlement('+"'"+safe(a.id)+"'"+')">'+(isReceive?"收到还款":"支付核销")+'</button>'+
+   '<button type="button" data-aa-resolve-id="'+safe(a.id)+'">改为个人支出 / 取消</button>'+
+   '<button type="button" onclick="AA.open('+"'"+a.direction+"','', '"+safe(a.id)+"'"+')">编辑</button></div>':
+   '<div class="aaEntryActions"><button type="button" onclick="AA.open('+"'"+a.direction+"','', '"+safe(a.id)+"'"+')">编辑</button></div>';
  return '<div class="aaEntry"><div class="aaEntryTop"><div>'+
- '<div class="aaEntryTitle">'+safe(a.title)+' · '+(isReceive?"我已垫付":"他人已垫付")+'</div>'+
+ '<div class="aaEntryTitle">'+safe(a.title)+' · '+(isReceive?"我先付款":"别人先付款")+'</div>'+
  '<div class="aaEntryMeta">'+safe(a.date)+(a.dueDate?" · 约定 "+safe(a.dueDate):"")+
- ' · 总额 '+money(a.total)+' · 我承担 '+money(a.own)+'</div>'+
- '<div class="aaEntryMeta">'+lines+'</div></div>'+
- '<div class="aaEntrySum" style="color:'+(rest>.005?"var(--warn)":"var(--accent)")+'">'+(rest>.005?(isReceive?"待收 ":"待付 ")+money(rest):"已结清")+'</div></div>'+
- '<div class="aaEntryActions"><button type="button" onclick="AA.openSettlement('+"'"+safe(a.id)+"'"+')">'+(isReceive?"收到还款":"支付核销")+'</button>'+
- '<button type="button" onclick="AA.open('+"'"+a.direction+"','', '"+safe(a.id)+"'"+')">编辑</button></div></div>';
+ ' · 总额 '+money(a.total)+' · 原本人份额 '+money(a.own)+'</div>'+
+ '<div class="aaEntryMeta">'+lines+safe(outcomeMeta)+'</div></div>'+
+ '<div class="aaEntrySum" style="color:'+(rest>.005?"var(--warn)":"var(--accent)")+'">'+resolutionText+'</div></div>'+
+ buttons+'</div>';
 }
+
 function render(){
  const box=$("upcomingBox");
  if(aaHostNode&&box&&aaHostNode.parentElement!==box)box.appendChild(aaHostNode);
@@ -575,9 +588,9 @@ function render(){
  $("aaReceivable").classList.toggle("aaWarn",receivable>0);
  $("aaPayable").classList.toggle("aaWarn",payable>0);
  $("aaOpenSummary").textContent="待处理 "+openEntries.length+" 笔"+(openEntries.length?" · 点按展开 / 收起":"");
- $("aaOpenList").innerHTML=openEntries.map(renderEntry).join("")||'<div class="note" style="padding:9px 0">当前 AA 已结清。记录集体消费时可以从这里新增。</div>';
+ $("aaOpenList").innerHTML=openEntries.map(renderEntry).join("")||'<div class="note" style="padding:9px 0">暂无待处理 AA。可以随时新增集体消费或待付记录。</div>';
  $("aaClosedDetails").style.display=closedEntries.length?"":"none";
- $("aaClosedSummary").textContent="已结清 "+closedEntries.length+" 笔";
+ $("aaClosedSummary").textContent="已处理 "+closedEntries.length+" 笔";
  $("aaClosedList").innerHTML=closedEntries.map(renderEntry).join("");
  if(typeof updateDisclosureAllToggles==="function")updateDisclosureAllToggles();
 
