@@ -7314,10 +7314,14 @@ function txHtml(t,del=false,edit=false,effects=null){
   }
   if(t.type==="extra_saving"){
     const location=t.shortAccountId?`锁定于 ${esc(shortSavingsAccountLabel(t.shortAccountId))}`:"计入储蓄余额";
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">额外储蓄${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date} · ${location}</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+    const actualSource=t.walletFromAccountId&&Wallets.account(t.walletFromAccountId)
+      ?" · 从"+esc(Wallets.account(t.walletFromAccountId).name)+"转出":"";
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">额外储蓄${t.note?" · "+esc(t.note):""}</div><div class="meta">${t.date} · ${location}${actualSource}</div></div><div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   if(t.type==="pocket_to_short"){
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">零花钱存入锁定储蓄 · ${esc(shortSavingsAccountLabel(t.shortAccountId))}</div><div class="meta">${t.date}${t.note?" · "+esc(t.note):""} · 锁定中</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} → 锁定</div>${txButtons(t,del,edit)}</div></div></div>`;
+    const walletText=t.walletFromAccountId&&Wallets.account(t.walletFromAccountId)
+      ?" · 从"+esc(Wallets.account(t.walletFromAccountId).name)+"转出":"";
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">零花钱存入锁定储蓄 · ${esc(shortSavingsAccountLabel(t.shortAccountId))}</div><div class="meta">${t.date}${walletText}${t.note?" · "+esc(t.note):""} · 锁定中</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} → 锁定</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
   if(t.type==="pocket_to_saving"){
@@ -9538,8 +9542,9 @@ function ordinaryLedgerSource(row,tx){
         :Number.isFinite(Number(tx.amount))
           ?" · 原流水金额 "+M(N(tx.amount))
           :"";
-    const wallet=tx.walletAccountId&&Wallets.account(tx.walletAccountId)
-      ?" · "+Wallets.account(tx.walletAccountId).name:"";
+    const linkedWallet=tx.walletAccountId||tx.walletFromAccountId||tx.walletToAccountId;
+    const wallet=linkedWallet&&Wallets.account(linkedWallet)
+      ?" · "+Wallets.account(linkedWallet).name:"";
     return {
       title:descriptor,
       meta:date+amount+wallet+" · 编号 "+String(tx.id).slice(-8),
