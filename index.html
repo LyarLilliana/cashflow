@@ -3216,6 +3216,16 @@ details[open]>summary .savingsFoldChevron::before,
         <label>选择专项</label>
         <select id="transferPocketProject"></select>
       </div>
+      <div id="transferSavingAccountRow">
+        <label>储蓄存放位置</label>
+        <select id="transferPocketSavingAccount">
+          <option value="ordinary">普通储蓄余额</option>
+        </select>
+      </div>
+      <div>
+        <label id="transferPocketWalletLabel">资金所在渠道</label>
+        <select id="transferPocketWalletFrom"></select>
+      </div>
 
       <div>
         <label>转入金额</label>
@@ -12047,115 +12057,112 @@ deleteBankDeposit.onclick=()=>{
   msg("银行存款记录已删除");
 };
 
-/* Pocket money -> savings / project */
+/* Transfer disposable pocket cash to a specific savings account or project. */
+function pocketTransferAccountOptions(){
+  return '<option value="ordinary">普通储蓄余额</option>'+
+    activeShortAccounts().map(a=>`<option value="short:${esc(a.id)}">${esc("短期锁定储蓄 · "+a.name)} · ${M(shortAccountBalance(a.id))}</option>`).join("");
+}
+function pocketTransferTargetInfo(value){
+  return String(value||"").startsWith("short:")
+    ?{kind:"short",id:String(value).slice(6)}:{kind:"ordinary",id:""};
+}
 function refreshPocketTransferTarget(){
-  const ps=activeProjects();
-  const hasProjects=ps.length>0;
-
+  const ps=activeProjects(),hasProjects=ps.length>0;
   transferTargetRow.style.display=hasProjects?"block":"none";
   if(!hasProjects)transferPocketTarget.value="saving";
-
   transferPocketProject.innerHTML=ps.map(p=>
-    `<option value="${p.id}">${esc(p.name)} · 当前可用 ${M(projectAvail(p))}</option>`
-  ).join("");
-
+    `<option value="${esc(p.id)}">${esc(p.name)} · 当前可用 ${M(projectAvail(p))}</option>`).join("");
+  const sel=document.getElementById("transferPocketSavingAccount"),old=sel.value;
+  sel.innerHTML=pocketTransferAccountOptions();
+  sel.value=[...sel.options].some(o=>o.value===old)?old:"ordinary";
   const toProject=hasProjects&&transferPocketTarget.value==="project";
   transferProjectRow.style.display=toProject?"block":"none";
+  transferSavingAccountRow.style.display=toProject?"none":"block";
+  const kind=pocketTransferTargetInfo(sel.value).kind;
+  transferPocketWalletLabel.textContent=toProject||kind==="ordinary"?"资金所在渠道":"实际转出渠道";
   pocketTransferTitle.textContent=toProject?"零花钱转专项":"零花钱转储蓄";
-
   recalcPocketTransfer();
 }
-
 function openPocketTransfer(){
-  const b=bal(),cycle=currentCycleStats();
-  if(b.safe<=0)return msg("当前没有可转出的零花钱");
-
+  const b=bal();
+  if(b.safe<=0)return msg("当前零花钱余额不足");
   transferPocketAmount.value="";
   transferPocketNow.textContent=M(b.safe);
   transferPocketAfter.textContent=M(b.safe);
-
-  const ps=activeProjects();
   transferPocketTarget.value="saving";
-  transferTargetRow.style.display=ps.length?"block":"none";
-
+  transferPocketSavingAccount.innerHTML=pocketTransferAccountOptions();
+  transferPocketSavingAccount.value="ordinary";
+  transferPocketWalletFrom.innerHTML=shortWalletAccountOptions("",td());
+  transferPocketWalletFrom.value="";
   refreshPocketTransferTarget();
   pocketTransferSheet.classList.add("show");
 }
-
 function recalcPocketTransfer(){
-  const b=bal(),cycle=currentCycleStats();
-  const amount=Math.max(0,N(transferPocketAmount.value));
+  const b=bal(),amount=Math.max(0,N(transferPocketAmount.value));
   const validAmount=Math.min(amount,Math.max(0,b.safe));
   const toProject=activeProjects().length>0&&transferPocketTarget.value==="project";
-
+  const target=pocketTransferTargetInfo(transferPocketSavingAccount.value);
   transferPocketAfter.textContent=M(b.safe-validAmount);
-  transferPocketAfter.style.color=(b.safe-validAmount)<0?"var(--danger)":"inherit";
-
+  transferPocketAfter.style.color=b.safe-validAmount<0?"var(--danger)":"inherit";
   if(toProject){
     const p=S.projects.find(x=>x.id===transferPocketProject.value);
     transferEffectLabel.textContent="转入后专项可用";
     transferProjectedSaving.textContent=M((p?projectAvail(p):0)+validAmount);
     transferProjectedSaving.style.color="var(--accent)";
-    transferPocketNote.textContent="转入专项只是在零花钱与专项之间重新分配，不会被当成已经储蓄。专项以后有结余时，结算可选择储蓄或其他专项。";
+  }else if(target.kind==="short"){
+    transferEffectLabel.textContent="转入后锁定账户余额";
+    transferProjectedSaving.textContent=M(shortAccountBalance(target.id)+validAmount);
+    transferProjectedSaving.style.color="var(--accent)";
   }else{
     const bounds=currentCycleResultBounds();
     const cycleSaving=N(savingSummaryForRange(bounds.start,bounds.end,true).cashflowGrowth);
     transferEffectLabel.textContent="本周期预计可存";
     transferProjectedSaving.textContent=M(cycleSaving);
     transferProjectedSaving.style.color=cycleSaving<-.005?"var(--warn)":"var(--accent)";
-    transferPocketNote.textContent="日常支出余额转入储蓄后，会增加储蓄余额余额，并等额减少可用日常支出。本周期储蓄净变化保持一致。";
   }
 }
-
 transferPocketTarget.addEventListener("change",refreshPocketTransferTarget);
 transferPocketProject.addEventListener("change",recalcPocketTransfer);
+transferPocketSavingAccount.addEventListener("change",refreshPocketTransferTarget);
+transferPocketWalletFrom.addEventListener("change",recalcPocketTransfer);
 transferPocketAmount.addEventListener("input",recalcPocketTransfer);
-
 savePocketTransfer.onclick=()=>{
-  const b=bal();
-  const amount=Math.max(0,N(transferPocketAmount.value));
-  if(amount<=0)return msg("请输入要转出的金额");
-  if(amount>b.safe)return msg("转入金额不能超过当前零花钱");
-
+  const b=bal(),amount=Math.round(N(transferPocketAmount.value)*100)/100;
+  if(amount<=0)return msg("请输入有效的转入金额");
+  if(amount>b.safe+0.005)return msg("转入金额超过当前零花钱余额");
   const cycleIncomeId=currentCycleStats().income?.id||"";
   const toProject=activeProjects().length>0&&transferPocketTarget.value==="project";
-
+  const target=pocketTransferTargetInfo(transferPocketSavingAccount.value);
+  const walletId=transferPocketWalletFrom.value||"";
+  if(walletId&&!Wallets.account(walletId))return msg("请选择有效的支付渠道");
+  let t,confirmation;
   if(toProject){
-    const projectId=transferPocketProject.value;
-    const p=S.projects.find(x=>x.id===projectId);
+    const p=S.projects.find(x=>x.id===transferPocketProject.value);
     if(!p)return msg("请选择要转入的专项");
-
-    S.tx.push({
-      id:"ptp"+Date.now(),
-      date:td(),
-      type:"pocket_to_project",
-      cycleIncomeId,
-      projectId,
-      amount
-    });
-
-    save();
-    closeSheet("pocketTransferSheet");
-    render();
-    msg(`${M(amount)} 已从零花钱转入专项「${p.name}」`);
-    return;
+    t={id:"ptp"+Date.now(),date:td(),type:"pocket_to_project",
+      cycleIncomeId,projectId:p.id,amount,walletFromAccountId:walletId};
+    confirmation=`已转入专项「${p.name}」`;
+  }else if(target.kind==="short"){
+    if(!activeShortAccounts().some(a=>a.id===target.id))return msg("请选择有效的短期储蓄账户");
+    if((S.paymentAccounts||[]).length&&!walletId)return msg("请选择实际转出渠道");
+    t={id:"pts"+Date.now(),date:td(),type:"pocket_to_short",
+      cycleIncomeId,shortAccountId:target.id,amount,walletFromAccountId:walletId};
+    confirmation=`已转入短期储蓄「${shortSavingsAccountLabel(target.id)}」`;
+  }else{
+    t={id:"pts"+Date.now(),date:td(),type:"pocket_to_saving",
+      cycleIncomeId,amount,walletFromAccountId:walletId};
+    confirmation="已转入普通储蓄余额";
   }
-
-  S.tx.push({
-    id:"pts"+Date.now(),
-    date:td(),
-    type:"pocket_to_saving",
-    cycleIncomeId,
-    amount
-  });
-
-  save();
-  closeSheet("pocketTransferSheet");
-  render();
-  msg(`${M(amount)} 已从零花钱转入储蓄；本周期储蓄净变化总额保持一致`);
+  const oldPocket=bal().safe;
+  S.tx.push(t);
+  if((t.type==="pocket_to_short"&&!shortLedgerValid(t.shortAccountId))
+    ||(t.type==="pocket_to_short"&&walletId&&!shortWalletFundingValid(td(),[walletId]))
+    ||bal().safe<Math.min(0,oldPocket)-0.005){
+    S.tx=S.tx.filter(x=>x.id!==t.id);
+    return msg("转出后的零花钱或所选渠道余额不足，请核对金额");
+  }
+  save();closeSheet("pocketTransferSheet");render();msg(`${M(amount)} ${confirmation}`);
 };
-
-
 
 /* Result transaction editing: restore every field that was originally user-editable. */
 
