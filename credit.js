@@ -47,9 +47,16 @@ window.creditSavingAdjustmentForRange=function(start="",end=""){
 const css=document.createElement("style");
 css.textContent=[
 ".creditHead{display:flex;align-items:center;justify-content:space-between;gap:12px}",
-".creditSwitch{appearance:none;width:44px;height:26px;flex:none;border:1px solid var(--line);background:#D9DFDA;border-radius:15px;position:relative}",
-".creditSwitch:before{content:'';position:absolute;left:3px;top:3px;width:18px;height:18px;background:white;border-radius:50%;box-shadow:0 1px 4px #0002}",
-".creditSwitch:checked{background:var(--accent)}.creditSwitch:checked:before{left:21px}",
+".creditHead>div:first-child{min-width:0;flex:1}",
+".creditSwitchTouch{display:flex;align-items:center;justify-content:center;position:relative;flex:0 0 48px;width:48px;height:44px;min-height:44px;margin:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}",
+".creditSwitch{position:absolute;inset:0;z-index:1;display:block;width:100%;max-width:none;min-width:0;height:100%;min-height:0;margin:0;padding:0;opacity:0;cursor:pointer}",
+".creditSwitchTrack{position:relative;display:block;flex:none;width:42px;height:25px;border:1px solid #D2DAD3;border-radius:999px;background:#E0E6E1;box-shadow:inset 0 1px 2px rgba(29,45,37,.06);transition:background .18s ease,border-color .18s ease}",
+".creditSwitchTrack::before{content:'';position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(22,44,34,.16);transition:transform .2s cubic-bezier(.2,.7,.2,1)}",
+".creditSwitch:checked+.creditSwitchTrack{background:var(--accent);border-color:var(--accent)}",
+".creditSwitch:checked+.creditSwitchTrack::before{transform:translateX(17px)}",
+".creditSwitch:focus-visible+.creditSwitchTrack{outline:3px solid rgba(47,111,94,.26);outline-offset:3px}",
+".creditSwitchTouch:active .creditSwitchTrack::before{box-shadow:0 1px 4px rgba(22,44,34,.25)}",
+"@media(prefers-reduced-motion:reduce){.creditSwitchTrack,.creditSwitchTrack::before{transition:none}}",
 ".creditCompact{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.creditCompact button{padding:8px 11px;font-size:11px}",
 ".creditItem{padding:10px 0;border-top:1px solid var(--line)}.creditItem:first-child{border-top:0}",
 ".creditPair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}",
@@ -68,7 +75,7 @@ plan.className="section";plan.id="creditPlanSection";
 plan.innerHTML='<div class="sectionTitle">信用与还款</div><div class="card">'
 +'<div class="creditHead"><div><div class="name">启用信用与还款</div>'
 +'<div class="creditTip">信用卡、花呗与小额借款。关闭时保留债务与还款提醒。</div></div>'
-+'<input id="creditEnabled" aria-label="启用信用与还款" type="checkbox" class="creditSwitch"></div>'
++'<label class="creditSwitchTouch" title="启用信用与还款"><input id="creditEnabled" aria-label="启用信用与还款" role="switch" type="checkbox" class="creditSwitch"><span class="creditSwitchTrack" aria-hidden="true"></span></label></div>'
 +'<div id="creditPlanContent" hidden><div class="creditPair"><div>当前待还<strong id="creditPlanOwed">¥0</strong></div>'
 +'<div>已备还款资金<strong id="creditPlanReserve">¥0</strong></div></div>'
 +'<div id="creditAccountList"></div><div class="creditCompact">'
