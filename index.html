@@ -7722,13 +7722,158 @@ function selectedStatsCycleBounds(){
   const receipts=cycleIncomeRows().filter(t=>t.planId===plan.id&&t.date<=td());
   const last=receipts[receipts.length-1];
   if(!last)return plan.freq==="monthly"?monthBounds():weekBounds();
+  // Follow the actual next income date recorded for this plan. A different
+  // plan's receipt cannot truncate this source's weekly/monthly reporting cycle.
+  const nextReceipt=cycleIncomeRows().find(t=>t.planId===plan.id&&t.date>last.date);
+  const recorded=last.nextIncomeDate>last.date?last.nextIncomeDate:"";
   const scheduled=S.incomePlans.find(p=>p.id===plan.id)?.nextDate||"";
   const calculated=nextAfter(last.date,last.planFreqAtRecord||plan.freq);
-  const next=scheduled>last.date&&calculated
-    ?(scheduled<calculated?scheduled:calculated)
-    :(calculated||scheduled);
+  const next=nextReceipt?.date||recorded||(scheduled>last.date?scheduled:"")||calculated;
   return {start:last.date,end:next?addDays(next,-1):td()};
 }
+
+// Source-specific, committed savings for one recurring-income plan.
+// Extra income, other recurring plans, previous savings and account balance
+// adjustments belong to their own sources, even when they share these dates.
+// Pocket money remains spendable until it is actually saved or a cycle closes.
+function selectedPlanSourceSavingForRange(start="",end=""){
+  const planId=selectedStatsCyclePlanId;
+  const receipt=cycleIncomeRows().filter(t=>
+    t.planId===planId&&t.date<=td()&&(!start||t.date>=start)&&(!end||t.date<=end)
+  ).slice(-1)[0];
+  if(!receipt)return {income:0,total:0,ordinary:0,short:0,sourceEvents:[]};
+
+  const allocation=effectiveIncomeAllocation(receipt);
+  let available=Math.max(0,N(allocation.safe));
+  let ordinary=0,short=0;
+  const sourceEvents=[];
+  const shortBalances={};
+  const saveEvent=(t,name,amount,positive=true)=>{
+    if(amount<=.005)return;
+    sourceEvents.push({
+      id:"plan_"+t.id+"_"+sourceEvents.length,
+      date:t.date||receipt.date,name,meta:"",amount,
+      impact:positive?amount:-amount,mode:positive?"pos":"neg"
+    });
+  };
+  const addShort=(id,amount)=>{
+    short+=amount;
+    shortBalances[id||"__unassigned__"]=N(shortBalances[id||"__unassigned__"])+amount;
+  };
+  const destination=allocation.savingDestination==="short"&&allocation.savingShortAccountId
+    ?allocation.savingShortAccountId:"";
+  const planned=Math.max(0,N(allocation.saving));
+  if(destination)addShort(destination,planned);
+  else ordinary+=planned;
+  saveEvent(receipt,"周期收入优先储蓄",planned);
+
+  const transactions=cycleTransactionsForIncome(receipt)
+    .filter(t=>{
+      const date=t.type==="living_settlement"?(t.coveredDate||t.date):t.date;
+      return !!date&&date<=td()&&(!start||date>=start)&&(!end||date<=end);
+    })
+    .sort((a,b)=>{
+      const da=a.type==="living_settlement"?(a.coveredDate||a.date):a.date;
+      const db=b.type==="living_settlement"?(b.coveredDate||b.date):b.date;
+      return da.localeCompare(db)||txStamp(a)-txStamp(b);
+    });
+  const effects=accounting().effects;
+  const livingCover=dailyExpenseLivingCoverMap();
+  const lightReserve=lightPlanReserveUsageMap();
+  const usePocket=amount=>{
+    const taken=Math.min(Math.max(0,available),Math.max(0,N(amount)));
+    available=Math.max(0,available-taken);
+    return taken;
+  };
+  const takeOrdinary=(t,amount)=>{
+    const taken=Math.min(Math.max(0,ordinary),Math.max(0,N(amount)));
+    ordinary=Math.max(0,ordinary-taken);
+    saveEvent(t,"使用本次收入已存储蓄",taken,false);
+  };
+  for(const t of transactions){
+    if(t.type==="income")continue; // One-off receipts keep independent ownership.
+    if(t.type==="living_settlement"){
+      const day=t.coveredDate||t.date||"";
+      const release=N(t.allowance)-livingSettlementEffectiveActual(t);
+      const dailyUsed=Math.min(Math.max(0,release),
+        Math.max(0,N(livingCover.byDate[day])));
+      available=Math.max(0,available+release-dailyUsed);
+      continue;
+    }
+    if(t.type==="pocket_to_saving"){
+      const taken=usePocket(t.amount);
+      ordinary+=taken;
+      saveEvent(t,"本次生活费零花转储蓄",taken);
+      continue;
+    }
+    if(t.type==="pocket_to_short" ||
+      (t.type==="short_transfer"&&t.direction==="in")){
+      const requested=t.type==="pocket_to_short"?N(t.amount):N(t.pocketPortion);
+      const taken=usePocket(requested);
+      addShort(t.shortAccountId,taken);
+      saveEvent(t,"本次生活费零花转短期储蓄",taken);
+      continue;
+    }
+    if(t.type==="pocket_to_project"){usePocket(t.amount);continue;}
+    if(t.type==="short_spend"){
+      const id=t.shortAccountId||"__unassigned__";
+      const taken=Math.min(Math.max(0,N(shortBalances[id])),Math.max(0,N(t.amount)));
+      shortBalances[id]=Math.max(0,N(shortBalances[id])-taken);
+      short=Math.max(0,short-taken);
+      saveEvent(t,"使用本次收入已存短期储蓄",taken,false);
+      continue;
+    }
+    if(t.type==="short_transfer"&&t.direction==="out"){
+      const id=t.shortAccountId||"__unassigned__";
+      const moved=Math.min(Math.max(0,N(shortBalances[id])),Math.max(0,N(t.amount)));
+      shortBalances[id]=Math.max(0,N(shortBalances[id])-moved);
+      short=Math.max(0,short-moved);
+      ordinary+=moved; // This is a location transfer, with zero effect on total.
+      continue;
+    }
+    if(t.type!=="expense")continue;
+    const impact=effects[t.id]||{};
+    if(t.bucket==="saving"){takeOrdinary(t,t.amount);continue;}
+    if(t.bucket==="project"){
+      const projectEffect=projectExpenseEffect(t,effects);
+      usePocket(projectEffect.pocketCharged);
+      takeOrdinary(t,N(projectEffect.manualSavingDraw)+N(projectEffect.automaticSavingDraw));
+      continue;
+    }
+    if(t.bucket==="bill"||t.settledBillId){
+      usePocket(N(impact.billPocketDraw));
+      takeOrdinary(t,N(impact.autoDraw));
+      continue;
+    }
+    if(t.bucket==="safe"||t.bucket==="living"){
+      if(t.creditFundMode==="future")continue;
+      const reserve=Math.max(0,N(lightReserve.byExpense[t.id]));
+      const own=t.aaKind==="advance"
+        ?Math.min(N(t.amount),Math.max(0,N(t.aaOwnShare))):N(t.amount);
+      const usable=Math.max(0,own-reserve);
+      const fromLiving=Math.min(usable,Math.max(0,N(livingCover.byTx[t.id])));
+      const floated=t.aaKind==="advance"?Math.max(0,N(t.amount)-own):0;
+      usePocket(Math.max(0,usable-fromLiving)+floated);
+      takeOrdinary(t,N(impact.autoDraw));
+    }
+  }
+  // Handover deposits only the plan's own remaining pocket portion.
+  const close=virtualCycleCloseEvents().find(t=>t.sourceIncomeId===receipt.id);
+  if(close&&close.date<=td()&&(!end||close.date<=end)){
+    const booked=Math.max(0,N(effects[close.id]?.cycleCloseSaving));
+    const fromSource=Math.min(available,booked);
+    ordinary+=fromSource;
+    saveEvent(close,"本次收入周期结余转储蓄",fromSource);
+  }
+  const money=v=>Math.round(N(v)*100)/100;
+  return {
+    income:money(receipt.amount),
+    ordinary:money(ordinary),short:money(short),
+    total:money(ordinary+short),
+    sourceEvents:sourceEvents.sort((a,b)=>b.date.localeCompare(a.date))
+  };
+}
+
 function selectedStatsCycleCaption(){
   const p=selectableIncomeCyclePlans().find(x=>x.id===selectedStatsCyclePlanId);
   return p?freqLabel(p.freq)+" · "+p.name:"当前周期";
@@ -8203,6 +8348,10 @@ function periodSavableForRange(start="",end="",mode=historyMode){
     t=>N(t.amount)
   );
   const selectedPlanCycle=mode==="cycle"&&!!selectedStatsCyclePlanId;
+  if(selectedPlanCycle){
+    const source=selectedPlanSourceSavingForRange(start,end);
+    return {income:source.income,expected:source.total};
+  }
   const savings=rangeSavingsSummary(start,end,mode==="cycle"&&!selectedPlanCycle,
     selectedPlanCycle||mode==="week");
   let expected=N(savings.cashflowGrowth);
@@ -9365,11 +9514,22 @@ function savingsAssetReconciliationForRange(start="",end="",summary=null){
 
 function selectedSavingRangeSummary(){
   const range=savingRangeBounds();
+  const selectedSource=savingRangePreset==="cycle"&&!!selectedStatsCyclePlanId;
+  const general=rangeSavingsSummary(range.start,range.end,
+    savingRangePreset==="cycle"&&!selectedStatsCyclePlanId,
+    selectedSource||savingRangePreset==="week");
+  if(!selectedSource)return {...general,range};
+  const source=selectedPlanSourceSavingForRange(range.start,range.end);
   return {
-    ...rangeSavingsSummary(range.start,range.end,
-      savingRangePreset==="cycle"&&!selectedStatsCyclePlanId,
-      (savingRangePreset==="cycle"&&!!selectedStatsCyclePlanId)||savingRangePreset==="week"),
-    range
+    ...general,range,selectedIncomeSource:true,sourceEvents:source.sourceEvents,
+    cashflowGrowth:source.total,expected:source.total,
+    ordinaryBooked:source.ordinary,dailyBase:source.ordinary,
+    dailyAfterBank:source.ordinary,shortTotal:source.short,
+    bankPrincipal:0,bankTotal:0,interestGrowth:0,bankExternal:0,bankExisting:0,
+    pendingPocket:0,grossSaved:source.total,
+    creditImpact:0,internalProjectReallocation:0,
+    shortBalanceCorrection:0,ordinaryBalanceCorrection:0,
+    short:{incoming:source.short,extraLocked:0,outgoing:0}
   };
 }
 
@@ -9377,6 +9537,8 @@ function renderSavingAssetSummary(){
   const s=selectedSavingRangeSummary();
   const current=savingsAssetComponentsAt(td());
   const reconciliation=savingsAssetReconciliationForRange(s.range.start,s.range.end,s);
+  const sourceReconcile=document.querySelector(".savingReconcileDetails");
+  if(sourceReconcile)sourceReconcile.hidden=!!s.selectedIncomeSource;
   const net=N(s.cashflowGrowth);
 
   // 顶部只显示当前真实资产。期间筛选负责净变化，不改变当前资产基准。
@@ -9474,7 +9636,9 @@ function renderSavingAssetSummary(){
 
 function renderSavingStats(){
   const summary=selectedSavingRangeSummary();
-  let events=filteredSavingChangeEvents(summary.range.start,summary.range.end);
+  let events=summary.selectedIncomeSource
+    ?summary.sourceEvents
+    :filteredSavingChangeEvents(summary.range.start,summary.range.end);
   if(summary.cycleMode&&currentCycleStats().income){
     const active=currentCycleStats().income;
     const ids=new Set([active.id,...cycleTransactionsForIncome(active).map(t=>t.id)]);
