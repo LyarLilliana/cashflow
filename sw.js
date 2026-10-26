@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-131-compact-buttons-wallet-saving-allocation";
+const CACHE = "safespend-v10-132-ordinary-transfer-channel-sync";
 const ASSETS = [
   "./",
   "./index.html",
