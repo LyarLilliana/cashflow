@@ -62,8 +62,52 @@ button{touch-action:manipulation}
 .heroSub{font-size:12px;color:var(--muted);line-height:1.55}
 .heroAction{margin-top:14px;display:flex;gap:8px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-.stat .k{font-size:11px;color:var(--muted)} .stat .v{font-size:22px;font-weight:760;margin-top:6px}
-.stat .s{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.35}
+/* 首页资金概览：统一标签、金额及说明的阅读层级。 */
+#now > .grid .stat{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  min-width:0;
+  padding:14px 14px 13px;
+}
+#now > .grid .stat .k{
+  font-size:12px;
+  line-height:1.4;
+  font-weight:650;
+  color:var(--muted);
+}
+#now > .grid .stat .v{
+  max-width:100%;
+  margin-top:7px;
+  font-size:clamp(18px,5.2vw,22px);
+  line-height:1.18;
+  font-weight:760;
+  letter-spacing:-.45px;
+  font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;
+}
+#now > .grid .stat .s{
+  margin-top:7px;
+  font-size:11px;
+  line-height:1.45;
+  font-weight:400;
+  color:var(--muted);
+  overflow-wrap:anywhere;
+}
+#now .hero .explainRow{align-items:baseline}
+#now .hero .explainRow > span{flex:1;min-width:0}
+#now .hero .explainRow > strong{
+  flex:0 0 auto;
+  font-size:12.5px;
+  font-weight:650;
+  font-variant-numeric:tabular-nums;
+  text-align:right;
+}
+#now .hero .explainRow.total > strong{font-size:13px;font-weight:760}
+@media(max-width:360px){
+  #now > .grid .stat{padding:13px 11px 12px}
+  #now > .grid .stat .v{font-size:18px}
+}
 .section{margin-top:16px}
 .sectionTitle{font-size:16px;font-weight:760;margin:0}
 .sectionHeader{
