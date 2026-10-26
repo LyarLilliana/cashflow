@@ -12501,7 +12501,12 @@ function refreshExpenseEditFields(t,selectedRef=""){
 function refreshTransferEditFields(t){
   const target=document.getElementById("editTransferTarget")?.value||"saving";
   const row=document.getElementById("editTransferProjectRow");
-  row.style.display=target==="project"?"":"none";
+  if(row)row.style.display=target==="project"?"":"none";
+  const savings=document.getElementById("editTransferSavingsRow");
+  if(savings)savings.style.display=target==="project"?"none":"block";
+  const kind=pocketTransferTargetInfo(document.getElementById("editTransferSavings")?.value).kind;
+  const label=document.getElementById("editTransferWalletLabel");
+  if(label)label.textContent=target==="project"||kind==="ordinary"?"资金所在渠道":"实际转出渠道";
 }
 
 function openTxEdit(id){
@@ -12835,7 +12840,7 @@ function openTxEdit(id){
     eStart.addEventListener("change",editFromStart);
     eEnd.addEventListener("change",editFromEnd);
     editTxHint.textContent="开始日期、结束日期和覆盖天数三者联动；每日分摊会同步重新计算。";
-  }else if(["short_transfer","short_interest","short_spend","pocket_to_short"].includes(t.type)){
+  }else if(["short_transfer","short_interest","short_spend"].includes(t.type)){
     const inTransfer=t.type==="short_transfer"&&t.direction==="in";
     const pocketAmount=inTransfer?Math.max(0,N(t.pocketPortion)):0;
     const shortLabels={
@@ -12902,8 +12907,9 @@ function openTxEdit(id){
       </div>
     `;
     editTxHint.textContent="可修改日期、金额和备注。锁定储蓄账户归属保持固定，防止重复记账。";
-  }else if(t.type==="pocket_to_saving"||t.type==="pocket_to_project"){
+  }else if(["pocket_to_saving","pocket_to_project","pocket_to_short"].includes(t.type)){
     const target=t.type==="pocket_to_project"?"project":"saving";
+    const savingTarget=t.type==="pocket_to_short"?"short:"+t.shortAccountId:"ordinary";
     editTxTitle.textContent="修改零花钱转出";
     editTxFields.innerHTML=`
       <div class="formGrid one">
@@ -12914,20 +12920,28 @@ function openTxEdit(id){
             <option value="project" ${target==="project"?"selected":""}>专项</option>
           </select>
         </div>
-
         <div id="editTransferProjectRow">
           <label>选择专项</label>
           <select id="editTransferProject">${txProjectOptions(t.projectId||"",true)}</select>
         </div>
-
+        <div id="editTransferSavingsRow">
+          <label>储蓄存放位置</label>
+          <select id="editTransferSavings">${pocketTransferAccountOptions()}</select>
+        </div>
+        <div>
+          <label id="editTransferWalletLabel">资金所在渠道</label>
+          <select id="editTransferWallet">${shortWalletAccountOptions(t.walletFromAccountId,t.date||td())}</select>
+        </div>
         <div>
           <label>转入金额</label>
-          <input id="editTransferAmount" inputmode="decimal" type="number" min="0" value="${N(t.amount)}">
+          <input id="editTransferAmount" inputmode="decimal" type="number" min="0.01" step="0.01" value="${N(t.amount)}">
         </div>
       </div>
     `;
-    editTxHint.textContent="转入储蓄 / 专项、目标专项和转入金额都可以重新修改。";
+    const savings=document.getElementById("editTransferSavings");
+    if([...savings.options].some(o=>o.value===savingTarget))savings.value=savingTarget;
     document.getElementById("editTransferTarget").addEventListener("change",()=>refreshTransferEditFields(t));
+    savings.addEventListener("change",()=>refreshTransferEditFields(t));
     refreshTransferEditFields(t);
   }
 
@@ -13154,7 +13168,7 @@ saveTxEdit.onclick=()=>{
     t.endDate=endDate;
     t.note=note;
     syncLivingSettlementTotals();
-  }else if(["short_transfer","short_interest","short_spend","pocket_to_short"].includes(t.type)){
+  }else if(["short_transfer","short_interest","short_spend"].includes(t.type)){
     const accountId=document.getElementById("editShortAccount").value;
     const date=document.getElementById("editShortDate").value;
     const amount=Math.round(Number(document.getElementById("editShortAmount").value)*100)/100;
@@ -13224,23 +13238,45 @@ saveTxEdit.onclick=()=>{
       Object.assign(t,previous);
       return msg("修改会导致实际支付渠道或锁定账户后续余额不足，请检查金额或日期");
     }
-  }else if(t.type==="pocket_to_saving"||t.type==="pocket_to_project"){
-    const target=document.getElementById("editTransferTarget").value;
-    const amount=Math.max(0,N(document.getElementById("editTransferAmount").value));
-    if(amount<=0)return msg("请输入转入金额");
-
-    if(target==="project"){
+  }else if(["pocket_to_saving","pocket_to_project","pocket_to_short"].includes(t.type)){
+    const destination=document.getElementById("editTransferTarget").value;
+    const target=pocketTransferTargetInfo(document.getElementById("editTransferSavings").value);
+    const amount=Math.round(Number(document.getElementById("editTransferAmount").value)*100)/100;
+    const walletId=document.getElementById("editTransferWallet").value||"";
+    if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效的转入金额");
+    if(walletId&&!Wallets.account(walletId))return msg("请选择有效的支付渠道");
+    const previous={...t},checkpoints=walletFundingCheckDates(t.date||td());
+    const before=walletFundingSnapshots(checkpoints),oldPocket=bal().safe;
+    if(destination==="project"){
       const projectId=document.getElementById("editTransferProject").value;
-      if(!projectId)return msg("请选择专项");
+      if(!S.projects.some(p=>p.id===projectId))return msg("请选择专项");
       t.type="pocket_to_project";
       t.projectId=projectId;
+      delete t.shortAccountId;
+    }else if(target.kind==="short"){
+      if(!activeShortAccounts().some(a=>a.id===target.id))return msg("请选择有效的短期储蓄账户");
+      if((S.paymentAccounts||[]).length&&!walletId)return msg("请选择实际转出渠道");
+      t.type="pocket_to_short";
+      t.shortAccountId=target.id;
+      delete t.projectId;
     }else{
       t.type="pocket_to_saving";
       delete t.projectId;
+      delete t.shortAccountId;
     }
-
     t.amount=amount;
+    t.walletFromAccountId=walletId;
     t.cycleIncomeId=cycleIncomeIdForDate(t.date);
+    const affected=[...new Set([previous.shortAccountId,t.shortAccountId])].filter(Boolean);
+    const valid=affected.every(id=>shortLedgerValid(id))
+      &&walletFundingRemainsCovered(before,walletFundingSnapshots(checkpoints))
+      &&(t.type!=="pocket_to_short"||!walletId||shortWalletFundingValid(t.date||td(),[walletId]))
+      &&bal().safe>=Math.min(0,oldPocket)-0.005;
+    if(!valid){
+      Object.keys(t).forEach(k=>{if(!(k in previous))delete t[k]});
+      Object.assign(t,previous);
+      return msg("修改后零花钱、锁定账户或渠道余额不足，请核对来源与金额");
+    }
   }
 
   if(["income","expense","living_batch","living_settlement"].includes(t.type))Wallets.editSelected(t);
