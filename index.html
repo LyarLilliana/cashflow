@@ -2049,6 +2049,88 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .ordinaryTransferActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .ordinaryTransferActions button{flex:1;min-width:120px;min-height:38px;padding:9px 10px;font-size:11px}
 
+
+/* Savings disclosures: fixed-height, single-axis chevrons keep each row aligned. */
+.savingOverviewBreakdown[hidden],.savingsFoldSectionBody[hidden]{display:none!important}
+.savingsFoldChevron,.savingsFoldSpacer{
+  width:16px;height:18px;min-width:16px;flex:0 0 16px;
+  display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;
+}
+.savingsFoldChevron::before{
+  content:"";display:block;width:6px;height:6px;
+  border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+  transform:rotate(45deg);transform-origin:center;transition:transform .15s ease;
+}
+details[open]>summary .savingsFoldChevron::before,
+.savingsSectionFoldButton[aria-expanded="true"] .savingsFoldChevron::before{transform:rotate(225deg)}
+.savingsFoldSectionHeader{min-height:32px;align-items:center}
+.savingsSectionControls{display:flex;align-items:center;gap:8px;margin-left:auto;min-width:0}
+.savingsSectionTotal{font-size:12px;font-weight:670;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+.savingsSectionFoldButton{
+  display:inline-flex;justify-content:center;align-items:center;flex:0 0 26px;
+  width:26px;height:28px;padding:0;margin:0;border:0;background:transparent;
+  border-radius:7px;color:var(--muted);cursor:pointer
+}
+.savingsSectionFoldButton:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.savingsCurrentDisclosure{margin:0;padding:0}
+.savingsCurrentDisclosure>summary{list-style:none;cursor:pointer;display:flex;align-items:center;min-height:36px;gap:8px}
+.savingsCurrentDisclosure>summary::-webkit-details-marker{display:none}
+.savingsCurrentDisclosure>summary>strong{margin-left:auto;font-variant-numeric:tabular-nums}
+.savingsCurrentHead{padding:6px 0!important}
+.savingsCurrentChildren .savingsCurrentChild{min-height:36px;align-items:center;gap:8px}
+.savingsCurrentChildren .savingsCurrentChild>strong{margin-left:auto}
+.savingsCurrentChildren .ordinaryLedgerDetails>summary{min-height:36px;box-sizing:border-box;align-items:center}
+.savingsCurrentChildren .ordinaryLedgerDetails>summary .ordinaryLedgerChevron{
+  font-size:0;width:16px;height:18px;min-width:16px;flex:0 0 16px;transform:none!important
+}
+.savingsCurrentChildren .ordinaryLedgerDetails[open]>summary .ordinaryLedgerChevron::before{transform:rotate(225deg)}
+.savingsCurrentChildren .ordinaryLedgerDetails>summary>strong{margin-left:auto!important}
+.ordinaryInnerDetails>summary{min-height:36px;align-items:center;box-sizing:border-box}
+.ordinaryInnerChevron{display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;width:16px;height:18px;font-size:0;transform:none!important}
+.ordinaryInnerChevron::after{
+  content:"";width:6px;height:6px;display:block;
+  border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+  transform:rotate(45deg);transition:transform .15s ease
+}
+.ordinaryInnerDetails[open]>summary .ordinaryInnerChevron::after{transform:rotate(225deg)}
+.shortAccountFold>summary,.bankAccountFold>summary{list-style:none;cursor:pointer}
+.shortAccountFold>summary::-webkit-details-marker,.bankAccountFold>summary::-webkit-details-marker{display:none}
+.shortAccountFold .shortAccountLineTop{min-height:34px}
+.savingsAccountSummaryEnd{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex:0 0 auto;min-width:0}
+.savingsAccountSummaryEnd>strong{font-size:14px;font-weight:720;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+.shortAccountFold .shortAccountLineSub{padding:7px 0 1px;margin-top:4px;flex-wrap:wrap;align-items:flex-start}
+.bankAccountSummary{align-items:center;min-height:42px;gap:8px}
+.bankAccountTitle{display:flex;flex-direction:column;min-width:0;gap:4px;flex:1}
+.bankAccountTitle .name{display:block;overflow-wrap:anywhere}
+.bankAccountTitle .meta{display:block;font-size:10.5px}
+.bankAccountAmount{display:flex;flex-direction:column;align-items:flex-end;gap:3px;min-width:0}
+.bankAccountAmount .small{font-size:10px;white-space:nowrap}
+.bankAccountExtraMeta{display:flex;flex-wrap:wrap;align-items:center;gap:5px 10px;margin-top:9px}
+.bankAccountExtraMeta .meta{font-size:10.5px}
+.bankAccountDetails{padding-bottom:2px}
+.bankSourceArrow{display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;width:16px;height:18px;font-size:0;transform:none!important}
+.bankSourceArrow::before{content:"";width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);transition:transform .15s ease}
+.bankSourceDetails[open] .bankSourceArrow::before{transform:rotate(225deg)}
+.savingsChangesOuter>summary{min-height:38px;align-items:center}
+.savingsChangesOuter>summary .disclosureState{
+  display:inline-flex;align-items:center;justify-content:center;
+  flex:0 0 16px;width:16px;height:18px;min-width:16px;
+  padding:0;border:0;border-radius:0;background:transparent;font-size:0;
+  transform:none!important
+}
+.savingsChangesOuter>summary .disclosureState::before{
+  content:"";width:6px;height:6px;border-right:1.5px solid var(--muted);
+  border-bottom:1.5px solid var(--muted);transform:rotate(45deg);transition:transform .15s ease
+}
+.savingsChangesOuter[open]>summary .disclosureState::before{transform:rotate(225deg)}
+@media(max-width:380px){
+ .savingsSectionControls{gap:5px}
+ .savingsSectionTotal{font-size:11px}
+ .savingsFoldSectionHeader .sectionToggle{padding:5px 8px;font-size:10px}
+ .bankAccountSummary .savingAccountValue{font-size:13px}
+ .bankAccountTitle .meta{font-size:10px}
+}
+
 </style>
 </head>
 <body class="booting">
@@ -2341,7 +2423,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <strong id="savingPeriodNetValue">¥0</strong>
         </div>
         <div class="savingOverviewPending" id="savingPendingNotice" hidden></div>
-        <details class="savingOverviewBreakdown">
+        <details class="savingOverviewBreakdown" hidden aria-hidden="true">
           <summary>查看本期变化与对账<span aria-hidden="true" class="disclosureState">⌄</span></summary>
           <div class="savingOverviewBreakdownBody">
             <div class="savingOverviewDetailTitle">账户变动（所选期间）</div>
@@ -2378,10 +2460,15 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
     <!-- LOCKED SHORT-TERM SAVINGS -->
     <div class="section">
-      <div class="sectionHeader">
+      <div class="sectionHeader savingsFoldSectionHeader">
         <div class="sectionTitle">短期锁定储蓄</div>
-        <button class="sectionToggle" type="button" onclick="openShortAccount()">新增账户</button>
+        <div class="savingsSectionControls">
+          <strong class="savingsSectionTotal" id="shortSavingSectionTotal">¥0</strong>
+          <button class="sectionToggle" type="button" onclick="openShortAccount()">新增账户</button>
+          <button class="savingsSectionFoldButton" id="savingSectionToggleShort" type="button" aria-controls="savingSectionBodyShort" aria-expanded="true" aria-label="收起短期锁定储蓄" onclick="toggleSavingSection('short')"><span class="savingsFoldChevron" aria-hidden="true"></span></button>
+        </div>
       </div>
+      <div class="savingsFoldSectionBody" id="savingSectionBodyShort">
       <div class="card shortAccountCard">
         <div class="shortAccountHeadline">
           <div><div class="small">已锁定储蓄余额</div><strong id="shortSavedTotal">¥0</strong></div>
@@ -2419,15 +2506,16 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="divider"></div>
 
         <div class="bankReminderRows">
-          <div class="explainRow savingsCurrentHead">
-            <span>当前已存储蓄</span><strong id="bankReminderCurrent">¥0</strong>
-          </div>
+          <details class="savingsCurrentDisclosure" id="savingsCurrentDisclosure" open>
+            <summary class="explainRow savingsCurrentHead">
+              <span>当前已存储蓄</span><strong id="bankReminderCurrent">¥0</strong><span class="savingsFoldChevron" aria-hidden="true"></span>
+            </summary>
           <div class="savingsCurrentChildren" aria-label="当前已存储蓄的构成">
             <div class="savingsCurrentChild">
-              <span>短期储蓄</span><strong id="bankReminderShortAmount">¥0</strong>
+              <span>短期储蓄</span><strong id="bankReminderShortAmount">¥0</strong><span class="savingsFoldSpacer" aria-hidden="true"></span>
             </div>
             <details class="ordinaryLedgerDetails savingsCurrentChild" id="ordinaryLedgerDetails">
-              <summary><span>普通储蓄余额</span><strong id="ordinarySavingLedgerHeader">¥0</strong><span class="ordinaryLedgerChevron" aria-hidden="true">⌄</span></summary>
+              <summary><span>普通储蓄余额</span><strong id="ordinarySavingLedgerHeader">¥0</strong><span class="savingsFoldChevron ordinaryLedgerChevron" aria-hidden="true"></span></summary>
               <div class="ordinaryLedgerContents">
                 <div class="ordinaryCompactActions">
                   <button type="button" class="ordinaryMinorAction" onclick="openOrdinaryBalanceEditor()">校准余额</button>
@@ -2453,6 +2541,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
               </div>
             </details>
           </div>
+          </details>
           <div class="explainRow"><span>本周期待结转零花</span><strong id="bankReminderPending">¥0</strong></div>
           <div class="explainRow"><span>预计累计可转存</span><strong id="bankReminderExpected">¥0</strong></div>
           <div class="explainRow"><span>设定转存额度</span><strong id="bankReminderTarget">未设置</strong></div>
@@ -2475,6 +2564,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 
         <div class="note" id="bankReminderHint" style="margin-top:10px"></div>
       </div>
+      </div>
     </div>
     <div class="card ordinaryTransferAlert" id="ordinaryTransferSavingCard" style="display:none;margin-top:12px">
       <div class="name" id="ordinaryTransferSavingTitle">周期结束 · 普通储蓄待转存</div>
@@ -2486,9 +2576,17 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     </div>
     <!-- 2. BANK DEPOSITS -->
     <div class="section">
-      <div class="sectionHeader"><div class="sectionTitle">银行存款</div><button class="sectionToggle" type="button" onclick="openBankDeposit()">新增存款</button></div>
-
-      <div class="card" id="bankDepositList" style="margin-top:10px"></div>
+      <div class="sectionHeader savingsFoldSectionHeader">
+        <div class="sectionTitle">银行存款</div>
+        <div class="savingsSectionControls">
+          <strong class="savingsSectionTotal" id="bankSavingSectionTotal">¥0</strong>
+          <button class="sectionToggle" type="button" onclick="openBankDeposit()">新增存款</button>
+          <button class="savingsSectionFoldButton" id="savingSectionToggleBank" type="button" aria-controls="savingSectionBodyBank" aria-expanded="true" aria-label="收起银行存款" onclick="toggleSavingSection('bank')"><span class="savingsFoldChevron" aria-hidden="true"></span></button>
+        </div>
+      </div>
+      <div class="savingsFoldSectionBody" id="savingSectionBodyBank">
+        <div class="card" id="bankDepositList" style="margin-top:10px"></div>
+      </div>
     </div>
 
     <!-- 3. SAVINGS CHANGES -->
@@ -8151,6 +8249,53 @@ function readSectionUI(){
 function writeSectionUI(v){
   try{localStorage.setItem(SECTION_UI_KEY,JSON.stringify(v))}catch(e){}
 }
+
+function readSavingFold(key,defaultOpen=false){
+  const state=readSectionUI();
+  const id="savingsFold:"+key;
+  return Object.prototype.hasOwnProperty.call(state,id)?!!state[id]:defaultOpen;
+}
+function writeSavingFold(key,open){
+  const state=readSectionUI();
+  state["savingsFold:"+key]=!!open;
+  writeSectionUI(state);
+}
+function toggleSavingSection(kind){
+  const short=kind==="short";
+  const body=document.getElementById(short?"savingSectionBodyShort":"savingSectionBodyBank");
+  const button=document.getElementById(short?"savingSectionToggleShort":"savingSectionToggleBank");
+  if(!body||!button)return;
+  const open=body.hidden;
+  body.hidden=!open;
+  button.setAttribute("aria-expanded",String(open));
+  button.setAttribute("aria-label",(open?"收起":"展开")+(short?"短期锁定储蓄":"银行存款"));
+  writeSavingFold("section:"+kind,open);
+}
+function initSavingFoldUI(){
+  [["short","savingSectionBodyShort","savingSectionToggleShort"],["bank","savingSectionBodyBank","savingSectionToggleBank"]].forEach(([kind,bodyId,buttonId])=>{
+    const body=document.getElementById(bodyId),button=document.getElementById(buttonId);
+    if(!body||!button)return;
+    const open=readSavingFold("section:"+kind,true);
+    body.hidden=!open;
+    button.setAttribute("aria-expanded",String(open));
+    button.setAttribute("aria-label",(open?"收起":"展开")+(kind==="short"?"短期锁定储蓄":"银行存款"));
+  });
+  const current=document.getElementById("savingsCurrentDisclosure");
+  if(current){
+    current.open=readSavingFold("current",true);
+    current.addEventListener("toggle",()=>writeSavingFold("current",current.open));
+  }
+  [["shortAccountList","short"],["bankDepositList","bank"]].forEach(([id,kind])=>{
+    const root=document.getElementById(id);
+    root?.addEventListener("toggle",event=>{
+      const details=event.target;
+      if(details instanceof HTMLDetailsElement&&details.classList.contains(kind==="short"?"shortAccountFold":"bankAccountFold")){
+        writeSavingFold(kind+":"+details.dataset.savingId,details.open);
+      }
+    },true);
+  });
+}
+
 function enhanceCollapsibleSections(){
   const state=readSectionUI();
 
@@ -9668,15 +9813,15 @@ function renderShortAccounts(){
     const estimated=shortRateEstimate(a);
     const rateMeta=estimated===null?" · 年化待填写":
       ` · 参考年化 ${shortRateLabel(a.annualRate)} · 预计30日收益 ${M(estimated)}`;
-    return `<div class="shortAccountLine">
-    <div class="shortAccountLineTop"><div class="name">${esc(a.name)}</div>
-      <button type="button" class="shortBalanceEdit" onclick="openShortAccount('${a.id}')" title="直接编辑当前实际余额">${M(shortAccountBalance(a.id))} <span>✎</span></button></div>
+    return `<details class="shortAccountLine shortAccountFold" data-saving-id="${esc(a.id)}" ${readSavingFold("short:"+a.id,false)?"open":""}>
+    <summary class="shortAccountLineTop savingsAccountFoldSummary"><span class="name">${esc(a.name)}</span>
+      <span class="savingsAccountSummaryEnd"><strong>${M(shortAccountBalance(a.id))}</strong><span class="savingsFoldChevron" aria-hidden="true"></span></span></summary>
     <div class="shortAccountLineSub"><span class="small">默认锁定${futureCount?` · ${futureCount} 笔待生效`:""}${rateMeta}</span><span>
       <button type="button" onclick="openExtraSaving('short','${a.id}')">转入</button>
       <button type="button" onclick="openShortTransfer('${a.id}','out')">取出</button>
       <button type="button" onclick="openBankFromShort('${a.id}')">转存</button>
       <button type="button" onclick="openShortAccount('${a.id}')">编辑余额 / 账户</button>
-    </span></div></div>`;
+    </span></div></details>`;
   }).join(""):'<div class="shortAccountEmpty"><div class="note">在「记额外储蓄」里选择锁定账户，首次记录时可直接创建小荷包。</div><button class="secondary" type="button" onclick="openExtraSaving(&quot;short&quot;)">开始存入</button></div>';
 }
 function openBankFromShort(id){
@@ -9970,6 +10115,10 @@ function renderSavings(){
   renderSavingRangeViews();
   renderShortAccounts();
   renderBankDepositReminder();
+  document.getElementById("shortSavingSectionTotal").textContent=M(shortBalanceTotal());
+  document.getElementById("bankSavingSectionTotal").textContent=M(
+    sm(activeBankDeposits(),d=>bankDepositPrincipalAt(d)+depositAccruedInterest(d))
+  );
 
   const deposits=[...activeBankDeposits()].sort((a,b)=>
     String(b.startDate||"").localeCompare(String(a.startDate||""))
@@ -9987,20 +10136,25 @@ function renderSavings(){
 
     const rateText=N(d.annualRate).toFixed(3).replace(/0+$/,"").replace(/\.$/,"");
 
-    return `<div class="savingAccountItem">
-      <div class="savingAccountTop">
-        <div style="min-width:0">
-          <div class="name">${esc(d.name||"银行存款")}</div>
-          <div class="meta">${depositTypeLabel(d)} · ${depositTermLabel(d)} · 年利率 ${rateText}%</div>
-          <div class="meta">${d.startDate||""}${d.depositType==="fixed"&&d.maturityDate?" ～ "+d.maturityDate:" · 无固定到期日"}</div>
+    return `<details class="savingAccountItem bankAccountFold" data-saving-id="${esc(d.id)}" ${readSavingFold("bank:"+d.id,false)?"open":""}>
+      <summary class="savingAccountTop bankAccountSummary">
+        <span class="bankAccountTitle">
+          <span class="name">${esc(d.name||"银行存款")}</span>
+          <span class="meta">${depositTypeLabel(d)} · ${depositTermLabel(d)} · 年利率 ${rateText}%</span>
+        </span>
+        <span class="savingsAccountSummaryEnd">
+          <span class="bankAccountAmount">
+            <strong class="savingAccountValue">${M(principalNow)}</strong>
+            <span class="small">+${M(interestNow)} 利息</span>
+          </span>
+          <span class="savingsFoldChevron" aria-hidden="true"></span>
+        </span>
+      </summary>
+      <div class="bankAccountDetails">
+        <div class="bankAccountExtraMeta">
+          <span class="meta">${d.startDate||""}${d.depositType==="fixed"&&d.maturityDate?" ～ "+d.maturityDate:" · 无固定到期日"}</span>
           <span class="depositStatus ${matured?"matured":""}">${future?`计划 ${d.startDate} 开始`:matured?"已到期":d.depositType==="demand"?"活期计息中":"定期计息中"}</span>
         </div>
-        <div style="text-align:right">
-          <div class="savingAccountValue">${M(principalNow)}</div>
-          <div class="small" style="margin-top:3px">+${M(interestNow)} 利息</div>
-        </div>
-      </div>
-
       <div class="savingMiniGrid">
         <div>资金来源<strong>${d.source==="short"?esc(shortSavingsAccountLabel(d.shortAccountId)):d.source==="existing"?"储蓄余额":"外部新增"}</strong></div>
         <div>存款本金<strong>${M(principalNow)}</strong></div>
@@ -10037,7 +10191,8 @@ function renderSavings(){
         <button onclick="openProjectTransfer('', '', 'bank:${d.id}')">专项转入</button>
         <button onclick="editBankDeposit('${d.id}')">修改</button>
       </div>
-    </div>`;
+      </div>
+    </details>`;
   }).join(""):'<div class="note">还没有银行存款。可以记录活期或不同期限的定期存款，并按录入利率估算利息。</div>';
 }
 
@@ -13410,6 +13565,7 @@ document.addEventListener("focusin",()=>setTimeout(syncDateDisplays,0));
 
 enhanceDateInputs();
 enhanceCollapsibleSections();
+initSavingFoldUI();
 
 // 结果页默认恢复上一次使用的统计范围。
 if(!historyStartDate.value&&!historyEndDate.value){
