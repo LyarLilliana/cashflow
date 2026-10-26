@@ -6959,11 +6959,18 @@ function txHtml(t,del=false,edit=false,effects=null){
     const label=esc(aa?.title||t.note||"AA 往来");
     const person=esc(t.aaPersonName||aa?.people?.find(p=>p.id===t.aaPersonId)?.name||"");
     const wallet=Wallets.inlineTag(t);
+    if(t.type==="aa_void_history"){
+      const paid=t.voidOriginalType==="expense";
+      return `<div class="item"><div class="txRow"><div class="txLeft">
+        <div class="name">已取消的 AA ${paid?"付款":"收款"} · ${label}</div>
+        <div class="meta">${esc(t.date||"")} · 原金额 ${M(t.voidOriginalAmount)} · 历史记录保留，原资金过账已撤销</div>
+      </div><div class="txRight"><div class="txAmount txMuted">已取消</div></div></div></div>`;
+    }
     if(t.type==="aa_resolution"){
       const ended=t.action==="void";
       return `<div class="item"><div class="txRow"><div class="txLeft">
       <div class="name">AA ${ended?"已取消 · 不支出":"转为个人承担"} · ${label}</div>
-      <div class="meta">${esc(t.date||"")} · ${ended?"关联收付流水已撤销":"历史收付保留，不重复扣款"}${t.note?" · "+esc(t.note):""}</div>
+      <div class="meta">${esc(t.date||"")} · ${ended?"原收付保留为已取消流水，不再计入实际支出":"历史收付保留，不重复扣款"}${t.note?" · "+esc(t.note):""}</div>
       </div><div class="txRight"><div class="txAmount txMuted">¥0</div></div></div></div>`;
     }
     if(t.type==="aa_open"){
@@ -7233,6 +7240,7 @@ function transactionActionTitle(t){
     return (t.type==="aa_open"?"AA 往来登记":
       t.type==="aa_resolution"?(t.action==="void"?"AA 取消，不支出":"AA 转个人承担"):
       t.type==="aa_receive"?"AA 收款核销":
+      t.type==="aa_void_history"?"已取消的 AA 收付款":
       t.aaKind==="conversion"?"个人独立支出":
       t.aaKind==="advance"?(a?.resolution==="expense"?"个人独立支出":"AA 集体垫付"):
       "AA 付款核销")+" · "+title;
@@ -7693,6 +7701,7 @@ function transactionSearchText(t){
   if(t.type==="living_batch")parts.push("多日 基础生活 买菜 分摊 预付");
   if(t.type==="short_account_archive"||t.type==="short_account_restore")parts.push("短期储蓄 账户 删除 恢复",t.accountName);
   if(t.type==="short_balance_adjustment")parts.push("短期储蓄 余额 校准 修正 实际金额",shortSavingsAccountLabel(t.shortAccountId),t.priorBalance,t.targetBalance,t.delta);
+  if(t.type==="aa_void_history")parts.push("AA 已取消 历史收付 原账撤销 资金退回",t.voidOriginalType,t.voidOriginalAmount);
   if(t.type==="ordinary_balance_adjustment")parts.push("普通储蓄 余额 校准 修正",t.targetBalance,t.delta);
   if(t.type==="extra_saving")parts.push("额外储蓄");
   if(t.type==="pocket_to_saving")parts.push("零花钱转储蓄");
