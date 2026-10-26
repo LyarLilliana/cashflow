@@ -148,9 +148,7 @@ button{touch-action:manipulation}
 }
 
 
-#savingRangeQuick{
-  grid-template-columns:repeat(5,minmax(0,1fr));
-}
+#savingRangeQuick{grid-template-columns:repeat(3,minmax(0,1fr));}
 .bankReminderSavedHead{
   color:var(--muted);
 }
@@ -247,9 +245,12 @@ button{touch-action:manipulation}
   border-radius:9px;
   font-size:10.5px;
 }
-#resultRangeQuick{
-  grid-template-columns:repeat(5,minmax(0,1fr));
+#resultRangeQuick,#savingRangeQuick{
+  grid-template-columns:repeat(3,minmax(0,1fr));
 }
+.statsCycleSourceRow{margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+.statsCycleSourceRow label{display:block;margin-bottom:5px;font-size:10.5px;color:var(--muted)}
+.statsCycleSourceRow select{width:100%;min-height:38px;font-size:12px;border-radius:11px}
 #bankReminderEditor[hidden],
 #bankReminderEditBtn[hidden]{
   display:none!important;
@@ -2478,11 +2479,16 @@ details[open]>summary .savingsFoldChevron::before,
       </div>
       <div class="resultRangePanel" id="savingRangePanel" hidden>
         <div class="historyQuick" id="savingRangeQuick">
-          <button id="savingCycleBtn" type="button">当前周期</button>
+          <button id="savingCycleBtn" type="button">收入周期</button>
+          <button id="savingWeekBtn" type="button">本周</button>
           <button id="savingMonthBtn" class="active" type="button">本月</button>
           <button id="savingYearBtn" type="button">本年</button>
           <button id="savingAllBtn" type="button">全部</button>
           <button id="savingCustomBtn" type="button">自定义</button>
+        </div>
+        <div class="statsCycleSourceRow" id="savingCyclePlanRow" hidden>
+          <label for="savingCyclePlan">按哪一笔周期收入统计</label>
+          <select id="savingCyclePlan"></select>
         </div>
         <div class="resultCustomDates" id="savingCustomDates" hidden>
           <div class="historyFilterGrid">
@@ -2719,13 +2725,18 @@ details[open]>summary .savingsFoldChevron::before,
 
       <div class="resultRangePanel" id="resultRangePanel" hidden>
         <div class="historyQuick" id="resultRangeQuick">
-          <button id="historyCycleBtn">当前周期</button>
-          <button id="historyMonthBtn" class="active">本月</button>
+          <button id="historyCycleBtn" type="button">收入周期</button>
+          <button id="historyWeekBtn" type="button">本周</button>
+          <button id="historyMonthBtn" class="active" type="button">本月</button>
           <button id="historyYearBtn">本年</button>
           <button id="historyAllBtn">全部</button>
           <button id="historyCustomBtn">自定义</button>
         </div>
 
+        <div class="statsCycleSourceRow" id="historyCyclePlanRow" hidden>
+          <label for="historyCyclePlan">按哪一笔周期收入统计</label>
+          <select id="historyCyclePlan"></select>
+        </div>
         <div class="resultCustomDates" id="historyCustomDates" hidden>
           <div class="historyFilterGrid">
             <div>
@@ -7641,9 +7652,10 @@ const RESULT_RANGE_PREF_KEY="safespend_result_range_v1";
 function readResultRangePref(){
   try{
     const raw=JSON.parse(localStorage.getItem(RESULT_RANGE_PREF_KEY)||"{}");
-    const allowed=new Set(["cycle","month","year","all","custom"]);
+    const allowed=new Set(["cycle","week","month","year","all","custom"]);
     return {
       mode:allowed.has(raw.mode)?raw.mode:"month",
+      cyclePlanId:String(raw.cyclePlanId||""),
       start:String(raw.start||""),
       end:String(raw.end||"")
     };
@@ -7655,13 +7667,77 @@ function writeResultRangePref(){
   try{
     localStorage.setItem(RESULT_RANGE_PREF_KEY,JSON.stringify({
       mode:historyMode,
+      cyclePlanId:selectedStatsCyclePlanId,
       start:historyStartDate.value||"",
       end:historyEndDate.value||""
     }));
   }catch(e){}
 }
 let historyMode="month";
-
+let selectedStatsCyclePlanId="";
+function weekBounds(date=td()){
+  const weekday=(D(date).getDay()+6)%7;
+  return {start:addDays(date,-weekday),end:addDays(date,6-weekday)};
+}
+function selectableIncomeCyclePlans(){
+  const options=new Map();
+  S.incomePlans.filter(isRecurringPlan).forEach(p=>{
+    options.set(p.id,{id:p.id,name:p.name||"周期收入",freq:p.freq});
+  });
+  S.tx.filter(isCycleIncomeTx).forEach(t=>{
+    if(t.planId&&!options.has(t.planId)){
+      options.set(t.planId,{id:t.planId,name:t.planNameAtRecord||"历史周期收入",
+        freq:t.planFreqAtRecord||"weekly"});
+    }
+  });
+  return [...options.values()];
+}
+function refreshStatsCycleSelects(){
+  const options=selectableIncomeCyclePlans();
+  if(selectedStatsCyclePlanId&&!options.some(p=>p.id===selectedStatsCyclePlanId))
+    selectedStatsCyclePlanId="";
+  const html='<option value="">最近到账的收入周期</option>'+options.map(p=>
+    `<option value="${esc(p.id)}">${esc(freqLabel(p.freq)+" · "+p.name)}</option>`).join("");
+  for(const id of ["historyCyclePlan","savingCyclePlan"]){
+    const el=document.getElementById(id);
+    if(el){el.innerHTML=html;el.value=selectedStatsCyclePlanId;}
+  }
+  const h=document.getElementById("historyCyclePlanRow");
+  const v=document.getElementById("savingCyclePlanRow");
+  if(h)h.hidden=historyMode!=="cycle";
+  if(v)v.hidden=savingRangePreset!=="cycle";
+}
+function selectedStatsCycleBounds(){
+  if(!selectedStatsCyclePlanId)return currentCycleResultBounds();
+  const plan=selectableIncomeCyclePlans().find(p=>p.id===selectedStatsCyclePlanId);
+  if(!plan)return currentCycleResultBounds();
+  const receipts=cycleIncomeRows().filter(t=>t.planId===plan.id&&t.date<=td());
+  const last=receipts[receipts.length-1];
+  if(!last)return plan.freq==="monthly"?monthBounds():weekBounds();
+  const scheduled=S.incomePlans.find(p=>p.id===plan.id)?.nextDate||"";
+  const calculated=nextAfter(last.date,last.planFreqAtRecord||plan.freq);
+  const next=scheduled>last.date&&calculated
+    ?(scheduled<calculated?scheduled:calculated)
+    :(calculated||scheduled);
+  return {start:last.date,end:next?addDays(next,-1):td()};
+}
+function selectedStatsCycleCaption(){
+  const p=selectableIncomeCyclePlans().find(x=>x.id===selectedStatsCyclePlanId);
+  return p?freqLabel(p.freq)+" · "+p.name:"当前周期";
+}
+function changeSelectedStatsCycle(id){
+  selectedStatsCyclePlanId=selectableIncomeCyclePlans().some(p=>p.id===id)?id:"";
+  refreshStatsCycleSelects();
+  const range=selectedStatsCycleBounds();
+  if(historyMode==="cycle"){
+    historyStartDate.value=range.start;historyEndDate.value=range.end;
+  }
+  if(savingRangePreset==="cycle"){
+    savingStartDate.value=range.start;savingEndDate.value=range.end;
+    renderSavingRangeViews();
+  }
+  syncDateDisplays();writeResultRangePref();renderHistory();
+}
 function monthBounds(date=td()){
   const d=D(date);
   const y=d.getFullYear(),m=d.getMonth()+1;
@@ -7703,15 +7779,18 @@ function setHistoryMode(mode){
   historyVisibleCount=HISTORY_PAGE_SIZE;
 
   historyCycleBtn.classList.toggle("active",mode==="cycle");
+  historyWeekBtn.classList.toggle("active",mode==="week");
   historyMonthBtn.classList.toggle("active",mode==="month");
   historyYearBtn.classList.toggle("active",mode==="year");
   historyAllBtn.classList.toggle("active",mode==="all");
   historyCustomBtn.classList.remove("active");
 
   if(mode==="cycle"){
-    const r=currentCycleResultBounds();
-    historyStartDate.value=r.start;
-    historyEndDate.value=r.end;
+    const r=selectedStatsCycleBounds();
+    historyStartDate.value=r.start;historyEndDate.value=r.end;
+  }else if(mode==="week"){
+    const r=weekBounds();
+    historyStartDate.value=r.start;historyEndDate.value=r.end;
   }else if(mode==="month"){
     const r=monthBounds();
     historyStartDate.value=r.start;
@@ -7727,6 +7806,7 @@ function setHistoryMode(mode){
 
   historyCustomDates.hidden=true;
   resultRangePanel.hidden=true;
+  refreshStatsCycleSelects();
 
   syncDateDisplays();
   writeResultRangePref();
@@ -7988,8 +8068,9 @@ function historyRangeLabel(){
   const end=historyEndDate.value;
 
   if(historyMode==="cycle"){
-    return `当前周期 · ${start}${end&&end!==start?" 至 "+end:""}`;
+    return `${selectedStatsCycleCaption()} · ${start}${end&&end!==start?" 至 "+end:""}`;
   }
+  if(historyMode==="week"&&start)return `本周 · ${start} 至 ${end}`;
   if(historyMode==="month"&&start){
     return `${start.slice(0,7)} · 本月`;
   }
@@ -8058,11 +8139,15 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
 function periodOutcomeLabels(mode=historyMode){
   if(mode==="cycle"){
     return {
-      outcome:"本周期预计可存",
+      outcome:selectedStatsCyclePlanId?"所选周期预计可存":"本周期预计可存",
       income:"本周期总收入",
       sub:"本周期收入扣除实际预算支出与储蓄取用后的预计结余",
       rateSub:"本周期预计可存 ÷ 本周期总收入"
     };
+  }
+  if(mode==="week"){
+    return {outcome:"本周预计可存",income:"本周总收入",
+      sub:"本周实际收支及储蓄变化",rateSub:"本周预计可存 ÷ 本周总收入"};
   }
   if(mode==="month"){
     return {
@@ -8108,8 +8193,15 @@ function periodSavableForRange(start="",end="",mode=historyMode){
     S.tx.filter(t=>t.type==="income"&&inRange(t.date)),
     t=>N(t.amount)
   );
-  const savings=savingSummaryForRange(start,end,mode==="cycle");
-  return {income,expected:N(savings.cashflowGrowth)};
+  const selectedPlanCycle=mode==="cycle"&&!!selectedStatsCyclePlanId;
+  const savings=savingSummaryForRange(start,end,mode==="cycle"&&!selectedPlanCycle);
+  let expected=N(savings.cashflowGrowth);
+  const active=currentCycleStats();
+  if((selectedPlanCycle||mode==="week")&&active.income
+    &&(!start||active.income.date>=start)&&(!end||active.income.date<=end)){
+    expected+=Math.max(0,N(active.pocketBalance)-N(savings.pendingPocket));
+  }
+  return {income,expected};
 }
 
 // This cycle counts money actively saved. Uncommitted pocket cash remains
@@ -8144,19 +8236,15 @@ function periodOutcomeForRange(start="",end="",mode=historyMode){
 
   let savable=periodSavableForRange(start,end,mode);
 
-  if(mode==="cycle"){
+  if(mode==="cycle"&&!selectedStatsCyclePlanId){
     const cycle=currentCycleStats();
-    if(cycle.income){
-      savable={...savable,income:N(cycle.incomeTotal)};
-    }
+    if(cycle.income)savable={...savable,income:N(cycle.incomeTotal)};
   }
-
+  const expected=mode==="cycle"&&!selectedStatsCyclePlanId
+    ?currentCycleExpectedSaving():N(savable.expected);
   return {
-    income:N(savable.income),
-    spend,
-    savable,
-    expected:mode==="cycle"?currentCycleExpectedSaving():N(savable.expected),
-    rate:N(savable.income)>0?(mode==="cycle"?currentCycleExpectedSaving():N(savable.expected))/N(savable.income)*100:null
+    income:N(savable.income),spend,savable,expected,
+    rate:N(savable.income)>0?expected/N(savable.income)*100:null
   };
 }
 
@@ -8291,6 +8379,7 @@ historyStartDate.addEventListener("change",()=>{
   historyMode="custom";
   historyVisibleCount=HISTORY_PAGE_SIZE;
   historyCycleBtn.classList.remove("active");
+  historyWeekBtn.classList.remove("active");
   historyMonthBtn.classList.remove("active");
   historyYearBtn.classList.remove("active");
   historyAllBtn.classList.remove("active");
@@ -8305,6 +8394,7 @@ historyEndDate.addEventListener("change",()=>{
   historyMode="custom";
   historyVisibleCount=HISTORY_PAGE_SIZE;
   historyCycleBtn.classList.remove("active");
+  historyWeekBtn.classList.remove("active");
   historyMonthBtn.classList.remove("active");
   historyYearBtn.classList.remove("active");
   historyAllBtn.classList.remove("active");
@@ -8316,6 +8406,8 @@ historyEndDate.addEventListener("change",()=>{
 });
 
 historyCycleBtn.onclick=()=>setHistoryMode("cycle");
+historyWeekBtn.onclick=()=>setHistoryMode("week");
+historyCyclePlan.addEventListener("change",()=>changeSelectedStatsCycle(historyCyclePlan.value));
 historyMonthBtn.onclick=()=>setHistoryMode("month");
 historyYearBtn.onclick=()=>setHistoryMode("year");
 historyAllBtn.onclick=()=>setHistoryMode("all");
@@ -8332,6 +8424,7 @@ historyCustomBtn.onclick=()=>{
 
   if(opening){
     historyCycleBtn.classList.remove("active");
+  historyWeekBtn.classList.remove("active");
     historyMonthBtn.classList.remove("active");
     historyYearBtn.classList.remove("active");
     historyAllBtn.classList.remove("active");
@@ -8339,6 +8432,7 @@ historyCustomBtn.onclick=()=>{
   }else if(historyMode!=="custom"){
     historyCustomBtn.classList.remove("active");
     historyCycleBtn.classList.toggle("active",historyMode==="cycle");
+    historyWeekBtn.classList.toggle("active",historyMode==="week");
     historyMonthBtn.classList.toggle("active",historyMode==="month");
     historyYearBtn.classList.toggle("active",historyMode==="year");
     historyAllBtn.classList.toggle("active",historyMode==="all");
@@ -13885,6 +13979,8 @@ initSavingFoldUI();
 // 结果页默认恢复上一次使用的统计范围。
 if(!historyStartDate.value&&!historyEndDate.value){
   const pref=readResultRangePref();
+  selectedStatsCyclePlanId=pref.cyclePlanId||"";
+  refreshStatsCycleSelects();
 
   if(pref.mode==="custom"){
     historyMode="custom";
@@ -13893,6 +13989,7 @@ if(!historyStartDate.value&&!historyEndDate.value){
     historyEndDate.value=pref.end||fallback.end;
 
     historyCycleBtn.classList.remove("active");
+  historyWeekBtn.classList.remove("active");
     historyMonthBtn.classList.remove("active");
     historyYearBtn.classList.remove("active");
     historyAllBtn.classList.remove("active");
