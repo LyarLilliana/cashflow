@@ -5034,8 +5034,18 @@ function syncLivingSettlementTotals(){
 
     const date=t.coveredDate||t.date||"";
     const info=livingDayInfo(date);
+    const oldSource=S.tx.find(x=>x.id===t.sourceIncomeId&&x.type==="income");
     if(info.covered){
       t.allowance=N(info.allowance);
+      // 历史收入切换“本次不扣”后，若该生活日由另一笔收入接手，
+      // 结算来源必须同步转给新的覆盖收入，避免归入错误周期。
+      if(t.sourceIncomeId&&t.sourceIncomeId!==info.incomeId)
+        t.sourceIncomeId=info.incomeId;
+    }else if(oldSource?.deductLiving===false){
+      // 旧的自动/手动结算保留流水，但不再释放未实际预留的生活额度。
+      // 已发生的手工生活消费继续由日常支出余额承担。
+      t.allowance=0;
+      t.sourceIncomeId="";
     }
 
     if(t.autoSettled){
@@ -12710,6 +12720,8 @@ saveTxEdit.onclick=()=>{
   }
 
   if(["income","expense","living_batch","living_settlement"].includes(t.type))Wallets.editSelected(t);
+  // 保存前重新归属历史生活结算，避免更改扣除开关后多算结余。
+  if(t.type==="income")syncLivingSettlementTotals();
   t.editedAt=Date.now();
 
   const reopenLivingHistory=returnToLivingHistory&&t.type==="living_settlement";
