@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-121-safe-asset-fallback";
+const CACHE = "safespend-v10-122-fix-blank-screen";
 const ASSETS = [
   "./",
   "./index.html",
