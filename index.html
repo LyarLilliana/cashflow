@@ -1983,6 +1983,11 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .ordinaryLedgerBody{flex:1;min-width:0}
 .ordinaryLedgerName{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 .ordinaryLedgerMeta{font-size:10px;color:var(--muted);line-height:1.5;margin-top:3px}
+.ordinaryLedgerTrace{margin-top:6px}
+.ordinaryLedgerTrace>summary{list-style:none;cursor:pointer;color:var(--muted);font-size:10px;display:inline-flex;align-items:center}
+.ordinaryLedgerTrace>summary::-webkit-details-marker{display:none}
+.ordinaryLedgerTrace>summary::after{content:"⌄";margin-left:5px;transition:transform .15s ease}
+.ordinaryLedgerTrace[open]>summary::after{transform:rotate(180deg)}
 .ordinaryLedgerSource{margin-top:7px;font-size:10.5px;line-height:1.5;overflow-wrap:anywhere}
 .ordinarySourceLabel{color:var(--muted)}
 .ordinaryLedgerOriginMeta{color:var(--muted);font-size:10px;margin-top:2px}
@@ -1990,6 +1995,9 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .ordinaryLedgerSourceBtn{border:0;background:transparent;color:var(--accent);font-size:10.5px;font-weight:700;padding:5px 0}
 .ordinaryLedgerSourceBtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
 .ordinaryLedgerAside{flex:none;text-align:right;min-width:92px}
+.ordinaryLedgerType{font-size:9.5px;font-weight:680;color:var(--muted);margin-bottom:4px}
+.ordinaryLedgerType.in{color:var(--accent)}
+.ordinaryLedgerType.out{color:var(--text)}
 .ordinaryLedgerDelta{font-size:12px;font-weight:750;font-variant-numeric:tabular-nums}
 .ordinaryLedgerDelta.in{color:var(--accent)}
 .ordinaryLedgerDelta.out{color:var(--text)}
@@ -4657,10 +4665,15 @@ function accounting(asOf=td()){
       overPlan
     };
     }finally{
-      const delta=saving-ordinaryBefore;
-      if(Math.abs(delta)>.000001){
+      // The ordinary savings ledger is monetary (two decimal places):
+      // only record transactions that truly change the displayed balance.
+      // Round before and after, not each floating-point operation independently.
+      const beforeCents=Math.round(ordinaryBefore*100);
+      const afterCents=Math.round(saving*100);
+      const delta=(afterCents-beforeCents)/100;
+      if(afterCents!==beforeCents){
         ordinaryMovements.push({
-          id:t.id,date:t.date||"",type:t.type,delta,balance:saving,
+          id:t.id,date:t.date||"",type:t.type,delta,balance:afterCents/100,
           sourceIncomeId:t.sourceIncomeId||"",nextIncomeId:t.nextIncomeId||"",
           sourceId:t.sourceId||"",bankDepositId:t.bankDepositId||""
         });
@@ -9347,13 +9360,15 @@ function renderOrdinarySavingLedger(){
   if(!root)return;
   const a=accounting();
   renderOrdinaryWalletDistribution();
-  const rows=(a.ordinaryMovements||[]);
+  // Display only actual +savings or -savings entries. No untouched source
+  // transactions and no zero / rounded-to-zero changes in this dedicated list.
+  const rows=(a.ordinaryMovements||[]).filter(t=>Number.isFinite(t.delta)&&Math.round(Math.abs(t.delta)*100)>=1);
   const lookup=new Map(S.tx.map(t=>[t.id,t]));
   const totalIn=sm(rows.filter(t=>t.delta>0),t=>t.delta);
   const totalOut=sm(rows.filter(t=>t.delta<0),t=>-t.delta);
   const diff=sm(rows,t=>t.delta)-a.saving;
   document.getElementById("ordinarySavingLedgerHeader").textContent=M(a.saving);
-  const info=`共 ${rows.length} 条资金变动 · 累计增加 ${M(totalIn)} · 累计减少 ${M(totalOut)}。每笔均关联原始流水或对应自动结转记录，按过账先后显示。`;
+  const info=`共 ${rows.length} 笔普通储蓄变动 · 增加 ${M(totalIn)} · 扣减 ${M(totalOut)}。只记录实际改变普通储蓄余额的项目，未发生变化的不显示。`;
   document.getElementById("ordinarySavingLedgerIntro").textContent=
     info+(Math.abs(diff)>.005?" 当前记录存在余额核对差额 "+M(diff)+"。":"");
   root.innerHTML=rows.length?rows.slice().reverse().map(row=>{
@@ -9366,24 +9381,26 @@ function renderOrdinarySavingLedger(){
       <div class="ordinaryLedgerBody">
         <div class="ordinaryLedgerName">${esc(title)}</div>
         <div class="ordinaryLedgerMeta">${esc(row.date||"")}${note?" · "+esc(note):""}</div>
-        <div class="ordinaryLedgerSource">
-          <div><span class="ordinarySourceLabel">对应：</span>${esc(source.title)}</div>
-          <div class="ordinaryLedgerOriginMeta">${esc(source.meta)}</div>
-        </div>
-        <div class="ordinaryLedgerLinks">
+        ${tx&&transactionEditable(tx)
+          ?'<div class="ordinaryLedgerLinks"><button class="ordinaryLedgerEditBtn" type="button" data-tx-id="'+esc(tx.id)+'">修改这笔流水</button></div>'
+          :""}
+        <details class="ordinaryLedgerTrace">
+          <summary>查看来源流水</summary>
+          <div class="ordinaryLedgerSource">
+            <div><span class="ordinarySourceLabel">对应：</span>${esc(source.title)}</div>
+            <div class="ordinaryLedgerOriginMeta">${esc(source.meta)}</div>
+          </div>
           ${source.ref&&source.kind?
-            '<button class="ordinaryLedgerSourceBtn" type="button" data-origin-kind="'+esc(source.kind)+'" data-origin-ref="'+esc(source.ref)+'">'+esc(source.action)+' ›</button>':""}
-          ${tx&&transactionEditable(tx)
-            ?'<button class="ordinaryLedgerEditBtn" type="button" data-tx-id="'+esc(tx.id)+'">修改这笔流水</button>'
-            :""}
-        </div>
+            '<div class="ordinaryLedgerLinks"><button class="ordinaryLedgerSourceBtn" type="button" data-origin-kind="'+esc(source.kind)+'" data-origin-ref="'+esc(source.ref)+'">'+esc(source.action)+' ›</button></div>':""}
+        </details>
       </div>
       <div class="ordinaryLedgerAside">
+        <div class="ordinaryLedgerType ${incoming?"in":"out"}">${incoming?"储蓄增加":"储蓄扣减"}</div>
         <div class="ordinaryLedgerDelta ${incoming?"in":"out"}">${incoming?"+":"−"}${M(Math.abs(row.delta))}</div>
         <div class="ordinaryLedgerBalance">该笔后 ${M(row.balance)}</div>
       </div>
     </div>`;
-  }).join(""):'<div class="note">目前普通储蓄余额尚无变动。</div>';
+  }).join(""):'<div class="note">目前没有增加或扣减普通储蓄的记录。</div>';
 }
 document.getElementById("ordinarySavingLedgerRows").addEventListener("click",event=>{
   const source=event.target.closest("button[data-origin-kind][data-origin-ref]");
