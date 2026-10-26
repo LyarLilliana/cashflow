@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-106-income-deduction-toggles";
+const CACHE = "safespend-v10-107-income-allocation-settlement-fix";
 const ASSETS = [
   "./",
   "./index.html",
