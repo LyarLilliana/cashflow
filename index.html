@@ -63,30 +63,37 @@ button{touch-action:manipulation}
 .heroSub{font-size:12px;color:var(--muted);line-height:1.55}
 .heroAction{margin-top:14px;display:flex;gap:8px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-/* 首页四项资金概览统一卡片高度和上下对齐。 */
-#now > .grid{grid-auto-rows:1fr;align-items:stretch}
+/* 首页资金概览：四张卡片延续原下排的紧凑高度和清晰层级。 */
+#now > .grid{
+  grid-auto-rows:1fr;
+  align-items:stretch;
+  gap:8px;
+  margin-top:9px;
+}
 #now > .grid .stat{
   display:flex;
   flex-direction:column;
   justify-content:center;
   align-items:flex-start;
   min-width:0;
-  min-height:104px;
-  padding:15px 14px;
+  min-height:0;
+  padding:11px 13px 12px;
+  border-radius:16px;
+  box-shadow:none;
 }
 #now > .grid .stat .k{
-  font-size:12px;
-  line-height:1.4;
-  font-weight:650;
+  font-size:11.5px;
+  line-height:1.3;
+  font-weight:600;
   color:var(--muted);
 }
 #now > .grid .stat .v{
   max-width:100%;
-  margin-top:7px;
-  font-size:clamp(18px,5.2vw,22px);
-  line-height:1.18;
-  font-weight:760;
-  letter-spacing:-.45px;
+  margin-top:5px;
+  font-size:clamp(18px,5.1vw,21px);
+  line-height:1.2;
+  font-weight:740;
+  letter-spacing:-.3px;
   font-variant-numeric:tabular-nums;
   overflow-wrap:anywhere;
 }
@@ -101,7 +108,7 @@ button{touch-action:manipulation}
 }
 #now .hero .explainRow.total > strong{font-size:13px;font-weight:760}
 @media(max-width:360px){
-  #now > .grid .stat{padding:13px 11px 12px}
+  #now > .grid .stat{padding:10px 11px}
   #now > .grid .stat .v{font-size:18px}
 }
 .section{margin-top:16px}
