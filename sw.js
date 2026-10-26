@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-107-ordinary-saving-origin-trace";
+const CACHE = "safespend-v10-108-income-deduction-controls";
 const ASSETS = [
   "./",
   "./index.html",
