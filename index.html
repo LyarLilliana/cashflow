@@ -1631,6 +1631,15 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .subCard{background:#F7F8F5;border-radius:16px;padding:13px;margin-top:10px}
+.incomeDeductionRow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
+.incomeDeductionRow .name{flex:1;min-width:0}
+.incomeDeductionToggle{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);font-weight:680;white-space:nowrap;cursor:pointer}
+.incomeDeductionToggle input{position:absolute;opacity:0;width:1px;height:1px}
+.incomeDeductionTrack{width:33px;height:20px;border-radius:20px;background:#CED5CF;position:relative;flex:none;transition:background .18s ease}
+.incomeDeductionTrack:after{content:"";position:absolute;left:3px;top:3px;width:14px;height:14px;background:#fff;border-radius:50%;box-shadow:0 1px 3px #0002;transition:transform .18s ease}
+.incomeDeductionToggle input:checked+.incomeDeductionTrack{background:var(--accent)}
+.incomeDeductionToggle input:checked+.incomeDeductionTrack:after{transform:translateX(13px)}
+.incomeDeductionToggle input:focus-visible+.incomeDeductionTrack{outline:2px solid var(--accent);outline-offset:3px}
 
 .doneBtn{
   border:1px solid #D9DDD8;
@@ -2601,13 +2610,27 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       </div>
     </div>
     <div class="subCard">
-      <div class="name">本次基础生活扣除</div>
+      <div class="incomeDeductionRow">
+        <div class="name">本次基础生活扣除</div>
+        <label class="incomeDeductionToggle" for="incDeductLiving">
+          <input id="incDeductLiving" type="checkbox" checked>
+          <span class="incomeDeductionTrack" aria-hidden="true"></span>
+          <span id="incDeductLivingLabel">本次扣除</span>
+        </label>
+      </div>
       <div class="meta" id="incLivingMeta">周期性收入会覆盖自己的生活周期；相同日历日只扣一次。</div>
       <div style="margin-top:8px;font-weight:750" id="incLivingGuide">¥0</div>
     </div>
     <div class="subCard">
-      <div class="name">近期固定账单</div>
-      <div class="meta">会自动计算下一次收入前需要支付的账单。</div>
+      <div class="incomeDeductionRow">
+        <div class="name">近期固定账单</div>
+        <label class="incomeDeductionToggle" for="incDeductBills">
+          <input id="incDeductBills" type="checkbox" checked>
+          <span class="incomeDeductionTrack" aria-hidden="true"></span>
+          <span id="incDeductBillsLabel">本次扣除</span>
+        </label>
+      </div>
+      <div class="meta" id="incBillsMeta">按本次收入承担的账单预留；不扣除时账单仍会保留。</div>
       <div style="margin-top:8px;font-weight:750" id="incBills">¥0</div>
     </div>
     <div class="subCard">
@@ -4857,7 +4880,11 @@ function livingReservationMap(){
     .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
 
   incomes.forEach(t=>{
-    if(t.livingCoverageStart&&t.livingCoverageEnd){
+    if(t.deductLiving===false){
+      result[t.id]={
+        days:[],totalDays:0,skippedDays:0,amount:0,breakdown:[],start:"",end:""
+      };
+    }else if(t.livingCoverageStart&&t.livingCoverageEnd){
       const all=dateRange(t.livingCoverageStart,t.livingCoverageEnd);
       const days=all.filter(d=>!covered.has(d));
       days.forEach(d=>covered.add(d));
@@ -5186,6 +5213,30 @@ function currentlyCoveredLivingDays(){
   Object.values(map).forEach(x=>(x.days||[]).forEach(d=>set.add(d)));
   return set;
 }
+// 单次收入可选择承担尚未被覆盖的生活日或近期账单；默认两项均不扣除。
+function incomeDeductionWindowEnd(p,requestedNext="",start=td()){
+  if(p&&isRecurringPlan(p))return requestedNext||"";
+  const next=nextRecurringIncome()?.nextDate||"";
+  return next&&next>start?next:"";
+}
+function livingPreviewForIncome(p,end,enabled=true,start=td()){
+  if(!enabled)return {amount:0,days:[],totalDays:0,skippedDays:0,start:"",end:"",extra:true,disabled:true};
+  if(p&&isRecurringPlan(p)&&start===td())return livingPreviewForPlan(p,end);
+  if(!end||end<=start)return {amount:0,days:[],totalDays:0,skippedDays:0,start,end,extra:true,missingWindow:true};
+  const daysAll=dateRange(start,end);
+  const covered=currentlyCoveredLivingDays();
+  const days=daysAll.filter(date=>!covered.has(date));
+  return {amount:sm(days,d=>livingRateForDate(d)),days,
+    totalDays:daysAll.length,skippedDays:daysAll.length-days.length,
+    breakdown:livingRateBreakdownForDays(days),start,end,extra:false};
+}
+function updateIncomeDeductionLabels(prefix){
+  for(const part of ["Living","Bills"]){
+    const input=document.getElementById(prefix+"Deduct"+part);
+    const label=document.getElementById(prefix+"Deduct"+part+"Label");
+    if(input&&label)label.textContent=input.checked?"本次扣除":"本次不扣";
+  }
+}
 function livingPreviewForPlan(p,nextDateOverride=""){
   if(!isRecurringPlan(p)){
     return {amount:0,days:[],totalDays:0,skippedDays:0,start:"",end:"",extra:true};
@@ -5251,12 +5302,15 @@ function billPaymentOutsideTrackedCycles(t){
 
 function effectiveIncomeAllocation(t){
   const livingMap=livingReservationMap();
-  const living=N(livingMap[t.id]?.amount);
+  const living=t.deductLiving===false?0:N(livingMap[t.id]?.amount);
 
   const existingBills=new Map(S.bills.map(b=>[b.id,b]));
   let billItems=[];
   let bills=0;
-  if(Array.isArray(t.alloc?.billItems)){
+  if(t.deductBills===false){
+    billItems=[];
+    bills=0;
+  }else if(Array.isArray(t.alloc?.billItems)){
     billItems=t.alloc.billItems.map(x=>{
       const b=existingBills.get(x.billId);
       if(!b||!billCycleIsActive(b,x.dueDate)||billSkipped(x.billId,x.dueDate)||billAllocationReleased(t.id,x.billId,x.dueDate))return null;
@@ -5434,7 +5488,7 @@ function billSettled(bid,dueDate){
 }
 function billReserved(bid,dueDate){
   return S.tx.some(t=>{
-    if(t.type!=="income")return false;
+    if(t.type!=="income"||t.deductBills===false)return false;
     return (t.alloc?.billItems||[]).some(x=>x.billId===bid&&x.dueDate===dueDate&&!billAllocationReleased(t.id,bid,dueDate));
   });
 }
@@ -5536,7 +5590,7 @@ function syncCurrentCycleBillReservation(bid){
   const cycle=currentCycleStats();
   const income=cycle.income;
 
-  if(!income||cycle.isClosed)return false;
+  if(!income||cycle.isClosed||income.deductBills===false)return false;
 
   const start=income.date;
   const end=income.nextIncomeDate||nextRecurringIncome()?.nextDate||"";
@@ -10303,6 +10357,9 @@ function syncIncomeFromPlan(){
   }
 
   const recurring=!!(p&&isRecurringPlan(p));
+  incDeductLiving.checked=recurring;
+  incDeductBills.checked=recurring;
+  updateIncomeDeductionLabels("inc");
   const scheduledDate=recurring?(p.nextDate||""):"";
   const pending=recurring?pendingIncomeForPlan(p.id,scheduledDate):null;
   markIncomePending.style.display=recurring?"":"none";
@@ -10466,10 +10523,17 @@ function projectSuggestionInputs(){
 }
 function recalcIncome(){
   const p=S.incomePlans.find(x=>x.id===incPlan.value);
-  const lp=livingPreviewForPlan(p,incNextDate.value);
+  const recurring=!!(p&&isRecurringPlan(p));
+  const end=incomeDeductionWindowEnd(p,incNextDate.value);
+  const lp=livingPreviewForIncome(p,end,incDeductLiving.checked);
   incLivingGuide.textContent=M(lp.amount);
+  updateIncomeDeductionLabels("inc");
 
-  if(lp.extra){
+  if(!incDeductLiving.checked){
+    incLivingMeta.textContent="本次收入不预留基础生活额度；实际生活支出仍按已有生活预算或日常支出规则登记。";
+  }else if(lp.missingWindow){
+    incLivingMeta.textContent="目前没有可用于计算的下一次周期收入日期，基础生活暂不扣除。";
+  }else if(lp.extra){
     incLivingMeta.textContent="单次额外收入没有独立生活周期；本次基础生活扣除为 ¥0。设置的“本次优先储蓄”会直接联动到储蓄资产、储蓄变化和结果统计。";
   }else if(!incNextDate.value){
     incLivingMeta.textContent="请先确认下一次周期收入日期。";
@@ -10482,18 +10546,21 @@ function recalcIncome(){
     incLivingMeta.textContent=`从今天到下一次周期收入 ${lp.end}，共 ${lp.totalDays} 天，本次扣除 ${lp.days.length} 天基础生活。`;
   }
 
-  const next=incNextDate.value;
-  const bills=(p&&isRecurringPlan(p)&&next)?dueBillsBetween(td(),next):[];
+  const bills=incDeductBills.checked&&end?dueBillsBetween(td(),end):[];
   incBills.textContent=M(sm(bills,x=>x.amount));
+  incBillsMeta.textContent=incDeductBills.checked
+    ?(end?"本次预留尚未支付、尚未由其他收入覆盖的账单；付款时只核销一次。":"尚无可计算的下一收入日期，暂不预留账单。")
+    :"本次不预留固定账单，账单仍保留待支付，付款时按实际资金来源核销。";
 
   projectSuggestionInputs();
   recalcIncomeSummary();
 }
 function recalcIncomeSummary(){
   const amount=N(incAmount.value),saving=N(incSaving.value),p=S.incomePlans.find(x=>x.id===incPlan.value),next=incNextDate.value;
-  const lp=livingPreviewForPlan(p,incNextDate.value);
+  const end=incomeDeductionWindowEnd(p,next);
+  const lp=livingPreviewForIncome(p,end,incDeductLiving.checked);
   const living=N(lp.amount);
-  const billsList=(p&&isRecurringPlan(p)&&next)?dueBillsBetween(td(),next):[];
+  const billsList=incDeductBills.checked&&end?dueBillsBetween(td(),end):[];
   const bills=sm(billsList,x=>x.amount);
   const projects=[...document.querySelectorAll(".projectContrib")]
     .map(x=>({projectId:x.dataset.id,amount:N(x.value)}))
@@ -10532,6 +10599,7 @@ function recalcIncomeSummary(){
   saveIncome.disabled=false;
 }
 [incAmount,incSaving,incNextDate].forEach(x=>x.addEventListener("input",()=>x===incNextDate?recalcIncome():recalcIncomeSummary()));
+[incDeductLiving,incDeductBills].forEach(x=>x.addEventListener("change",recalcIncome));
 
 markIncomePending.onclick=()=>{
   const plan=S.incomePlans.find(x=>x.id===incPlan.value);
@@ -10571,11 +10639,11 @@ saveIncome.onclick=()=>{
 
   const plan=S.incomePlans.find(x=>x.id===planId);
   const recurring=!!(plan&&isRecurringPlan(plan));
-  const lp=livingPreviewForPlan(plan,recurring?incNextDate.value:"");
-  const living=N(lp.amount);
   const next=recurring?incNextDate.value:"";
-
-  const billsList=(recurring&&next)?dueBillsBetween(td(),next):[];
+  const end=incomeDeductionWindowEnd(plan,next);
+  const lp=livingPreviewForIncome(plan,end,incDeductLiving.checked);
+  const living=N(lp.amount);
+  const billsList=incDeductBills.checked&&end?dueBillsBetween(td(),end):[];
   const bills=sm(billsList,x=>x.amount);
   const billItems=billsList.map(x=>({billId:x.id,dueDate:x.dueDate,amount:N(x.amount)}));
 
@@ -10612,11 +10680,14 @@ saveIncome.onclick=()=>{
     amount,
     walletAccountId:Wallets.selected("income"),
     nextIncomeDate:next,
+    deductionWindowEnd:recurring?next:end,
+    deductLiving:!!incDeductLiving.checked,
+    deductBills:!!incDeductBills.checked,
     planNextDateBefore,
     planFreqAtRecord,
     cycleIncomeId:currentCycleIncomeId,
-    livingCoverageStart:recurring?lp.start:"",
-    livingCoverageEnd:recurring?lp.end:"",
+    livingCoverageStart:incDeductLiving.checked&&!lp.missingWindow?lp.start:"",
+    livingCoverageEnd:incDeductLiving.checked&&!lp.missingWindow?lp.end:"",
     livingRateAtRecord:recurring?livingRateForDate(td()):0,
     scheduledDate:pending?.scheduledDate||planNextDateBefore,
     wasPending:!!pending,
