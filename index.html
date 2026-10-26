@@ -10009,13 +10009,26 @@ function shortWalletTransferSourcePart(t){
 }
 function applyShortWalletAllocation(t,reverse=false){
   if(t?.type!=="short_transfer")return;
+  const shares=S.settings.ordinaryWalletShares||(S.settings.ordinaryWalletShares={});
+  if(reverse){
+    const oldId=t.walletOrdinaryShareAccountId||"";
+    if(!oldId)return;
+    const oldApplied=N(t.walletOrdinaryShareDelta);
+    shares[oldId]=Math.max(0,Math.round((Math.max(0,N(shares[oldId]))-oldApplied)*100)/100);
+    return;
+  }
   const inbound=t.direction==="in";
   const id=inbound?t.walletFromAccountId:t.walletToAccountId;
+  t.walletOrdinaryShareAccountId="";
+  t.walletOrdinaryShareDelta=0;
   if(!id||!Wallets.account(id))return;
   const amount=inbound?-shortWalletTransferSourcePart(t):Math.max(0,N(t.amount));
   if(Math.abs(amount)<0.005)return;
-  const shares=S.settings.ordinaryWalletShares||(S.settings.ordinaryWalletShares={});
-  shares[id]=Math.max(0,Math.round((Math.max(0,N(shares[id]))+(reverse?-amount:amount))*100)/100);
+  const previous=Math.max(0,N(shares[id]));
+  const updated=Math.max(0,Math.round((previous+amount)*100)/100);
+  shares[id]=updated;
+  t.walletOrdinaryShareAccountId=id;
+  t.walletOrdinaryShareDelta=Math.round((updated-previous)*100)/100;
 }
 function shortWalletFundingValid(fromDate,ids=[]){
   if(!ids.length)return true;
