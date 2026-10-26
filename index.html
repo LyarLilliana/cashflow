@@ -2131,6 +2131,16 @@ details[open]>summary .savingsFoldChevron::before,
  .bankAccountTitle .meta{font-size:10px}
 }
 
+
+/* One current-cycle reconciliation line; no bulky additional cards. */
+.pocketFlowAudit{
+  margin:10px 1px 2px;padding:7px 9px;border-radius:9px;
+  background:#F7F8F5;color:var(--muted);
+  font-size:10.5px;font-weight:500;line-height:1.6;
+  font-variant-numeric:tabular-nums;
+}
+.pocketFlowAudit[hidden]{display:none!important}
+
 </style>
 </head>
 <body class="booting">
@@ -2315,6 +2325,7 @@ details[open]>summary .savingsFoldChevron::before,
         <button class="ghost" id="pocketToSavingBtn" onclick="openPocketTransfer()">零花钱转储蓄</button>
         <button class="ghost wideAction" id="livingBatchBtn" onclick="openLivingBatch()">记录多日基础生活支出</button>
       </div>
+      <div class="pocketFlowAudit" id="pocketFlowAudit" hidden></div>
       <div class="explain">
         <div class="explainRow"><span>零花钱余额</span><strong id="whySafe">¥0</strong></div>
         <div class="explainRow"><span>距离下一次周期收入</span><strong id="whyDays">—</strong></div>
@@ -3859,12 +3870,18 @@ function transactionBelongsToCycle(t,incomeTx,next){
   // entered before the next recurring income belongs to the previous cycle,
   // even though both events use the same calendar date.
   if(t.type==="living_settlement"){
-    // 结算归属于实际承担这一天基础生活的收入周期。
-    // 补记上一周期的结余应当回到上一周期，避免混入当前零花钱。
+    // The funded calendar day, not the time of later bookkeeping, owns
+    // this release. Recovered legacy source IDs can therefore never hide
+    // a real release from its income cycle.
+    const coveredDate=t.coveredDate||t.date||"";
+    const coverage=livingDayInfo(coveredDate);
+    if(coverage.covered&&coverage.incomeId){
+      return coverage.incomeId===incomeTx.id;
+    }
     const fundedCycle=S.tx.find(x=>x.id===t.sourceIncomeId&&isCycleIncomeTx(x));
     if(fundedCycle)return fundedCycle.id===incomeTx.id;
 
-    const date=t.date||t.coveredDate||"";
+    const date=coveredDate;
     const stamp=txStamp(t);
     let postingCycle=null;
     cycleIncomeRows().forEach(row=>{
@@ -5230,7 +5247,7 @@ function syncLivingSettlementTotals(){
       t.allowance=N(info.allowance);
       // 历史收入切换“本次不扣”后，若该生活日由另一笔收入接手，
       // 结算来源必须同步转给新的覆盖收入，避免归入错误周期。
-      if(t.sourceIncomeId&&t.sourceIncomeId!==info.incomeId)
+      if(t.sourceIncomeId!==info.incomeId)
         t.sourceIncomeId=info.incomeId;
     }else if(oldSource?.deductLiving===false){
       // 旧的自动/手动结算保留流水，但不再释放未实际预留的生活额度。
@@ -6735,6 +6752,22 @@ function renderNow(){
   const safe=currentPocketBalance(a,cycle);
   const b={safe,living:safe,bills:a.raw.bills,saving:a.saving};
   const projectTotal=sm(activeProjects(),p=>N(a.projects[p.id]||0));
+  const flowBox=document.getElementById("pocketFlowAudit");
+  const flowRelease=N(cycle.livingRelease);
+  const flowSaved=N(cycle.pocketToSaving);
+  const flowProjects=N(cycle.pocketToProject);
+  const flowSpent=N(cycle.pocketSpent);
+  const activeSettlement=!!livingSettlementForDate(td());
+  const showFlow=!!cycle.income&&(activeSettlement||Math.abs(flowSaved)>0.005||Math.abs(flowProjects)>0.005);
+  flowBox.hidden=!showFlow;
+  if(showFlow){
+    const rows=[`本周期基础生活结余 ${flowRelease>=0?"+":"−"}${M(Math.abs(flowRelease))}`];
+    if(flowSaved>0.005)rows.push(`已转储蓄 ${M(flowSaved)}`);
+    if(flowProjects>0.005)rows.push(`已转专项 ${M(flowProjects)}`);
+    if(flowSpent>0.005)rows.push(`日常及其他消费 ${M(flowSpent)}`);
+    rows.push(`当前零花 ${M(b.safe)}`);
+    flowBox.textContent=rows.join(" · ");
+  }
 
   safeNow.textContent=M(b.safe);
   // “零花钱余额”与顶部“当前零花钱”严格使用同一个数。
@@ -7066,16 +7099,21 @@ function renderNow(){
 
     if(release>0){
       livingSettleBtn.textContent=repaid>0.005
-        ?`基础生活 · 已结算 · 回补储蓄 ${M(repaid)}${pocketRelease>0.005?" · 回流零花 "+M(pocketRelease):""}`
-        :`基础生活 · 已结算 · 已回流零花 ${M(pocketRelease)}`;
+        ?`基础生活 · 已结算 · 回补储蓄 ${M(repaid)}${pocketRelease>0.005?" · 零花入账 "+M(pocketRelease):""}`
+        :`基础生活 · 已结算 · 零花入账 +${M(pocketRelease)}`;
+      // Incoming cash can have been consumed by earlier pocket shortfalls or
+      // transfers in this cycle. The current available amount is authoritative.
+      livingSettleBtn.title=`结算回流已计入当前余额；本周期转储蓄 ${M(cycle.pocketToSaving)}，转专项 ${M(cycle.pocketToProject)}，当前仍可用 ${M(b.safe)}`;
     }else if(release<0){
       livingSettleBtn.textContent=`基础生活 · 已结算 · 超支 ${M(Math.abs(release))}`;
     }else{
       livingSettleBtn.textContent="基础生活 · 今日已结算 · ¥0";
     }
   }else if(dayInfo.covered){
+    livingSettleBtn.removeAttribute("title");
     livingSettleBtn.innerHTML=`今日基础生活结算 <span style="white-space:nowrap">· 剩余 ${M(livingRemainingForDate(td()))}</span>`;
   }else{
+    livingSettleBtn.removeAttribute("title");
     livingSettleBtn.textContent="基础生活 · 查看记录";
   }
   livingSettleBtn.disabled=false;
