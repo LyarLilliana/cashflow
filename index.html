@@ -9610,20 +9610,20 @@ function renderBankDepositReminder(){
   bankReminderNowCard.style.display=r.ready?"":"none";
 
   if(!r.enabled){
-    bankReminderHint.textContent="预计累计金额 = 已存储蓄 + 本周期待结转零花。";
+    bankReminderHint.textContent="";
   }else if(r.ready){
     bankReminderReadyTitle.textContent="当前储蓄已达到银行转存额度";
-    bankReminderReadyMeta.textContent=`实际可转存 ${M(r.actual)}，目标 ${M(r.threshold)}。`;
+    bankReminderReadyMeta.textContent=`可转存 ${M(r.actual)}`;
     bankReminderDepositBtn.style.display="";
     bankReminderNowTitle.textContent="当前储蓄已达到银行转存额度";
-    bankReminderNowMeta.textContent=`可转存 ${M(r.actual)}，目标 ${M(r.threshold)}。`;
+    bankReminderNowMeta.textContent=`可转存 ${M(r.actual)}`;
     bankReminderNowBtn.style.display="";
-    bankReminderHint.textContent="可以选择储蓄余额或短期锁定账户作为转存来源。";
+    bankReminderHint.textContent="";
   }else{
     bankReminderHint.textContent=r.expected>=r.threshold
-      ?`已存 ${M(r.actual)} + 待结转 ${M(r.pending)} = 预计 ${M(r.expected)}，结转后可执行转存。`
-      :`已存 ${M(r.actual)} + 待结转 ${M(r.pending)} = 预计 ${M(r.expected)}，距目标 ${M(r.gap)}。`;
+      ?"结转后预计达到转存额度":"";
   }
+  bankReminderHint.hidden=!bankReminderHint.textContent;
 }
 
 function openBankDepositFromReminder(){
