@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-116-living-pocket-cycle-reconcile";
+const CACHE = "safespend-v10-117-settlement-handover";
 const ASSETS = [
   "./",
   "./index.html",
