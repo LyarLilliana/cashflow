@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-132-ordinary-transfer-channel-sync";
+const CACHE = "safespend-v10-133-credit-toggle-polish";
 const ASSETS = [
   "./",
   "./index.html",
