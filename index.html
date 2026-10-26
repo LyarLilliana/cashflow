@@ -7342,12 +7342,14 @@ function txHtml(t,del=false,edit=false,effects=null){
   }
 
   if(t.type==="pocket_to_saving"){
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">零花钱转储蓄</div><div class="meta">${t.date} · 立即计入储蓄</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} → 储蓄</div>${txButtons(t,del,edit)}</div></div></div>`;
+    const wallet=Wallets.account(t.walletFromAccountId)?.name||"";
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">零花钱转储蓄 · 普通储蓄余额</div><div class="meta">${t.date}${wallet?" · 所在渠道 "+esc(wallet):""}</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} → 储蓄</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
   if(t.type==="pocket_to_project"){
     const p=S.projects.find(x=>x.id===t.projectId);
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">零花钱转专项${p?" · "+esc(p.name):""}</div><div class="meta">${t.date} · 资金用途调整</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} → 专项</div>${txButtons(t,del,edit)}</div></div></div>`;
+    const wallet=Wallets.account(t.walletFromAccountId)?.name||"";
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">零花钱转专项${p?" · "+esc(p.name):""}</div><div class="meta">${t.date}${wallet?" · 所在渠道 "+esc(wallet):""}</div></div><div class="txRight"><div class="txAmount pos">${M(t.amount)} → 专项</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
 
   if(t.type==="bill_skip"){
@@ -7468,7 +7470,7 @@ function transactionActionTitle(t){
   if(t.type==="ordinary_balance_adjustment")return "普通储蓄余额校准";
   if(t.type==="extra_saving")return t.shortAccountId?`额外锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`:"额外储蓄";
   if(t.type==="pocket_to_short")return `零花钱存入锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`;
-  if(t.type==="pocket_to_saving")return "零花钱转储蓄";
+  if(t.type==="pocket_to_saving")return "零花钱转储蓄 · 普通储蓄余额";
   if(t.type==="pocket_to_project"){
     const p=S.projects.find(x=>x.id===t.projectId);
     return `零花钱转专项${p?" · "+p.name:""}`;
@@ -8854,8 +8856,9 @@ function savingChangeEvents(){
     if(t.type==="pocket_to_saving"){
       events.push({
         id:t.id,date,
-        name:"零花钱转储蓄",
-        meta:"从可自由支配零花钱转入",
+        name:"零花钱转储蓄 · 普通储蓄余额",
+        meta:Wallets.account(t.walletFromAccountId)?.name
+          ?"资金所在渠道 · "+Wallets.account(t.walletFromAccountId).name:"零花钱转存",
         amount:N(t.amount),
         impact:N(t.amount),
         mode:"pos"
@@ -8941,7 +8944,8 @@ function savingChangeEvents(){
       events.push({
         id:t.id,date,
         name:`零花钱存入锁定储蓄 · ${shortSavingsAccountLabel(t.shortAccountId)}`,
-        meta:t.note||"从日常支出余额划入，自动锁定",
+        meta:Wallets.account(t.walletFromAccountId)?.name
+          ?"从 "+Wallets.account(t.walletFromAccountId).name+" 转出":(t.note||"零花钱转存"),
         amount:N(t.amount),impact:N(t.amount),mode:"pos"
       });
       return;
