@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-126-nested-section-fold";
+const CACHE = "safespend-v10-127-source-cycle-saving-fix";
 const ASSETS = [
   "./",
   "./index.html",
