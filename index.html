@@ -1765,6 +1765,23 @@ input:focus,select:focus{border-color:#A6BFB6;box-shadow:0 0 0 3px rgba(47,111,9
   padding:5px 9px;
   font-size:9.5px;
 }
+/* “现在”页各模块的展开/收起按钮保持统一尺寸，独立操作按钮沿用原样。 */
+#now > .section > .sectionHeader > .sectionToggle,
+#now #walletNowToggle{
+  box-sizing:border-box;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 62px;
+  width:62px;
+  min-width:62px;
+  height:30px;
+  min-height:30px;
+  padding:0;
+  font-size:10px;
+  line-height:1;
+  text-align:center;
+}
 .disclosureSummary{
   cursor:pointer;
   list-style:none;
