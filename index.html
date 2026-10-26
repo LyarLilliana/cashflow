@@ -6984,8 +6984,11 @@ function txHtml(t,del=false,edit=false,effects=null){
       t.date,
       `计划储蓄 ${M(ea.saving)}`,
       `当时零花钱 ${M(ea.safe)}`,
-      `基础生活 ${M(ea.living)}`
+      `基础生活 ${M(ea.living)}`,
+      `固定账单 ${M(ea.bills)}`
     ];
+    if(t.deductLiving===false)metaParts.push("基础生活本次不扣");
+    if(t.deductBills===false)metaParts.push("固定账单本次不扣");
     if(Wallets.inlineTag(t))metaParts.push(Wallets.inlineTag(t).slice(3));
     if(projectText)metaParts.push(`专项 ${projectText}`);
     if(lightPlanText)metaParts.push(`近期计划 ${lightPlanText}`);
@@ -10538,7 +10541,7 @@ function recalcIncome(){
     incLivingMeta.textContent="目前没有可用于计算的下一次周期收入日期，基础生活暂不扣除。";
   }else if(lp.extra){
     incLivingMeta.textContent="单次额外收入没有独立生活周期；本次基础生活扣除为 ¥0。设置的“本次优先储蓄”会直接联动到储蓄资产、储蓄变化和结果统计。";
-  }else if(!incNextDate.value){
+  }else if(recurring&&!incNextDate.value){
     incLivingMeta.textContent="请先确认下一次周期收入日期。";
   }else if(lp.skippedDays>0){
     incLivingMeta.textContent=`从今天到 ${lp.end} 共 ${lp.totalDays} 天，其中 ${lp.skippedDays} 天已被其他收入周期覆盖，本次只扣 ${lp.days.length} 天；如跨基础生活标准调整日，已逐日按对应标准计算。`;
@@ -11860,6 +11863,7 @@ function billReservedByOtherIncome(ignoreIncomeId,bid,dueDate){
   return S.tx.some(x=>
     x.id!==ignoreIncomeId
     &&x.type==="income"
+    &&x.deductBills!==false
     &&(x.alloc?.billItems||[]).some(b=>b.billId===bid&&b.dueDate===dueDate&&!billAllocationReleased(x.id,bid,dueDate))
   );
 }
