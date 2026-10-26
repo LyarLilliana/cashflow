@@ -13,6 +13,14 @@ function effect(t,id){
   if(!id)return 0;
   if(t.type==="wallet_transfer")return (t.toAccountId===id?round(t.amount):0)-(t.fromAccountId===id?round(t.amount):0);
   if(t.type==="wallet_adjustment")return t.walletAccountId===id?round(t.delta):0;
+  // Locked savings accounts are a distinct physical holding. Each transfer
+  // posts a matching credit/debit in the chosen liquid payment channel.
+  if(t.shortAccountId&&(t.type==="short_transfer"||t.type==="pocket_to_short"||t.type==="extra_saving")){
+    if(t.type==="short_transfer"&&t.direction==="out"){
+      return t.walletToAccountId===id?round(t.amount):0;
+    }
+    return t.walletFromAccountId===id?-round(t.amount):0;
+  }
   if(t.walletAccountId!==id)return 0;
   if(t.type==="income"||t.type==="credit_loan")return round(t.amount);
   if(t.type==="aa_receive")return round(t.amount);
@@ -23,10 +31,13 @@ function effect(t,id){
   if(t.type==="living_settlement"&&!t.autoSettled)return -round(t.manualActualSpent===undefined?t.actualSpent:t.manualActualSpent);
   return 0;
 }
-function balance(id){
+function balanceAt(id,asOf){
   const a=account(id);
-  return a?round(round(a.openingBalance)+(S.tx||[]).reduce((n,t)=>n+effect(t,id),0)):0;
+  return a?round(round(a.openingBalance)+(S.tx||[])
+    .filter(t=>!asOf||!t.date||t.date<=asOf)
+    .reduce((n,t)=>n+effect(t,id),0)):0;
 }
+function balance(id){return balanceAt(id,typeof td==="function"?td():"");}
 function selectOptions(selected=""){
   return '<option value="">未指定渠道</option>'+accounts().map(a=>
     '<option value="'+clean(a.id)+'" '+(selected===a.id?"selected":"")+'>'+clean(a.name)+' · '+money(balance(a.id))+'</option>').join("");
@@ -253,5 +264,5 @@ function txHtml(t){
 }
 function renderAll(){if(typeof window.render==="function")window.render();else render();}
 mount();
-window.Wallets={defaults,account,balance,selected,selectOptions,field,refreshSelectors,render,injectEditor,editSelected,inlineTag,txHtml,openBillPayment};
+window.Wallets={defaults,account,balance,balanceAt,selected,selectOptions,field,refreshSelectors,render,injectEditor,editSelected,inlineTag,txHtml,openBillPayment};
 })();
