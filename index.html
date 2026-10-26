@@ -6951,6 +6951,13 @@ function txHtml(t,del=false,edit=false,effects=null){
     const label=esc(aa?.title||t.note||"AA 往来");
     const person=esc(t.aaPersonName||aa?.people?.find(p=>p.id===t.aaPersonId)?.name||"");
     const wallet=Wallets.inlineTag(t);
+    if(t.type==="aa_resolution"){
+      const ended=t.action==="void";
+      return `<div class="item"><div class="txRow"><div class="txLeft">
+      <div class="name">AA ${ended?"已取消 · 不支出":"转为个人承担"} · ${label}</div>
+      <div class="meta">${esc(t.date||"")} · ${ended?"关联收付流水已撤销":"历史收付保留，不重复扣款"}${t.note?" · "+esc(t.note):""}</div>
+      </div><div class="txRight"><div class="txAmount txMuted">¥0</div></div></div></div>`;
+    }
     if(t.type==="aa_open"){
       const mode=aa?.direction==="payable"?"待付款登记":"待收款登记";
       return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">AA ${mode} · ${label}</div>
@@ -6962,8 +6969,10 @@ function txHtml(t,del=false,edit=false,effects=null){
     }
     if(t.type==="expense"&&(t.aaKind==="advance"||t.aaKind==="pay")){
       const upfront=t.aaKind==="advance";
-      return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${upfront?"AA 集体垫付":"AA 付款核销"} · ${label}</div>
-      <div class="meta">${esc(t.date)}${upfront?" · 个人承担 "+M(t.aaOwnShare)+" · 待他人分摊 "+M(Math.max(0,N(t.amount)-N(t.aaOwnShare))):" · 支付给 "+person}${wallet}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div></div></div></div>`;
+      const personal=upfront&&aa?.resolution==="expense";
+      const refund=personal?sm(S.tx.filter(x=>x.aaId===t.aaId&&x.type==="aa_receive"),x=>N(x.amount)):0;
+      return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">${personal?"个人独立支出":upfront?"AA 集体垫付":"AA 付款核销"} · ${label}</div>
+      <div class="meta">${esc(t.date)}${personal?" · 已付 "+M(t.amount)+" · 已收回 "+M(refund)+" · 最终本人承担 "+M(Math.max(0,N(t.amount)-refund)):upfront?" · 原本人份额 "+M(t.aaOwnShare)+" · 待收回 "+M(Math.max(0,N(t.amount)-N(t.aaOwnShare))):" · 支付给 "+person}${wallet}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div></div></div></div>`;
     }
   }
   if(t.type==="short_account_archive"||t.type==="short_account_restore"){
@@ -7174,7 +7183,11 @@ function txHtml(t,del=false,edit=false,effects=null){
 }
 function transactionEditable(t){
   if(!t)return false;
-  if(t.aaId)return true;
+  if(t.aaId){
+    if(t.type==="aa_resolution")return false;
+    const aa=(S.aaEntries||[]).find(a=>a.id===t.aaId);
+    return !aa?.resolution;
+  }
   // References to deleted short accounts are historical-only.
   if(deletedShortAccountId(t.shortAccountId))return false;
 
@@ -7209,8 +7222,12 @@ function transactionActionTitle(t){
   if(t.aaId){
     const a=(S.aaEntries||[]).find(x=>x.id===t.aaId);
     const title=a?.title||t.note||"AA 往来";
-    return (t.type==="aa_open"?"AA 往来登记":t.type==="aa_receive"?"AA 收款核销":
-      t.aaKind==="advance"?"AA 集体垫付":"AA 付款核销")+" · "+title;
+    return (t.type==="aa_open"?"AA 往来登记":
+      t.type==="aa_resolution"?(t.action==="void"?"AA 取消，不支出":"AA 转个人承担"):
+      t.type==="aa_receive"?"AA 收款核销":
+      t.aaKind==="conversion"?"个人独立支出":
+      t.aaKind==="advance"?(a?.resolution==="expense"?"个人独立支出":"AA 集体垫付"):
+      "AA 付款核销")+" · "+title;
   }
 
   if(t.type==="wallet_transfer")return "支付渠道互转";
@@ -7315,6 +7332,7 @@ function openTxActions(id){
   ].filter(Boolean).join(" · ");
 
   txActionEditBtn.style.display=transactionEditable(t)?"":"none";
+  txActionDeleteBtn.style.display=t.type==="aa_resolution"?"none":"";
   txActionSheet.classList.add("show");
 }
 
@@ -7328,6 +7346,7 @@ txActionDeleteBtn.onclick=()=>{
   const id=txActionId.value;
   const t=S.tx.find(x=>x.id===id);
   if(!t)return;
+  if(t.type==="aa_resolution")return msg("AA 结束流水需要随完整往来记录管理");
 
   if(t.aaId&&window.AA&&(t.type==="aa_open"||t.aaKind==="advance")){
    closeSheet("txActionSheet");
@@ -9954,7 +9973,14 @@ function actualSpendingAmount(t){
   if(!t)return 0;
   if(t.type==="credit_repayment")return Math.max(0,N(t.fee));
   if(t.type==="expense"||t.type==="short_spend"){
-    if(t.aaKind==="advance")return Math.min(Math.max(0,N(t.amount)),Math.max(0,N(t.aaOwnShare)));
+    if(t.aaKind==="advance"){
+      const aa=(S.aaEntries||[]).find(a=>a.id===t.aaId);
+      if(aa?.resolution==="expense"){
+        const recovered=sm(S.tx.filter(x=>x.aaId===t.aaId&&x.type==="aa_receive"),x=>N(x.amount));
+        return Math.max(0,N(t.amount)-recovered);
+      }
+      return Math.min(Math.max(0,N(t.amount)),Math.max(0,N(t.aaOwnShare)));
+    }
     return Math.max(0,N(t.amount));
   }
   if(t.type==="living_batch")return Math.max(0,N(t.amount));
