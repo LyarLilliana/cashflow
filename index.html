@@ -5648,7 +5648,9 @@ function currentCycleBillStatus(){
   const cycle=currentCycleStats();
   const income=cycle.income;
 
-  if(!income){
+  // 本次收入明确选择不扣除固定账单时，本周期账单统计保持为空。
+  // 账单仍由近期必须处理独立展示，实际支付继续进入支出流水。
+  if(!income||income.deductBills===false){
     return {start:"",end:"",all:[],outstanding:[],total:0,outstandingAmount:0,complete:false,none:true};
   }
 
@@ -6639,7 +6641,9 @@ function renderNow(){
     billBal.style.color="var(--accent)";
   }else if(billStatus.none){
     billBal.textContent="暂无";
-    billBalSub.textContent="本周期没有需要支付的固定账单";
+    billBalSub.textContent=cycle.income?.deductBills===false
+      ?"本周期未从收入预留固定账单"
+      :"本周期没有需要支付的固定账单";
     billBal.style.color="var(--muted)";
   }else{
     billBal.textContent=M(billStatus.outstandingAmount);
