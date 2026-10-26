@@ -638,11 +638,13 @@ function renderEntry(a){
 
 function render(){
  const box=$("upcomingBox");
- if(aaHostNode&&box&&aaHostNode.parentElement!==box)box.prepend(aaHostNode);
  if(!aaHostNode||!box)return;
  const emptyNote=box.querySelector(":scope > .note");
  if(emptyNote&&emptyNote.textContent.includes("暂无近期必须处理")&&entries().length)emptyNote.remove();
- if(aaHostNode!==box.firstElementChild)box.prepend(aaHostNode);
+ // 日常预算超额提醒位于 AA 与往来上方，其余情况下 AA 仍排在任务列表首位。
+ const budgetAlert=box.querySelector(":scope > .upcomingAlert");
+ if(budgetAlert)budgetAlert.after(aaHostNode);
+ else if(aaHostNode!==box.firstElementChild)box.prepend(aaHostNode);
  const openEntries=entries().filter(a=>totalLeft(a)>.005).sort((a,b)=>(a.dueDate||a.date).localeCompare(b.dueDate||b.date));
  const closedEntries=entries().filter(a=>totalLeft(a)<=.005).sort((a,b)=>b.date.localeCompare(a.date));
  const receivable=R(openEntries.filter(a=>a.direction==="receivable").reduce((s,a)=>s+totalLeft(a),0));
