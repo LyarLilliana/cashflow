@@ -22,7 +22,8 @@ function effect(t,id){
     return t.walletFromAccountId===id?-round(t.amount):0;
   }
   if(t.walletAccountId!==id)return 0;
-  if(t.type==="income"||t.type==="credit_loan")return round(t.amount);
+  if(t.type==="income")return round(t.amount)-round(typeof incomeLockedSavingAmount==="function"?incomeLockedSavingAmount(t):0);
+  if(t.type==="credit_loan")return round(t.amount);
   if(t.type==="aa_receive")return round(t.amount);
   if(t.type==="credit_repayment")return -round(round(t.amount)+round(t.fee));
   if(t.type==="expense"||t.type==="living_batch")return -round(t.amount);
