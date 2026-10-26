@@ -9011,11 +9011,11 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   const creditImpact=(typeof creditSavingAdjustmentForRange==="function"
     ?creditSavingAdjustmentForRange(start,end):0);
   const internalProjectReallocation=projectInternalSavingReallocationForRange(start,end);
-  const shortBalanceCorrection=sm(S.tx.filter(t=>
+  const shortBalanceCorrection=incomeCycle?0:sm(S.tx.filter(t=>
     t.type==="short_balance_adjustment"&&t.date&&t.date<=td()
     &&(!start||t.date>=start)&&(!end||t.date<=end)
   ),t=>N(t.delta));
-  const ordinaryBalanceCorrection=sm(S.tx.filter(t=>
+  const ordinaryBalanceCorrection=incomeCycle?0:sm(S.tx.filter(t=>
     t.type==="ordinary_balance_adjustment"&&t.date&&t.date<=td()
     &&(!start||t.date>=start)&&(!end||t.date<=end)
   ),ordinaryCorrectionImpact);
@@ -9037,8 +9037,7 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
     N(raw.recurringIncomeSaving)+N(raw.oneOffIncomeSaving)
     +N(raw.transfers)+pocketClosedThisRange
     +N(raw.projectSurplus)+N(raw.extra)+N(raw.automaticSavingRepayment);
-  const cycleProjected=cycleMode&&currentCycleStats().income
-    ?N(currentCycleStats().projectedSaving):null;
+  const cycleProjected=incomeCycle?saved.total:null;
 
   return {
     ...raw,
