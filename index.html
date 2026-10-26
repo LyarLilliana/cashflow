@@ -2066,7 +2066,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
       <div class="card planLivingCard">
         <div class="step"><div class="stepNo">1</div><div style="flex:1;min-width:0">
           <div class="name">基础生活标准</div>
-          <div class="meta">按生效日期管理每日基础生活额度，跨调整日期会逐日使用对应标准。</div>
+          
 
           <div class="livingStatusBlock">
             <div>
@@ -2171,7 +2171,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     <div class="section" id="lightPlanSection">
       <div class="sectionTitle">近期计划支出</div>
       <div class="card">
-        <div class="meta">适合牙膏、生活用品等一次性小额事项。这里负责新增或修改计划，已记录事项统一进入“现在 → 近期必须处理”查看和操作，真正付款前不会提前扣减零花钱或储蓄。</div>
+        
         <input type="hidden" id="lightPlanEditId">
         <div class="formGrid" style="margin-top:10px">
           <div><label>想买 / 想处理什么</label><input id="lightPlanName" placeholder="例如 牙膏"></div>
@@ -2499,7 +2499,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <details class="savingsChangeDisclosure">
           <summary>查看储蓄变化构成<span aria-hidden="true">⌄</span></summary>
         <div class="name" id="savingGrowthTitle">储蓄增长构成</div>
-        <div class="meta" id="savingGrowthMeta">只展示这个统计范围内形成或减少储蓄的项目；储蓄余额转银行只改变资金位置，不重复计入增长。</div>
+        <div class="meta" id="savingGrowthMeta" hidden></div>
 
         <div class="summaryGroup">
           <div class="summaryGroupTitle" id="savingIncreaseTitle">增加</div>
@@ -8992,8 +8992,7 @@ function renderSavingAssetSummary(){
   savingGrandTotal.textContent=M(current.total);
   savingGrandTotal.style.color=current.total<-.005?"var(--danger)":"var(--accent)";
   savingCashflowHint.textContent=current.bankInterest>.005
-    ?`银行资产含预估利息 ${M(current.bankInterest)}`
-    :"已存待转存资金与银行资产合计";
+    ?`含银行预估利息 ${M(current.bankInterest)}`:"";
 
   savingOrdinaryCurrent.textContent=M(current.ordinary+current.short);
   savingOrdinaryCurrent.style.color=current.ordinary+current.short<-.005?"var(--danger)":"var(--text)";
@@ -9121,7 +9120,7 @@ function renderSavingStats(){
   savingGrowthTotal.style.color=s.cashflowGrowth<0?"var(--warn)":"var(--accent)";
 
   savingGrowthTitle.textContent=cycleMode?"当前周期储蓄资金流水":"期间储蓄资金流水";
-  savingGrowthMeta.textContent="本表记录存入、取用与账户间转存。净变化以账户期初、期末资产差额和待结算结余统一计算。";
+  savingGrowthMeta.textContent="";
   savingIncreaseTitle.textContent=cycleMode?"当前周期构成":"增加";
   savingAdjustTitle.textContent=cycleMode?"范围调整":"调整";
   savingUseLabel.textContent=cycleMode?"储蓄兜底 / 直接取用（参考）":"储蓄取用 / 超支扣减";
