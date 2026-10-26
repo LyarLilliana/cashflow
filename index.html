@@ -6662,6 +6662,7 @@ function render(){
   const autoSettledCount=autoSettlePastLivingDays();
   if(autoSettledCount>0)save();
 
+  refreshStatsCycleSelects();
   renderPlan();
   renderNow();
   renderSavings();
@@ -8831,7 +8832,8 @@ let savingRangePreset="month";
 
 function savingRangeDisplayLabel(){
   const start=savingStartDate.value||"",end=savingEndDate.value||"";
-  if(savingRangePreset==="cycle")return `当前周期 · ${start}${end&&end!==start?" 至 "+end:""}`;
+  if(savingRangePreset==="cycle")return `${selectedStatsCycleCaption()} · ${start}${end&&end!==start?" 至 "+end:""}`;
+  if(savingRangePreset==="week"&&start)return `本周 · ${start} 至 ${end}`;
   if(savingRangePreset==="month"&&start)return `${start.slice(0,7)} · 本月`;
   if(savingRangePreset==="year"&&start)return `${start.slice(0,4)} · 本年`;
   if(savingRangePreset==="all")return "全部期间";
@@ -8851,6 +8853,7 @@ function setSavingRangePreset(mode){
   savingRangePreset=mode;
 
   savingCycleBtn.classList.toggle("active",mode==="cycle");
+  savingWeekBtn.classList.toggle("active",mode==="week");
   savingMonthBtn.classList.toggle("active",mode==="month");
   savingYearBtn.classList.toggle("active",mode==="year");
   savingAllBtn.classList.toggle("active",mode==="all");
@@ -8859,9 +8862,11 @@ function setSavingRangePreset(mode){
   const today=td();
 
   if(mode==="cycle"){
-    const r=currentCycleResultBounds();
-    savingStartDate.value=r.start;
-    savingEndDate.value=r.end;
+    const r=selectedStatsCycleBounds();
+    savingStartDate.value=r.start;savingEndDate.value=r.end;
+  }else if(mode==="week"){
+    const r=weekBounds();
+    savingStartDate.value=r.start;savingEndDate.value=r.end;
   }else if(mode==="month"){
     const r=monthBounds(today);
     savingStartDate.value=r.start;
@@ -8878,6 +8883,7 @@ function setSavingRangePreset(mode){
   savingCustomDates.hidden=true;
   savingRangePanel.hidden=true;
   savingRangeToggle.setAttribute("aria-expanded","false");
+  refreshStatsCycleSelects();
   syncDateDisplays();
   renderSavingRangeViews();
 }
@@ -8887,11 +8893,8 @@ function savingRangeBounds(){
   const end=savingEndDate.value||"";
 
   if(savingRangePreset==="cycle"&&start){
-    return {
-      start,
-      end,
-      label:`当前周期 · ${start}${end&&end!==start?" 至 "+end:""}`
-    };
+    return {start,end,
+      label:`${selectedStatsCycleCaption()} · ${start}${end&&end!==start?" 至 "+end:""}`};
   }
 
   if(!start&&!end)return {start:"",end:"",label:"全部期间储蓄变化"};
@@ -9333,7 +9336,8 @@ function savingsAssetReconciliationForRange(start="",end="",summary=null){
 function selectedSavingRangeSummary(){
   const range=savingRangeBounds();
   return {
-    ...savingSummaryForRange(range.start,range.end,savingRangePreset==="cycle"),
+    ...savingSummaryForRange(range.start,range.end,
+      savingRangePreset==="cycle"&&!selectedStatsCyclePlanId),
     range
   };
 }
@@ -9359,7 +9363,8 @@ function renderSavingAssetSummary(){
   savingCurrentBankAssets.style.color=current.bank<-.005?"var(--danger)":"var(--text)";
 
   const periodPrefix=savingRangePreset==="month"?"本月"
-    :savingRangePreset==="cycle"?"本周期"
+    :savingRangePreset==="week"?"本周"
+    :savingRangePreset==="cycle"?(selectedStatsCyclePlanId?"所选周期":"本周期")
     :savingRangePreset==="year"?"本年"
     :savingRangePreset==="all"?"累计":"所选期间";
   savingPeriodNetLabel.textContent=net<-.005?`${periodPrefix}使用既有储蓄`
@@ -9483,6 +9488,7 @@ function renderSavingStats(){
 function onSavingCustomDateChange(){
   savingRangePreset="custom";
   savingCycleBtn.classList.remove("active");
+  savingWeekBtn.classList.remove("active");
   savingMonthBtn.classList.remove("active");
   savingYearBtn.classList.remove("active");
   savingAllBtn.classList.remove("active");
@@ -9495,6 +9501,8 @@ function onSavingCustomDateChange(){
 savingStartDate.addEventListener("change",onSavingCustomDateChange);
 savingEndDate.addEventListener("change",onSavingCustomDateChange);
 savingCycleBtn.onclick=()=>setSavingRangePreset("cycle");
+savingWeekBtn.onclick=()=>setSavingRangePreset("week");
+savingCyclePlan.addEventListener("change",()=>changeSelectedStatsCycle(savingCyclePlan.value));
 savingMonthBtn.onclick=()=>setSavingRangePreset("month");
 savingYearBtn.onclick=()=>setSavingRangePreset("year");
 savingAllBtn.onclick=()=>setSavingRangePreset("all");
@@ -9509,6 +9517,7 @@ savingCustomBtn.onclick=()=>{
   const opening=savingCustomDates.hidden;
   savingCustomDates.hidden=!opening;
   savingCycleBtn.classList.toggle("active",!opening&&savingRangePreset==="cycle");
+  savingWeekBtn.classList.toggle("active",!opening&&savingRangePreset==="week");
   savingMonthBtn.classList.toggle("active",!opening&&savingRangePreset==="month");
   savingYearBtn.classList.toggle("active",!opening&&savingRangePreset==="year");
   savingAllBtn.classList.toggle("active",!opening&&savingRangePreset==="all");
