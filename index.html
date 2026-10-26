@@ -2491,7 +2491,7 @@ details[open]>summary .savingsFoldChevron::before,
           <button id="savingCustomBtn" type="button">自定义</button>
         </div>
         <div class="statsCycleSourceRow" id="savingCyclePlanRow" hidden>
-          <label for="savingCyclePlan">按哪一笔周期收入统计</label>
+          <label for="savingCyclePlan">按哪笔收入确定日期</label>
           <select id="savingCyclePlan"></select>
         </div>
         <div class="resultCustomDates" id="savingCustomDates" hidden>
@@ -2738,7 +2738,7 @@ details[open]>summary .savingsFoldChevron::before,
         </div>
 
         <div class="statsCycleSourceRow" id="historyCyclePlanRow" hidden>
-          <label for="historyCyclePlan">按哪一笔周期收入统计</label>
+          <label for="historyCyclePlan">按哪笔收入确定日期</label>
           <select id="historyCyclePlan"></select>
         </div>
         <div class="resultCustomDates" id="historyCustomDates" hidden>
@@ -7732,179 +7732,6 @@ function selectedStatsCycleBounds(){
   return {start:last.date,end:next?addDays(next,-1):td()};
 }
 
-// Source-specific, committed savings for one recurring-income plan.
-// Extra income, other recurring plans, previous savings and account balance
-// adjustments belong to their own sources, even when they share these dates.
-// Pocket money remains spendable until it is actually saved or a cycle closes.
-function selectedPlanSourceSavingForRange(start="",end=""){
-  const planId=selectedStatsCyclePlanId;
-  const receipt=cycleIncomeRows().filter(t=>
-    t.planId===planId&&t.date<=td()&&(!start||t.date>=start)&&(!end||t.date<=end)
-  ).slice(-1)[0];
-  if(!receipt)return {income:0,total:0,ordinary:0,short:0,sourceEvents:[]};
-
-  const allocation=effectiveIncomeAllocation(receipt);
-  let available=Math.max(0,N(allocation.safe));
-  let ordinary=0,short=0;
-  const sourceEvents=[];
-  const spent={living:0,daily:0,bill:0,project:0,saving:0};
-  const projectFunds={};
-  (allocation.projects||[]).forEach(x=>{
-    projectFunds[x.projectId]=N(projectFunds[x.projectId])+Math.max(0,N(x.amount));
-  });
-  const billFunds={};
-  (allocation.billItems||[]).forEach(x=>{
-    const key=(x.billId||"")+"|"+(x.dueDate||"");
-    billFunds[key]=N(billFunds[key])+Math.max(0,N(x.amount));
-  });
-  const shortBalances={};
-  const saveEvent=(t,name,amount,positive=true)=>{
-    if(amount<=.005)return;
-    sourceEvents.push({
-      id:"plan_"+t.id+"_"+sourceEvents.length,
-      date:t.date||receipt.date,name,meta:"",amount,
-      impact:positive?amount:-amount,mode:positive?"pos":"neg"
-    });
-  };
-  const addShort=(id,amount)=>{
-    short+=amount;
-    shortBalances[id||"__unassigned__"]=N(shortBalances[id||"__unassigned__"])+amount;
-  };
-  const destination=allocation.savingDestination==="short"&&allocation.savingShortAccountId
-    ?allocation.savingShortAccountId:"";
-  const planned=Math.max(0,N(allocation.saving));
-  if(destination)addShort(destination,planned);
-  else ordinary+=planned;
-  saveEvent(receipt,"周期收入优先储蓄",planned);
-
-  const transactions=cycleTransactionsForIncome(receipt)
-    .filter(t=>{
-      const date=t.type==="living_settlement"?(t.coveredDate||t.date):t.date;
-      return !!date&&date<=td()&&(!start||date>=start)&&(!end||date<=end);
-    })
-    .sort((a,b)=>{
-      const da=a.type==="living_settlement"?(a.coveredDate||a.date):a.date;
-      const db=b.type==="living_settlement"?(b.coveredDate||b.date):b.date;
-      return da.localeCompare(db)||txStamp(a)-txStamp(b);
-    });
-  const effects=accounting().effects;
-  const livingCover=dailyExpenseLivingCoverMap();
-  const lightReserve=lightPlanReserveUsageMap();
-  const usePocket=amount=>{
-    const taken=Math.min(Math.max(0,available),Math.max(0,N(amount)));
-    available=Math.max(0,available-taken);
-    return taken;
-  };
-  const takeOrdinary=(t,amount)=>{
-    const taken=Math.min(Math.max(0,ordinary),Math.max(0,N(amount)));
-    ordinary=Math.max(0,ordinary-taken);
-    spent.saving+=taken;
-    saveEvent(t,"使用本次收入已存储蓄",taken,false);
-    return taken;
-  };
-  for(const t of transactions){
-    if(t.type==="income")continue; // One-off receipts keep independent ownership.
-    if(t.type==="living_settlement"){
-      const day=t.coveredDate||t.date||"";
-      const release=N(t.allowance)-livingSettlementEffectiveActual(t);
-      const dailyUsed=Math.min(Math.max(0,release),
-        Math.max(0,N(livingCover.byDate[day])));
-      available=Math.max(0,available+release-dailyUsed);
-      const actual=Math.min(Math.max(0,N(t.allowance)),
-        Math.max(0,livingSettlementEffectiveActual(t)));
-      spent.living+=Math.min(actual,Math.max(0,N(allocation.living)-spent.living));
-      continue;
-    }
-    if(t.type==="pocket_to_saving"){
-      const taken=usePocket(t.amount);
-      ordinary+=taken;
-      saveEvent(t,"本次生活费零花转储蓄",taken);
-      continue;
-    }
-    if(t.type==="pocket_to_short" ||
-      (t.type==="short_transfer"&&t.direction==="in")){
-      const requested=t.type==="pocket_to_short"?N(t.amount):N(t.pocketPortion);
-      const taken=usePocket(requested);
-      addShort(t.shortAccountId,taken);
-      saveEvent(t,"本次生活费零花转短期储蓄",taken);
-      continue;
-    }
-    if(t.type==="pocket_to_project"){
-      const reserved=usePocket(t.amount);
-      projectFunds[t.projectId]=N(projectFunds[t.projectId])+reserved;
-      continue;
-    }
-    if(t.type==="short_spend"){
-      const id=t.shortAccountId||"__unassigned__";
-      const taken=Math.min(Math.max(0,N(shortBalances[id])),Math.max(0,N(t.amount)));
-      shortBalances[id]=Math.max(0,N(shortBalances[id])-taken);
-      short=Math.max(0,short-taken);
-      spent.saving+=taken;
-      saveEvent(t,"使用本次收入已存短期储蓄",taken,false);
-      continue;
-    }
-    if(t.type==="short_transfer"&&t.direction==="out"){
-      const id=t.shortAccountId||"__unassigned__";
-      const moved=Math.min(Math.max(0,N(shortBalances[id])),Math.max(0,N(t.amount)));
-      shortBalances[id]=Math.max(0,N(shortBalances[id])-moved);
-      short=Math.max(0,short-moved);
-      ordinary+=moved; // This is a location transfer, with zero effect on total.
-      continue;
-    }
-    if(t.type!=="expense")continue;
-    const impact=effects[t.id]||{};
-    if(t.bucket==="saving"){takeOrdinary(t,t.amount);continue;}
-    if(t.bucket==="project"){
-      const sourceProject=Math.min(Math.max(0,N(projectFunds[t.refId])),Math.max(0,N(t.amount)));
-      projectFunds[t.refId]=Math.max(0,N(projectFunds[t.refId])-sourceProject);
-      spent.project+=sourceProject;
-      const projectEffect=projectExpenseEffect(t,effects);
-      spent.daily+=usePocket(projectEffect.pocketCharged);
-      takeOrdinary(t,N(projectEffect.manualSavingDraw)+N(projectEffect.automaticSavingDraw));
-      continue;
-    }
-    if(t.bucket==="bill"||t.settledBillId){
-      const billId=t.settledBillId||t.refId||"";
-      const key=billId+"|"+(t.cycleDueDate||"");
-      const fromBill=Math.min(Math.max(0,N(billFunds[key])),Math.max(0,N(t.amount)));
-      billFunds[key]=Math.max(0,N(billFunds[key])-fromBill);
-      spent.bill+=fromBill;
-      spent.daily+=usePocket(N(impact.billPocketDraw));
-      takeOrdinary(t,N(impact.autoDraw));
-      continue;
-    }
-    if(t.bucket==="safe"||t.bucket==="living"){
-      if(t.creditFundMode==="future")continue;
-      const reserve=Math.max(0,N(lightReserve.byExpense[t.id]));
-      const own=t.aaKind==="advance"
-        ?Math.min(N(t.amount),Math.max(0,N(t.aaOwnShare))):N(t.amount);
-      const usable=Math.max(0,own-reserve);
-      const fromLiving=Math.min(usable,Math.max(0,N(livingCover.byTx[t.id])));
-      const floated=t.aaKind==="advance"?Math.max(0,N(t.amount)-own):0;
-      spent.daily+=usePocket(Math.max(0,usable-fromLiving)+floated);
-      takeOrdinary(t,N(impact.autoDraw));
-    }
-  }
-  // Handover deposits only the plan's own remaining pocket portion.
-  const close=virtualCycleCloseEvents().find(t=>t.sourceIncomeId===receipt.id);
-  if(close&&close.date<=td()&&(!end||close.date<=end)){
-    const booked=Math.max(0,N(effects[close.id]?.cycleCloseSaving));
-    // A later ordinary-balance reconciliation can reverse an erroneous
-    // automatic closeout. Respect the currently reconciled holding.
-    const reconciledOrdinary=Math.max(0,N(accounting().saving));
-    const fromSource=Math.min(available,booked,reconciledOrdinary);
-    ordinary+=fromSource;
-    saveEvent(close,"本次收入周期结余转储蓄",fromSource);
-  }
-  const money=v=>Math.round(N(v)*100)/100;
-  return {
-    income:money(receipt.amount),
-    ordinary:money(ordinary),short:money(short),
-    total:money(ordinary+short),
-    spend:{...spent,total:money(spent.living+spent.daily+spent.bill+spent.project+spent.saving),rows:[]},
-    sourceEvents:sourceEvents.sort((a,b)=>b.date.localeCompare(a.date))
-  };
-}
 
 function selectedStatsCycleCaption(){
   const p=selectableIncomeCyclePlans().find(x=>x.id===selectedStatsCyclePlanId);
@@ -8325,10 +8152,10 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
 function periodOutcomeLabels(mode=historyMode){
   if(mode==="cycle"){
     return {
-      outcome:selectedStatsCyclePlanId?"所选周期预计可存":"本周期预计可存",
-      income:"本周期总收入",
-      sub:"本周期收入扣除实际预算支出与储蓄取用后的预计结余",
-      rateSub:"本周期预计可存 ÷ 本周期总收入"
+      outcome:selectedStatsCyclePlanId?"所选期间预计可存":"本周期预计可存",
+      income:"期间总收入",
+      sub:"按收入周期的日期统计全部真实储蓄变化",
+      rateSub:"所选期间预计可存 ÷ 期间总收入"
     };
   }
   if(mode==="week"){
@@ -8370,33 +8197,93 @@ function periodOutcomeLabels(mode=historyMode){
 // A single dated savings ledger feeds the Result and Savings tabs.
 // Current-period cashflow excludes pre-existing external bank capital and
 // not-yet-credited estimated bank interest shown in the asset view.
+
+// A reporting range is strictly a date window. Include every income source
+// and committed saving transaction inside it; omit asset calibration, existing
+// asset transfers, project reallocations and uncommitted pocket cash.
+function periodSavingsPerformance(start="",end=""){
+  const inRange=date=>{
+    const d=String(date||"");
+    return !!d&&d<=td()&&(!start||d>=start)&&(!end||d<=end);
+  };
+  const round=value=>Math.round(N(value)*100)/100;
+  const effects=accounting().effects;
+  let ordinary=0,short=0;
+  const events=[];
+  const add=(t,name,value,target="ordinary",meta="")=>{
+    const n=round(value);
+    if(Math.abs(n)<=.005)return;
+    if(target==="short")short+=n;
+    else ordinary+=n;
+    events.push({id:"performance_"+t.id+"_"+events.length,date:t.date||"",
+      name,meta,amount:Math.abs(n),impact:n,mode:n>=0?"pos":"neg"});
+  };
+  const rows=S.tx.filter(t=>inRange(t.date))
+    .sort((a,b)=>a.date.localeCompare(b.date)||txStamp(a)-txStamp(b));
+  for(const t of rows){
+    const amount=N(t.amount);
+    if(t.type==="income"){
+      const a=effectiveIncomeAllocation(t);
+      const locked=a.savingDestination==="short"&&a.savingShortAccountId;
+      add(t,isCycleIncomeTx(t)?"周期收入优先储蓄":"单次收入优先储蓄",
+        N(a.saving),locked?"short":"ordinary");
+    }else if(t.type==="pocket_to_saving"){
+      add(t,"零花钱转入普通储蓄",amount);
+    }else if(t.type==="pocket_to_short"){
+      add(t,"零花钱转入短期储蓄",amount,"short");
+    }else if(t.type==="short_transfer"&&t.direction==="in"){
+      add(t,"零花钱转入短期储蓄",Math.max(0,N(t.pocketPortion)),"short");
+    }else if(t.type==="extra_saving"){
+      add(t,t.shortAccountId?"额外存入短期储蓄":"新增储蓄",
+        amount,t.shortAccountId?"short":"ordinary");
+    }else if(t.type==="short_spend"){
+      add(t,"使用短期储蓄"+(t.note?" · "+t.note:""),-amount,"short");
+    }else if(t.type==="short_interest"){
+      add(t,"短期储蓄实际收益",amount,"short");
+    }else if(t.type==="saving_to_project"){
+      add(t,"储蓄调拨至专项",-amount);
+    }else if(t.type==="expense"){
+      if(t.bucket==="saving"){
+        add(t,"储蓄支付"+(t.note?" · "+t.note:""),-amount);
+      }else if(t.creditFundMode!=="future"){
+        const e=effects[t.id]||{};
+        const manual=t.bucket==="project"
+          ?N(projectExpenseEffect(t,effects).manualSavingDraw):0;
+        add(t,"支出动用储蓄"+(t.note?" · "+t.note:""),
+          -N(e.autoDraw)-manual);
+      }
+    }else if((t.type==="credit_fund"||t.type==="credit_repayment")
+      &&t.creditSource==="saving"){
+      add(t,"信用还款使用储蓄",-N(effects[t.id]?.creditDebit));
+    }
+    const repaid=N(effects[t.id]?.pocketSavingRepaid);
+    if(repaid>.005)add(t,"本期超支储蓄回补",repaid);
+    const reimbursement=sm((effects[t.id]?.projectReimbursementOrigins||[]),
+      x=>x.wallet!=="safe"&&inRange(x.date)?N(x.amount):0);
+    if(reimbursement>.005)add(t,"本期专项垫款回补",reimbursement);
+  }
+  // Closing is posted at next receipt before that income. Attribute it to
+  // the previous day for boundary-consistent calendar and plan windows.
+  virtualCycleCloseEvents().forEach(t=>{
+    const closeDate=addDays(t.date,-1);
+    if(!inRange(closeDate))return;
+    const amount=Math.max(0,N(effects[t.id]?.cycleCloseSaving));
+    if(amount>.005)add({...t,date:closeDate},"上期零花结余转储蓄",amount);
+  });
+  ordinary=round(ordinary);short=round(short);
+  return {ordinary,short,total:round(ordinary+short),
+    events:events.sort((a,b)=>b.date.localeCompare(a.date))};
+}
 function periodSavableForRange(start="",end="",mode=historyMode){
   const inRange=date=>{
     const d=String(date||"");
     return !!d&&d<=td()&&(!start||d>=start)&&(!end||d<=end);
   };
-  const income=sm(
-    S.tx.filter(t=>t.type==="income"&&inRange(t.date)),
-    t=>N(t.amount)
-  );
-  const selectedPlanCycle=mode==="cycle"&&!!selectedStatsCyclePlanId;
-  if(selectedPlanCycle){
-    const source=selectedPlanSourceSavingForRange(start,end);
-    return {income:source.income,expected:source.total};
-  }
-  const savings=rangeSavingsSummary(start,end,mode==="cycle"&&!selectedPlanCycle,
-    selectedPlanCycle||mode==="week");
-  let expected=N(savings.cashflowGrowth);
-  const active=currentCycleStats();
-  if((selectedPlanCycle||mode==="week")&&active.income
-    &&(!start||active.income.date>=start)&&(!end||active.income.date<=end)){
-    expected+=Math.max(0,N(active.pocketBalance)-N(savings.pendingPocket));
-  }
-  return {income,expected};
+  const income=sm(S.tx.filter(t=>t.type==="income"&&inRange(t.date)),
+    t=>N(t.amount));
+  return {income,expected:periodSavingsPerformance(start,end).total};
 }
 
-// This cycle counts money actively saved. Uncommitted pocket cash remains
-// spendable, while asset corrections and prior-cycle closeouts stay historical.
 function currentCycleSavingPerformance(){
   const cycle=currentCycleStats();
   if(!cycle.income)return {total:0,ordinary:0,short:0};
@@ -8420,25 +8307,15 @@ function currentCycleSavingPerformance(){
   return {total:round(total),ordinary:round(total-short),short:round(short)};
 }
 function currentCycleExpectedSaving(){
-  return currentCycleSavingPerformance().total;
+  const range=currentCycleResultBounds();
+  return periodSavingsPerformance(range.start,range.end).total;
 }
 function periodOutcomeForRange(start="",end="",mode=historyMode){
-  const selectedSource=mode==="cycle"&&selectedStatsCyclePlanId
-    ?selectedPlanSourceSavingForRange(start,end):null;
-  const spend=selectedSource?.spend||spendingBreakdownForRange(start,end);
-
-  let savable=periodSavableForRange(start,end,mode);
-
-  if(mode==="cycle"&&!selectedStatsCyclePlanId){
-    const cycle=currentCycleStats();
-    if(cycle.income)savable={...savable,income:N(cycle.incomeTotal)};
-  }
-  const expected=mode==="cycle"&&!selectedStatsCyclePlanId
-    ?currentCycleExpectedSaving():N(savable.expected);
-  return {
-    income:N(savable.income),spend,savable,expected,
-    rate:N(savable.income)>0?expected/N(savable.income)*100:null
-  };
+  const spend=spendingBreakdownForRange(start,end);
+  const savable=periodSavableForRange(start,end,mode);
+  const expected=N(savable.expected);
+  return {income:N(savable.income),spend,savable,expected,
+    rate:N(savable.income)>0?expected/N(savable.income)*100:null};
 }
 
 function resultStatsForRange(start="",end=""){
@@ -9548,31 +9425,26 @@ function savingsAssetReconciliationForRange(start="",end="",summary=null){
 
 function selectedSavingRangeSummary(){
   const range=savingRangeBounds();
-  const selectedSource=savingRangePreset==="cycle"&&!!selectedStatsCyclePlanId;
-  const general=rangeSavingsSummary(range.start,range.end,
-    savingRangePreset==="cycle"&&!selectedStatsCyclePlanId,
-    selectedSource||savingRangePreset==="week");
-  if(!selectedSource)return {...general,range};
-  const source=selectedPlanSourceSavingForRange(range.start,range.end);
-  return {
-    ...general,range,selectedIncomeSource:true,sourceEvents:source.sourceEvents,
-    cashflowGrowth:source.total,expected:source.total,
-    ordinaryBooked:source.ordinary,dailyBase:source.ordinary,
-    dailyAfterBank:source.ordinary,shortTotal:source.short,
-    bankPrincipal:0,bankTotal:0,interestGrowth:0,bankExternal:0,bankExisting:0,
-    pendingPocket:0,grossSaved:source.total,
-    creditImpact:0,internalProjectReallocation:0,
-    shortBalanceCorrection:0,ordinaryBalanceCorrection:0,
-    short:{incoming:source.short,extraLocked:0,outgoing:0}
-  };
+  const assetSummary=rangeSavingsSummary(range.start,range.end,false,
+    savingRangePreset==="cycle"||savingRangePreset==="week");
+  const performance=periodSavingsPerformance(range.start,range.end);
+  return {...assetSummary,range,performance,assetReconciliation:assetSummary,
+    cashflowGrowth:performance.total,expected:performance.total,
+    ordinaryBooked:performance.ordinary,dailyBase:performance.ordinary,
+    dailyAfterBank:performance.ordinary,
+    shortTotal:performance.short,bankPrincipal:0,bankTotal:0,
+    pendingPocket:0,interestGrowth:0,bankExternal:0,bankExisting:0,
+    short:{incoming:Math.max(0,performance.short),extraLocked:0,
+      outgoing:Math.max(0,-performance.short)}};
 }
 
 function renderSavingAssetSummary(){
   const s=selectedSavingRangeSummary();
   const current=savingsAssetComponentsAt(td());
-  const reconciliation=savingsAssetReconciliationForRange(s.range.start,s.range.end,s);
-  const sourceReconcile=document.querySelector(".savingReconcileDetails");
-  if(sourceReconcile)sourceReconcile.hidden=!!s.selectedIncomeSource;
+  const reconciliation=savingsAssetReconciliationForRange(
+    s.range.start,s.range.end,s.assetReconciliation);
+  const details=document.querySelector(".savingReconcileDetails");
+  if(details)details.hidden=false;
   const net=N(s.cashflowGrowth);
 
   // 顶部只显示当前真实资产。期间筛选负责净变化，不改变当前资产基准。
@@ -9670,36 +9542,18 @@ function renderSavingAssetSummary(){
 
 function renderSavingStats(){
   const summary=selectedSavingRangeSummary();
-  let events=summary.selectedIncomeSource
-    ?summary.sourceEvents
-    :filteredSavingChangeEvents(summary.range.start,summary.range.end);
-  if(summary.cycleMode&&currentCycleStats().income){
-    const active=currentCycleStats().income;
-    const ids=new Set([active.id,...cycleTransactionsForIncome(active).map(t=>t.id)]);
-    events=events.filter(ev=>{
-      const sourceId=ev.id.startsWith("savingUse_")?ev.id.slice("savingUse_".length):ev.id;
-      if(!ids.has(sourceId))return false;
-      const source=S.tx.find(t=>t.id===sourceId);
-      if(!source||["ordinary_balance_adjustment","short_balance_adjustment",
-        "project_settlement","project_transfer","saving_to_project"].includes(source.type))return false;
-      if(source.type==="short_transfer"&&source.direction==="in"&&N(source.pocketPortion)<=0)return false;
-      return Math.abs(N(ev.impact))>.005;
-    });
-  }
+  const events=summary.performance.events;
   savingChangeCount.textContent=`${events.length} 条变化`;
-  const signed=v=>Math.abs(N(v))<=.005?M(0):(N(v)>0?"+":"−")+M(Math.abs(N(v)));
-  const bankOwnChange=summary.bankPrincipal-N(summary.bankExternal);
-  savingGrowthOrdinary.textContent=signed(summary.ordinaryBooked);
-  savingGrowthShort.textContent=signed(summary.shortTotal);
-  savingGrowthBank.textContent=signed(bankOwnChange);
-  savingGrowthPending.textContent=signed(summary.pendingPocket);
-  savingGrowthTotal.textContent=signed(summary.cashflowGrowth);
-  savingGrowthTotal.style.color=summary.cashflowGrowth<-.005?"var(--warn)":"var(--accent)";
-  const check=summary.ordinaryBooked+summary.shortTotal+bankOwnChange+summary.pendingPocket;
-  const assets=savingsAssetComponentsAt();
-  savingGrowthNote.textContent=Math.abs(check-N(summary.cashflowGrowth))>.015
-    ?"储蓄变动需核对":"";
-  savingGrowthNote.hidden=!savingGrowthNote.textContent;
+  const signed=v=>Math.abs(N(v))<=.005?M(0)
+    :(N(v)>0?"+":"−")+M(Math.abs(N(v)));
+  savingGrowthOrdinary.textContent=signed(summary.performance.ordinary);
+  savingGrowthShort.textContent=signed(summary.performance.short);
+  savingGrowthBank.textContent=M(0);
+  savingGrowthPending.textContent=M(0);
+  savingGrowthTotal.textContent=signed(summary.performance.total);
+  savingGrowthTotal.style.color=summary.performance.total<-.005?"var(--warn)":"var(--accent)";
+  savingGrowthNote.textContent="";
+  savingGrowthNote.hidden=true;
   savingChangeList.innerHTML=events.length
     ?events.slice(0,30).map(ev=>`
       <div class="savingChangeRow">
@@ -9708,10 +9562,10 @@ function renderSavingStats(){
           <div class="savingChangeMeta">${ev.date}${ev.meta?" · "+esc(ev.meta):""}</div>
         </div>
         <div class="savingChangeAmount ${ev.mode}">
-          ${ev.mode==="pos"?"+":ev.mode==="neg"?"-":"→ "}${M(ev.amount)}
+          ${ev.impact>0?"+":"-"}${M(ev.amount)}
         </div>
       </div>`).join("")
-    :'<div class="note">这个时间范围内还没有储蓄变化。</div>';
+    :'<div class="note">这个时间范围内暂无储蓄净变化。</div>';
 }
 
 function onSavingCustomDateChange(){
