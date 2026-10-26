@@ -127,7 +127,11 @@ function mount(){
   ].join(""));
   aaHostNode=$("aaSection");
   const disclosure=$("aaMainDisclosure");
-  try{disclosure.open=localStorage.getItem("safespend_aa_open_v1")==="1";}catch(e){}
+  try{
+    disclosure.open=typeof disclosureIsOpen==="function"
+      ?disclosureIsOpen("upcoming:aa")
+      :localStorage.getItem("safespend_aa_open_v1")==="1";
+  }catch(e){}
   disclosure.addEventListener("toggle",()=>{
     try{localStorage.setItem("safespend_aa_open_v1",disclosure.open?"1":"0");}catch(e){}
     if(typeof rememberDisclosure==="function")rememberDisclosure(disclosure,"upcoming:aa");
