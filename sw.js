@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-123-pocket-transfer-wallet-simplify";
+const CACHE = "safespend-v10-124-result-stat-card-unify";
 const ASSETS = [
   "./",
   "./index.html",
