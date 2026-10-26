@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-128-source-cycle-statistics";
+const CACHE = "safespend-v10-129-time-window-net-savings";
 const ASSETS = [
   "./",
   "./index.html",
