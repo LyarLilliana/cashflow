@@ -4436,8 +4436,11 @@ function accounting(asOf=td()){
     }
 
     if(t.type==="ordinary_balance_adjustment"){
-      saving+=N(t.delta);
-      effects[t.id]={ordinaryBalanceCorrection:N(t.delta)};
+      // The user's reconciled balance is an absolute checkpoint. Recalculate
+      // the applied adjustment after any earlier living/income edits.
+      const hasTarget=typeof t.targetBalance==="number"&&Number.isFinite(t.targetBalance);
+      saving=hasTarget?Math.max(0,t.targetBalance):saving+N(t.delta);
+      effects[t.id]={ordinaryBalanceCorrection:saving-ordinaryBefore};
       return;
     }
     if(t.type==="cycle_close_saving"){
@@ -4820,6 +4823,10 @@ function accounting(asOf=td()){
     projectFundingDeficits[id]=sm(entries,e=>Math.max(0,N(e.remaining)));
   });
   return {raw,projects,projectFundingDeficits,saving,autoSavingUsed,manualSavingUsed,uncovered,effects,ordinaryMovements,fallbackLivingFunding,lightPlanReserves:lightReserveUsage.remaining};
+}
+function ordinaryCorrectionImpact(t){
+  const applied=accounting().effects[t.id]?.ordinaryBalanceCorrection;
+  return Number.isFinite(applied)?applied:N(t.delta);
 }
 // 统一以过账引擎的实际分摊为准，历史录入的超支快照仅保留为记录。
 // 后续专项入账或调拨会改变实时资金覆盖情况，统计及流水不得使用旧快照。
@@ -7136,7 +7143,7 @@ function txHtml(t,del=false,edit=false,effects=null){
       ' · 不影响资产余额</div></div><div class="txRight"><div class="txAmount txMuted">¥0</div></div></div></div>';
   }
   if(t.type==="ordinary_balance_adjustment"){
-    const delta=N(t.delta);
+    const delta=ordinaryCorrectionImpact(t);
     return `<div class="item"><div class="txRow"><div class="txLeft">
       <div class="name">普通储蓄余额校准</div>
       <div class="meta">${esc(t.date||"")} · ${esc(t.note||"账实核对")} · 不计本期新存储蓄</div>
@@ -7476,7 +7483,7 @@ function transactionActionAmountText(t){
     return `${t.effectiveDate} 起 · ${t.action==="delete"?"取消 ":""}${M(t.amount)}/天`;
   }
   if(t.type==="bill_skip")return "无需支付";
-  if(t.type==="ordinary_balance_adjustment")return `${N(t.delta)>=0?"+":"−"}${M(Math.abs(N(t.delta)))}`;
+  if(t.type==="ordinary_balance_adjustment"){const v=ordinaryCorrectionImpact(t);return `${v>=0?"+":"−"}${M(Math.abs(v))}`;}
   if(t.amount!==undefined)return M(t.amount);
   return "";
 }
@@ -8575,7 +8582,7 @@ function savingStatsForRange(start="",end=""){
   ),t=>N(t.delta));
   const ordinaryBalanceAdjustment=sm(S.tx.filter(t=>
     t.type==="ordinary_balance_adjustment"&&inRange(t.date)
-  ),t=>N(t.delta));
+  ),ordinaryCorrectionImpact);
   const principalNet=ordinaryGross+bankExternal+bankProjectIncrease+shortProjectIncrease
     +shortBalanceAdjustment+ordinaryBalanceAdjustment;
   const totalGrowth=principalNet+interest;
@@ -8836,7 +8843,7 @@ function savingChangeEvents(){
       return;
     }
     if(t.type==="ordinary_balance_adjustment"){
-      const delta=N(t.delta);
+      const delta=ordinaryCorrectionImpact(t);
       events.push({id:t.id,date,name:"普通储蓄余额校准",
         meta:(t.note||"账实核对")+" · 已同步计入期间储蓄净变化",
         amount:Math.abs(delta),impact:delta,mode:delta>=0?"pos":"neg"});
@@ -9031,7 +9038,7 @@ function savingSummaryForRange(start="",end="",cycleMode=false){
   const ordinaryBalanceCorrection=sm(S.tx.filter(t=>
     t.type==="ordinary_balance_adjustment"&&t.date&&t.date<=td()
     &&(!start||t.date>=start)&&(!end||t.date<=end)
-  ),t=>N(t.delta));
+  ),ordinaryCorrectionImpact);
   // An existing asset newly brought into the ledger is not newly earned savings.
   const historicalAssetImports=sm(S.tx.filter(t=>
     t.type==="short_transfer"&&t.direction==="in"&&t.date&&t.date<=td()
