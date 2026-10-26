@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-122-fix-blank-screen";
+const CACHE = "safespend-v10-123-pocket-transfer-wallet-simplify";
 const ASSETS = [
   "./",
   "./index.html",
