@@ -51,6 +51,11 @@ const uiStyle=[
 '.aaUpcomingGroup{margin-top:0}',
 '.aaUpcomingGroup .aaMainDisclosure>summary{padding:11px 12px}',
 '.aaUpcomingGroup .aaDisclosureBody{padding:0 11px 12px}',
+'.aaResolveOptions{display:grid;gap:8px;margin:12px 0}',
+'.aaResolveOption{padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;text-align:left;font-size:12px;color:var(--text)}',
+'.aaResolveOption.selected{border-color:var(--accent);background:var(--accentSoft);font-weight:750}',
+'.aaResolveHint{font-size:11px;line-height:1.6;margin:10px 0;color:var(--muted)}',
+'.aaResolveInputs{display:grid;gap:8px;margin:12px 0}',
 '.aaMainDisclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 16px;list-style:none;cursor:pointer}',
 '.aaMainDisclosure>summary::-webkit-details-marker{display:none}',
 '.aaMainTitle{font-size:14px;font-weight:800;white-space:nowrap}',
@@ -137,9 +142,23 @@ function mount(){
    '<div><label id="aaSettleWalletLabel">实际收款渠道</label><select id="aaSettleWallet"></select></div>',
    '</div><div class="aaFormHint" id="aaSettleHint"></div>',
    '<div class="actions"><button class="ghost" type="button" id="aaSettleCancel">取消</button><button class="primary" type="button" id="aaSettleSave">确认核销</button></div>',
+   '</div></div>',
+   '<div class="sheet" id="aaResolveSheet"><div class="sheetCard"><h2 class="sheetTitle">结束 AA · 最终处理</h2>',
+   '<div class="meta" id="aaResolveTitle"></div><div class="aaResolveOptions">',
+   '<button type="button" class="aaResolveOption" id="aaResolveExpense">最后由我承担 · 普通支出</button>',
+   '<button type="button" class="aaResolveOption" id="aaResolveVoid">交易取消 · 不支出</button></div>',
+   '<div class="aaResolveInputs" id="aaResolvePayFields" hidden>',
+   '<div><label>已实际补付的金额</label><input id="aaResolveAmount" type="number" min="0" step="0.01" inputmode="decimal"></div>',
+   '<div><label>实际付款日期</label><input id="aaResolveDate" type="date"></div>',
+   '<div><label>实际付款预算来源</label><select id="aaResolveBucket"><option value="safe">日常支出（基础生活优先）</option><option value="project">专项</option><option value="saving">储蓄</option></select></div>',
+   '<div id="aaResolveProjectWrap" hidden><label>对应专项</label><select id="aaResolveProject"></select></div>',
+   '<div><label>实际付款渠道</label><select id="aaResolveWallet"></select></div></div>',
+   '<div class="aaResolveHint" id="aaResolveHint"></div>',
+   '<div><label>处理备注（选填）</label><input id="aaResolveNote" maxlength="100" placeholder="例如 取消集体活动"></div>',
+   '<div class="actions"><button class="ghost" type="button" id="aaResolveCancel">返回</button><button class="primary" type="button" id="aaResolveConfirm">确认处理</button></div>',
    '</div></div>'
   ].join(""));
-  document.querySelectorAll("#aaFormSheet,#aaSettleSheet").forEach(s=>s.addEventListener("click",e=>{if(e.target===s)s.classList.remove("show");}));
+  document.querySelectorAll("#aaFormSheet,#aaSettleSheet,#aaResolveSheet").forEach(s=>s.addEventListener("click",e=>{if(e.target===s)s.classList.remove("show");}));
   $("aaAdd").onclick=()=>{openSpend();switchToAA(false);};
   $("aaSpendTabNormal").onclick=restoreSpendingForm;
   $("aaSpendTabSplit").onclick=()=>switchToAA(true);
@@ -163,6 +182,15 @@ function mount(){
   $("aaDelete").onclick=()=>deleteEntry(editing);
   $("aaSettleCancel").onclick=()=>closeSheet("aaSettleSheet");
   $("aaSettleSave").onclick=saveSettlement;
+  $("aaResolveExpense").onclick=()=>chooseResolution("expense");
+  $("aaResolveVoid").onclick=()=>chooseResolution("void");
+  $("aaResolveBucket").onchange=()=>{$("aaResolveProjectWrap").hidden=$("aaResolveBucket").value!=="project";};
+  $("aaResolveCancel").onclick=()=>closeSheet("aaResolveSheet");
+  $("aaResolveConfirm").onclick=saveResolution;
+  aaHostNode.addEventListener("click",e=>{
+    const btn=e.target.closest("[data-aa-resolve-id]");
+    if(btn)openResolution(btn.dataset.aaResolveId);
+  });
   if(typeof enhanceDateInputs==="function")enhanceDateInputs();
   render();
 }
