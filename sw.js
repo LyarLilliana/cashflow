@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-133-credit-toggle-polish";
+const CACHE = "safespend-v10-134-results-last-range-folded";
 const ASSETS = [
   "./",
   "./index.html",
