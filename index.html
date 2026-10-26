@@ -7807,7 +7807,8 @@ function setHistoryMode(mode){
   }
 
   historyCustomDates.hidden=true;
-  resultRangePanel.hidden=true;
+  resultRangePanel.hidden=mode!=="cycle";
+  resultRangeToggle.setAttribute("aria-expanded",String(mode==="cycle"));
   refreshStatsCycleSelects();
 
   syncDateDisplays();
@@ -8882,8 +8883,8 @@ function setSavingRangePreset(mode){
   }
 
   savingCustomDates.hidden=true;
-  savingRangePanel.hidden=true;
-  savingRangeToggle.setAttribute("aria-expanded","false");
+  savingRangePanel.hidden=mode!=="cycle";
+  savingRangeToggle.setAttribute("aria-expanded",String(mode==="cycle"));
   refreshStatsCycleSelects();
   syncDateDisplays();
   renderSavingRangeViews();
@@ -9497,6 +9498,7 @@ function onSavingCustomDateChange(){
   savingRangePanel.hidden=false;
   savingCustomDates.hidden=false;
   savingRangeToggle.setAttribute("aria-expanded","true");
+  refreshStatsCycleSelects();
   renderSavingRangeViews();
 }
 savingStartDate.addEventListener("change",onSavingCustomDateChange);
