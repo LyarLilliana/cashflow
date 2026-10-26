@@ -1955,6 +1955,29 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 .projectRepayInline button{padding:5px 12px;min-height:30px;font-size:10.5px;flex-shrink:0}
 
 /* 逐笔普通储蓄余额与周期转存提醒 */
+
+/* Current savings: one total with two equally-weighted, compact children. */
+.savingsCurrentHead{padding-bottom:3px!important}
+.savingsCurrentHead>span{font-size:12px;font-weight:720;color:var(--text)}
+.savingsCurrentHead>strong{font-size:13px;font-weight:750;color:var(--text)}
+.savingsCurrentChildren{margin:0 0 9px;padding:0 2px 0 11px}
+.savingsCurrentChild{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:34px;padding:8px 0;font-size:11.5px;color:var(--muted)}
+.savingsCurrentChild>strong,.savingsCurrentChild>summary>strong{font-size:12px!important;font-weight:680!important;color:var(--text)!important;font-variant-numeric:tabular-nums;white-space:nowrap}
+.savingsCurrentChildren .ordinaryLedgerDetails{display:block;margin:0;padding:0;border-top:1px solid var(--line)}
+.savingsCurrentChildren .ordinaryLedgerDetails>summary{display:flex;align-items:center;gap:8px;width:100%;padding:8px 0;list-style:none;cursor:pointer;font-size:11.5px;font-weight:500;color:var(--muted)}
+.savingsCurrentChildren .ordinaryLedgerDetails>summary>strong{margin-left:auto!important}
+.savingsCurrentChildren .ordinaryLedgerChevron{font-size:12px;color:var(--muted)}
+.ordinaryLedgerContents{padding:0 0 7px;font-size:11px;color:var(--text)}
+.ordinaryLedgerContents .ordinaryLedgerToolbar{margin-top:7px}
+.ordinaryLedgerContents .ordinaryLedgerToolbar span,.ordinaryLedgerContents .ordinaryWalletHint{font-size:10px}
+.ordinaryLedgerContents .ordinaryWalletHead span{font-size:11px;font-weight:670}
+.ordinaryLedgerContents .ordinaryWalletBlock{margin-top:9px;padding:9px 0}
+.ordinaryLedgerContents .ordinaryWalletLine{font-size:11px}
+.ordinaryLedgerContents .ordinaryLedgerIntro{margin:8px 0;font-size:10px}
+.ordinaryLedgerContents .ordinaryLedgerRow{padding:9px 0}
+.ordinaryLedgerContents .ordinaryLedgerName,.ordinaryLedgerContents .ordinaryLedgerDelta{font-size:11.5px}
+.ordinaryLedgerContents .ordinaryLedgerBalance{font-size:10px}
+
 .ordinaryLedgerDetails{margin-top:13px;border-top:1px solid var(--line);padding-top:11px}
 .ordinaryLedgerDetails>summary{list-style:none;cursor:pointer;display:flex;gap:7px;align-items:center;font-size:12px;font-weight:700}
 .ordinaryLedgerDetails>summary::-webkit-details-marker{display:none}
@@ -2378,24 +2401,36 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         <div class="divider"></div>
 
         <div class="bankReminderRows">
-          <div class="explainRow"><span>当前已存储蓄<span id="bankReminderComposition" style="display:block;font-size:10.5px;color:var(--muted);margin-top:3px"></span></span><strong id="bankReminderCurrent">¥0</strong></div>
-          <div class="explainRow"><span>本周期待结转零花</span><strong id="bankReminderPending">¥0</strong></div><div class="explainRow"><span>预计累计可转存</span><strong id="bankReminderExpected">¥0</strong></div>
+          <div class="explainRow savingsCurrentHead">
+            <span>当前已存储蓄</span><strong id="bankReminderCurrent">¥0</strong>
+          </div>
+          <div class="savingsCurrentChildren" aria-label="当前已存储蓄的构成">
+            <div class="savingsCurrentChild">
+              <span>短期储蓄</span><strong id="bankReminderShortAmount">¥0</strong>
+            </div>
+            <details class="ordinaryLedgerDetails savingsCurrentChild" id="ordinaryLedgerDetails">
+              <summary><span>普通储蓄余额</span><strong id="ordinarySavingLedgerHeader">¥0</strong><span class="ordinaryLedgerChevron" aria-hidden="true">⌄</span></summary>
+              <div class="ordinaryLedgerContents">
+                <div class="ordinaryLedgerToolbar"><span>余额与资金流水联动</span>
+                  <button type="button" class="secondary" onclick="openOrdinaryBalanceEditor()">修改余额</button>
+                </div>
+                <div class="ordinaryWalletBlock">
+                  <div class="ordinaryWalletHead"><span>存放渠道</span>
+                    <button type="button" class="secondary" onclick="openOrdinaryWalletEditor()">编辑分布</button>
+                  </div>
+                  <div class="ordinaryWalletDistribution" id="ordinaryWalletDistribution"></div>
+                  <div class="ordinaryWalletHint" id="ordinaryWalletHint"></div>
+                </div>
+                <div class="ordinaryLedgerIntro" id="ordinarySavingLedgerIntro"></div>
+                <div class="ordinaryLedgerList" id="ordinarySavingLedgerRows"></div>
+              </div>
+            </details>
+          </div>
+          <div class="explainRow"><span>本周期待结转零花</span><strong id="bankReminderPending">¥0</strong></div>
+          <div class="explainRow"><span>预计累计可转存</span><strong id="bankReminderExpected">¥0</strong></div>
           <div class="explainRow"><span>设定转存额度</span><strong id="bankReminderTarget">未设置</strong></div>
           <div class="explainRow total"><span id="bankReminderGapLabel">距离提醒额度</span><strong id="bankReminderGap">—</strong></div>
         </div>
-
-        <details class="ordinaryLedgerDetails" id="ordinaryLedgerDetails">
-          <summary><span>普通储蓄余额明细</span><strong id="ordinarySavingLedgerHeader">¥0</strong><span class="ordinaryLedgerChevron">⌄</span></summary>
-          <div class="ordinaryLedgerToolbar"><span>金额与资金流水一致</span>
-            <button type="button" class="secondary" onclick="openOrdinaryBalanceEditor()">修改普通储蓄余额</button>
-          </div>
-          <div class="ordinaryWalletBlock"><div class="ordinaryWalletHead"><span>普通储蓄的渠道分布</span>
-<button type="button" class="secondary" onclick="openOrdinaryWalletEditor()">编辑分布</button></div>
-<div id="ordinaryWalletDistribution" class="ordinaryWalletDistribution"></div>
-<div id="ordinaryWalletHint" class="ordinaryWalletHint"></div></div>
-<div class="ordinaryLedgerIntro" id="ordinarySavingLedgerIntro"></div>
-          <div class="ordinaryLedgerList" id="ordinarySavingLedgerRows"></div>
-        </details>
 
         <div class="progress" style="margin-top:10px"><span id="bankReminderProgress"' style="width:0%"></span></div>
 
@@ -9542,8 +9577,8 @@ function renderBankDepositReminder(){
   bankReminderEditBtn.hidden=!r.enabled||bankReminderEditing;
 
   bankReminderCurrent.textContent=M(r.actual);
-  bankReminderComposition.textContent=`短期储蓄 ${M(r.shortSaved)} + 普通储蓄余额 ${M(r.otherSaved)}`
-    +(r.otherSaved<-.005?` · 请核对转入流水的资金来源 ${M(-r.otherSaved)}`:"");
+  bankReminderShortAmount.textContent=M(r.shortSaved);
+  bankReminderShortAmount.style.color=r.shortSaved<-.005?"var(--danger)":"var(--text)";
   bankReminderPending.textContent=M(r.pending);
   bankReminderExpected.textContent=M(r.expected);
   bankReminderPending.style.color=r.pending>.005?"var(--accent)":"inherit";
