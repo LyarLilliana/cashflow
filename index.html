@@ -9705,7 +9705,48 @@ function bankReminderThresholdValue(){
 
 
 
+// A pocket-to-ordinary-savings transfer changes the ownership of money
+// already held in a payment channel. It must update the savings portion of
+// that channel without changing the channel's actual cash balance.
+function applyPocketOrdinaryWalletAllocation(t,reverse=false){
+  if(!t)return;
+  const shares=S.settings.ordinaryWalletShares||(S.settings.ordinaryWalletShares={});
+  if(reverse){
+    const previousId=t.walletOrdinaryShareAccountId||"";
+    if(previousId){
+      const current=Math.max(0,N(shares[previousId]));
+      shares[previousId]=Math.max(0,Math.round((current-Math.max(0,N(t.walletOrdinaryShareDelta)))*100)/100);
+    }
+    return;
+  }
+  t.walletOrdinaryShareAccountId="";
+  t.walletOrdinaryShareDelta=0;
+  if(t.type!=="pocket_to_saving")return;
+  const id=t.walletFromAccountId||"";
+  if(!id||!Wallets.account(id))return;
+  // Retain manual allocations from earlier versions; only assign the
+  // portion that is still unallocated in the reconciled savings balance.
+  const currentTotal=Math.max(0,Math.round(ordinarySavingsAvailable()*100));
+  const allocated=Object.values(shares).reduce((n,v)=>n+Math.max(0,Math.round(N(v)*100)),0);
+  const available=Math.max(0,currentTotal-allocated);
+  const delta=Math.min(Math.max(0,Math.round(N(t.amount)*100)),available);
+  shares[id]=Math.round((Math.max(0,Math.round(N(shares[id])*100))+delta))/100;
+  t.walletOrdinaryShareAccountId=id;
+  t.walletOrdinaryShareDelta=delta/100;
+}
+function syncPocketOrdinaryWalletAllocations(){
+  // Backfill existing saved transfers once, including imported backups.
+  // Tagged transactions will not be counted again on subsequent renders.
+  const pending=(S.tx||[]).filter(t=>t.type==="pocket_to_saving"
+    &&t.walletFromAccountId&&Wallets.account(t.walletFromAccountId)
+    &&t.walletOrdinaryShareAccountId===undefined);
+  if(!pending.length)return;
+  pending.forEach(t=>applyPocketOrdinaryWalletAllocation(t));
+  save();
+}
+
 function ordinaryWalletDistribution(){
+  syncPocketOrdinaryWalletAllocations();
   const accounts=(S.paymentAccounts||[]).filter(a=>a?.id);
   const stored=S.settings.ordinaryWalletShares||{};
   const total=Math.max(0,Math.round(N(ordinarySavingsAvailable())*100));
@@ -12473,6 +12514,7 @@ savePocketTransfer.onclick=()=>{
     S.tx=S.tx.filter(x=>x.id!==t.id);
     return msg("转出后的零花钱或所选渠道余额不足，请核对金额");
   }
+  if(t.type==="pocket_to_saving")applyPocketOrdinaryWalletAllocation(t);
   save();closeSheet("pocketTransferSheet");render();msg(`${M(amount)} ${confirmation}`);
 };
 
@@ -13618,6 +13660,10 @@ saveTxEdit.onclick=()=>{
       Object.assign(t,previous);
       return msg("修改后零花钱、锁定账户或渠道余额不足，请核对来源与金额");
     }
+    if(previous.type==="pocket_to_saving")applyPocketOrdinaryWalletAllocation(previous,true);
+    delete t.walletOrdinaryShareAccountId;
+    delete t.walletOrdinaryShareDelta;
+    if(t.type==="pocket_to_saving")applyPocketOrdinaryWalletAllocation(t);
   }
 
   if(["income","expense","living_batch","living_settlement"].includes(t.type))Wallets.editSelected(t);
@@ -13946,6 +13992,7 @@ function removeTx(id){
     return msg("这笔储蓄已被后续取用或转存，请先调整后续记录");
   }
   if(target.type==="living_batch")syncLivingSettlementTotals();
+  if(target.type==="pocket_to_saving")applyPocketOrdinaryWalletAllocation(target,true);
   save();
   render();
 
