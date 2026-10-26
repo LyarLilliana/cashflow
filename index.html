@@ -10,6 +10,36 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <title>SafeSpend 现金流</title>
+<script>
+/* Startup failures must display a visible, local-only diagnostic instead of a blank PWA. */
+(function(){
+  let shown=false;
+  function showStartupFailure(detail){
+    if(shown || !document.body || !document.body.classList.contains("booting"))return;
+    shown=true;
+    document.body.classList.remove("booting");
+    const panel=document.createElement("div");
+    panel.setAttribute("role","alert");
+    panel.style.cssText="position:fixed;z-index:2147483647;top:calc(24px + env(safe-area-inset-top));left:16px;right:16px;max-width:600px;margin:0 auto;padding:18px;border-radius:16px;background:#fff;color:#1E2422;box-shadow:0 8px 30px #0002;font:14px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;overflow-wrap:anywhere";
+    const heading=document.createElement("strong");
+    heading.textContent="SafeSpend 启动遇到错误";
+    const information=document.createElement("div");
+    information.style.cssText="margin-top:8px;white-space:pre-wrap";
+    information.textContent=String(detail||"未知启动错误").slice(0,350);
+    const advice=document.createElement("div");
+    advice.style.cssText="margin-top:8px;color:#747C78;font-size:12px";
+    advice.textContent="本地账目数据已保留。请保存此错误信息以便排查。";
+    panel.append(heading,information,advice);
+    document.body.appendChild(panel);
+  }
+  window.addEventListener("error",function(event){
+    if(event.error || event.message)showStartupFailure(event.error?.message || event.message);
+  });
+  window.addEventListener("unhandledrejection",function(event){
+    showStartupFailure(event.reason?.message || event.reason);
+  });
+})();
+</script>
 <style>
 :root{
   --bg:#F6F6F2;--card:#fff;--text:#1E2422;--muted:#747C78;--line:#E5E8E2;
@@ -6736,11 +6766,9 @@ function renderNow(){
 
   if(activeProjects().length===0){
     projectBal.textContent="暂无专项";
-    projectBal.nextElementSibling.textContent="当前没有进行中的专项";
     projectBal.style.color="var(--muted)";
   }else{
     projectBal.textContent=M(projectTotal);
-    projectBal.nextElementSibling.textContent="已为专项准备好的钱";
     projectBal.style.color=projectTotal<0?"var(--danger)":"inherit";
   }
 
