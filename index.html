@@ -3497,8 +3497,12 @@ function projectAaCollected(p){
 }
 function projectAaUncollected(p){
   const advances=S.tx.filter(t=>t.type==="expense"&&t.aaKind==="advance"&&t.bucket==="project"&&t.refId===p.id);
-  const owed=sm(advances,t=>Math.max(0,N(t.amount)-N(t.aaOwnShare)));
-  return Math.max(0,owed-projectAaCollected(p));
+  const owed=sm(advances,t=>{
+    const aa=(S.aaEntries||[]).find(a=>a.id===t.aaId);
+    return aa?.resolution?0:Math.max(0,N(t.amount)-N(t.aaOwnShare));
+  });
+  return Math.max(0,owed-sm(S.tx.filter(t=>t.type==="aa_receive"&&
+    advances.some(x=>x.aaId===t.aaId)&&!(S.aaEntries||[]).some(a=>a.id===t.aaId&&a.resolution)),t=>N(t.amount)));
 }
 function projectSpent(p){
   // AA 代付先占用专项现金，逐笔回款后核减专项净支出。
@@ -6204,8 +6208,12 @@ const expenseHtml=expenses.length
         ?`当时专项支付 ${M(b.fromProject)} · ${b.overSource}垫付 ${M(b.over)}`
         :`专项资金 ${M(b.fromProject)}`;
       const aaReceived=t.aaKind==="advance"?sm(S.tx.filter(x=>x.type==="aa_receive"&&x.aaId===t.aaId),x=>N(x.amount)):0;
+      const aaStatus=t.aaKind==="advance"?(S.aaEntries||[]).find(x=>x.id===t.aaId)?.resolution:"";
       const aaText=t.aaKind==="advance"
-        ?` · 本人份额 ${M(t.aaOwnShare)} · AA已收回 ${M(aaReceived)} · 待收 ${M(Math.max(0,N(t.amount)-N(t.aaOwnShare)-aaReceived))}`:"";
+        ?aaStatus==="expense"
+          ?` · AA已结束，最终个人承担 ${M(Math.max(0,N(t.amount)-aaReceived))} · 已收回 ${M(aaReceived)}`
+          :` · 本人份额 ${M(t.aaOwnShare)} · AA已收回 ${M(aaReceived)} · 待收 ${M(Math.max(0,N(t.amount)-N(t.aaOwnShare)-aaReceived))}`
+        :"";
       return `<div class="projectLedgerRow">
         <div class="projectLedgerInfo">
           <div class="projectLedgerName">${esc(t.note||"专项支出")}</div>
