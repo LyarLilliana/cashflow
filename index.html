@@ -2132,15 +2132,6 @@ details[open]>summary .savingsFoldChevron::before,
 }
 
 
-/* One current-cycle reconciliation line; no bulky additional cards. */
-.pocketFlowAudit{
-  margin:10px 1px 2px;padding:7px 9px;border-radius:9px;
-  background:#F7F8F5;color:var(--muted);
-  font-size:10.5px;font-weight:500;line-height:1.6;
-  font-variant-numeric:tabular-nums;
-}
-.pocketFlowAudit[hidden]{display:none!important}
-
 </style>
 </head>
 <body class="booting">
@@ -2325,7 +2316,6 @@ details[open]>summary .savingsFoldChevron::before,
         <button class="ghost" id="pocketToSavingBtn" onclick="openPocketTransfer()">零花钱转储蓄</button>
         <button class="ghost wideAction" id="livingBatchBtn" onclick="openLivingBatch()">记录多日基础生活支出</button>
       </div>
-      <div class="pocketFlowAudit" id="pocketFlowAudit" hidden></div>
       <div class="explain">
         <div class="explainRow"><span>零花钱余额</span><strong id="whySafe">¥0</strong></div>
         <div class="explainRow"><span>距离下一次周期收入</span><strong id="whyDays">—</strong></div>
@@ -3866,29 +3856,11 @@ function cycleWindowForIncome(incomeTx){
 function transactionBelongsToCycle(t,incomeTx,next){
   if(!t||t.id===incomeTx.id)return false;
 
-  // Assign a same-day settlement by its posting timestamp. A settlement
-  // entered before the next recurring income belongs to the previous cycle,
-  // even though both events use the same calendar date.
+  // The covered day owns the settlement. On the transition date this is
+  // the new income cycle regardless of the former living reservation.
   if(t.type==="living_settlement"){
-    // The funded calendar day, not the time of later bookkeeping, owns
-    // this release. Recovered legacy source IDs can therefore never hide
-    // a real release from its income cycle.
-    const coveredDate=t.coveredDate||t.date||"";
-    const coverage=livingDayInfo(coveredDate);
-    if(coverage.covered&&coverage.incomeId){
-      return coverage.incomeId===incomeTx.id;
-    }
-    const fundedCycle=S.tx.find(x=>x.id===t.sourceIncomeId&&isCycleIncomeTx(x));
-    if(fundedCycle)return fundedCycle.id===incomeTx.id;
-
-    const date=coveredDate;
-    const stamp=txStamp(t);
-    let postingCycle=null;
-    cycleIncomeRows().forEach(row=>{
-      if(row.date<date||(row.date===date&&txStamp(row)<=stamp))postingCycle=row;
-    });
-    const postingCycleId=postingCycle?.id||t.sourceIncomeId||"";
-    return postingCycleId===incomeTx.id;
+    const cycleId=cycleIncomeIdForDate(t.coveredDate||t.date||"");
+    return !!cycleId&&cycleId===incomeTx.id;
   }
 
   // Explicit cycle ownership on other transactions remains authoritative.
@@ -4350,15 +4322,9 @@ function accounting(asOf=td()){
   });
 
   const accountingDayPriority=t=>{
-    // A settlement recorded before the first same-day recurring income must
-    // credit the previous pocket before that pocket is closed into savings.
-    if(t.type==="living_settlement"){
-      const opening=cycleIncomeRows().find(row=>row.date===t.date);
-      if(opening&&txStamp(t)<txStamp(opening))return -1;
-      // The dated daily allowance is settled before any same-day pocket
-      // transfers, regardless of when a retrospective settlement was entered.
-      return 1.75;
-    }
+    // Close the old cycle first; dated living settlements then credit
+    // the new pocket before same-day pocket transfers.
+    if(t.type==="living_settlement")return 1.75;
     if(t.type==="cycle_close_saving")return 0;
     if(t.type==="income")return 1;
     if(t.type==="living_gap_reserve")return 1.5;
@@ -4366,7 +4332,11 @@ function accounting(asOf=td()){
     return 2;
   };
 
-  const ordered=[...S.tx,...depositLocks,...cycleClosures,...fallbackLivingEvents]
+  const datedTransactions=S.tx.map(t=>
+    t.type==="living_settlement"&&t.coveredDate&&t.coveredDate!==t.date
+      ?{...t,date:t.coveredDate}:t
+  );
+  const ordered=[...datedTransactions,...depositLocks,...cycleClosures,...fallbackLivingEvents]
     .filter(t=>!t.date||t.date<=asOf)
     .sort((a,b)=>{
       if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
@@ -4538,12 +4508,12 @@ function accounting(asOf=td()){
       );
       const netRelease=grossRelease-dailyDraw;
 
-      // 已结束周期的迟到结算归入原周期结转储蓄，不占用新周期零花钱。
+      // Use the settlement's calendar cycle, not the prior living
+      // reservation source; on a handover date its remainder is spendable
+      // in the new cycle rather than swept into the prior cycle's savings.
+      const settledCycleId=cycleIncomeIdForDate(date);
       const belongsToClosedCycle=!!(
-        t.sourceIncomeId
-        && activeCycleIncomeId
-        && t.sourceIncomeId!==activeCycleIncomeId
-        && S.tx.some(x=>x.id===t.sourceIncomeId&&isCycleIncomeTx(x))
+        settledCycleId&&activeCycleIncomeId&&settledCycleId!==activeCycleIncomeId
       );
       if(belongsToClosedCycle)saving+=netRelease;
       // 当前周期的基础生活结余仍先补回本周期储蓄垫款，再进入零花钱。
@@ -5247,8 +5217,8 @@ function syncLivingSettlementTotals(){
       t.allowance=N(info.allowance);
       // 历史收入切换“本次不扣”后，若该生活日由另一笔收入接手，
       // 结算来源必须同步转给新的覆盖收入，避免归入错误周期。
-      if(t.sourceIncomeId!==info.incomeId)
-        t.sourceIncomeId=info.incomeId;
+      const ownerId=cycleIncomeIdForDate(date)||info.incomeId;
+      if(t.sourceIncomeId!==ownerId)t.sourceIncomeId=ownerId;
     }else if(oldSource?.deductLiving===false){
       // 旧的自动/手动结算保留流水，但不再释放未实际预留的生活额度。
       // 已发生的手工生活消费继续由日常支出余额承担。
@@ -6752,23 +6722,6 @@ function renderNow(){
   const safe=currentPocketBalance(a,cycle);
   const b={safe,living:safe,bills:a.raw.bills,saving:a.saving};
   const projectTotal=sm(activeProjects(),p=>N(a.projects[p.id]||0));
-  const flowBox=document.getElementById("pocketFlowAudit");
-  const flowRelease=N(cycle.livingRelease);
-  const flowSaved=N(cycle.pocketToSaving);
-  const flowProjects=N(cycle.pocketToProject);
-  const flowSpent=N(cycle.pocketSpent);
-  const activeSettlement=!!livingSettlementForDate(td());
-  const showFlow=!!cycle.income&&(activeSettlement||Math.abs(flowSaved)>0.005||Math.abs(flowProjects)>0.005);
-  flowBox.hidden=!showFlow;
-  if(showFlow){
-    const rows=[`本周期基础生活结余 ${flowRelease>=0?"+":"−"}${M(Math.abs(flowRelease))}`];
-    if(flowSaved>0.005)rows.push(`已转储蓄 ${M(flowSaved)}`);
-    if(flowProjects>0.005)rows.push(`已转专项 ${M(flowProjects)}`);
-    if(flowSpent>0.005)rows.push(`日常及其他消费 ${M(flowSpent)}`);
-    rows.push(`当前零花 ${M(b.safe)}`);
-    flowBox.textContent=rows.join(" · ");
-  }
-
   safeNow.textContent=M(b.safe);
   // “零花钱余额”与顶部“当前零花钱”严格使用同一个数。
   livingBal.textContent=M(b.safe);
@@ -7249,14 +7202,10 @@ function txHtml(t,del=false,edit=false,effects=null){
     const metaParts=[
       t.date,
       `计划储蓄 ${M(ea.saving)}`,
-      `收入初始零花分配 ${M(ea.safe)}`,
+      `当时零花钱 ${M(ea.safe)}`,
       `基础生活 ${M(ea.living)}`,
       `固定账单 ${M(ea.bills)}`
     ];
-    if(isCycleIncomeTx(t)){
-      const settled=cycleStatsForIncome(t);
-      metaParts.push(`结算及转存联动后零花 ${M(settled.pocketBalance)}`);
-    }
     if(t.deductLiving===false)metaParts.push("基础生活本次不扣");
     if(t.deductBills===false)metaParts.push("固定账单本次不扣");
     if(Wallets.inlineTag(t))metaParts.push(Wallets.inlineTag(t).slice(3));
