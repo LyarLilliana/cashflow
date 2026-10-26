@@ -9641,7 +9641,7 @@ function ordinaryCycleTransferReminderState(){
 }
 
 function openOrdinaryCycleTransferShort(){
-  const amount=Math.max(0,ordinarySavingsAvailable());
+  const amount=Math.max(0,ordinaryCycleTransferReminderState().ordinary);
   if(amount<=.005)return msg("当前普通储蓄余额已转存完毕");
   openShortTransfer("","in");
   if(document.getElementById("shortTransferSheet").classList.contains("show")){
@@ -9652,7 +9652,7 @@ function openOrdinaryCycleTransferShort(){
 }
 
 function openOrdinaryCycleTransferBank(){
-  const amount=Math.max(0,ordinarySavingsAvailable());
+  const amount=Math.max(0,ordinaryCycleTransferReminderState().ordinary);
   if(amount<=.005)return msg("当前普通储蓄余额已转存完毕");
   openBankDeposit();
   bankDepositSource.value="existing";
