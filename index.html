@@ -63,13 +63,16 @@ button{touch-action:manipulation}
 .heroSub{font-size:12px;color:var(--muted);line-height:1.55}
 .heroAction{margin-top:14px;display:flex;gap:8px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-/* 首页资金概览：统一标签、金额及说明的阅读层级。 */
+/* 首页四项资金概览统一卡片高度和上下对齐。 */
+#now > .grid{grid-auto-rows:1fr;align-items:stretch}
 #now > .grid .stat{
   display:flex;
   flex-direction:column;
+  justify-content:center;
   align-items:flex-start;
   min-width:0;
-  padding:14px 14px 13px;
+  min-height:104px;
+  padding:15px 14px;
 }
 #now > .grid .stat .k{
   font-size:12px;
@@ -85,14 +88,6 @@ button{touch-action:manipulation}
   font-weight:760;
   letter-spacing:-.45px;
   font-variant-numeric:tabular-nums;
-  overflow-wrap:anywhere;
-}
-#now > .grid .stat .s{
-  margin-top:7px;
-  font-size:11px;
-  line-height:1.45;
-  font-weight:400;
-  color:var(--muted);
   overflow-wrap:anywhere;
 }
 #now .hero .explainRow{align-items:baseline}
@@ -2409,9 +2404,9 @@ details[open]>summary .savingsFoldChevron::before,
 
     <div class="grid">
       <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div></div>
-      <div class="card stat"><div class="k">本周期账单</div><div class="v" id="billBal">¥0</div><div class="s" id="billBalSub">本周期尚待支付的固定账单</div></div>
+      <div class="card stat"><div class="k">本周期账单</div><div class="v" id="billBal">¥0</div></div>
       <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div></div>
-      <div class="card stat"><div class="k" id="savingBalLabel">本周期预计可存</div><div class="v" id="savingBal">¥0</div><div class="s" id="savingBalSub">本周期已分配储蓄与预计零花结余</div></div>
+      <div class="card stat"><div class="k" id="savingBalLabel">本周期预计可存</div><div class="v" id="savingBal">¥0</div></div>
     </div>
 
     <div class="card ordinaryTransferAlert" id="ordinaryTransferHomeCard" style="display:none;margin-top:12px">
@@ -6794,17 +6789,12 @@ function renderNow(){
 
   if(billStatus.complete){
     billBal.textContent="已完成";
-    billBalSub.textContent=`本周期 ${billStatus.all.length} 笔固定账单均已结清`;
     billBal.style.color="var(--accent)";
   }else if(billStatus.none){
     billBal.textContent="暂无";
-    billBalSub.textContent=cycle.income?.deductBills===false
-      ?"本周期未从收入预留固定账单"
-      :"本周期没有需要支付的固定账单";
     billBal.style.color="var(--muted)";
   }else{
     billBal.textContent=M(billStatus.outstandingAmount);
-    billBalSub.textContent=`尚有 ${billStatus.outstanding.length} / ${billStatus.all.length} 笔待处理；按剩余应付金额计算`;
     billBal.style.color="inherit";
   }
 
@@ -6813,7 +6803,6 @@ function renderNow(){
   const cycleExpectedSaving=currentCycleExpectedSaving();
   savingBalLabel.textContent="本周期预计可存";
   savingBal.textContent=M(cycleExpectedSaving);
-  savingBalSub.textContent="";
 
   if(activeProjects().length===0){
     projectBal.textContent="暂无专项";
