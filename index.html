@@ -2444,17 +2444,21 @@ details[open]>summary .savingsFoldChevron::before,
     <div class="section">
       <div class="sectionHeader">
         <div class="sectionTitle">近期必须处理</div>
-        <button class="sectionToggle disclosureAllToggle" id="upcomingAllToggle" onclick="toggleDisclosureGroup('upcoming:',this)">全部收起</button>
+        <button class="sectionToggle disclosureAllToggle" id="upcomingAllToggle" type="button" aria-controls="upcomingSectionBody" aria-expanded="true" onclick="toggleDisclosureGroup('upcoming:',this)">收起</button>
       </div>
-      <div class="card" id="upcomingBox"></div>
+      <div class="sectionBody" id="upcomingSectionBody">
+        <div class="card" id="upcomingBox"></div>
+      </div>
     </div>
 
     <div class="section" id="projectFundingSection" style="display:none">
       <div class="sectionHeader">
         <div class="sectionTitle">专项资金规划</div>
-        <button class="sectionToggle disclosureAllToggle" id="projectFundingAllToggle" onclick="toggleDisclosureGroup('funding:',this)">全部收起</button>
+        <button class="sectionToggle disclosureAllToggle" id="projectFundingAllToggle" type="button" aria-controls="projectFundingSectionBody" aria-expanded="true" onclick="toggleDisclosureGroup('funding:',this)">收起</button>
       </div>
-      <div class="card" id="projectFundingBox"></div>
+      <div class="sectionBody" id="projectFundingSectionBody">
+        <div class="card" id="projectFundingBox"></div>
+      </div>
     </div>
 
     <div class="section">
@@ -6803,33 +6807,35 @@ function rememberDisclosure(el,key){
   try{localStorage.setItem(disclosureStorageKey,JSON.stringify(disclosureState))}catch(e){}
   updateDisclosureAllToggles();
 }
-function toggleDisclosureGroup(prefix,button){
-  const nodes=[...document.querySelectorAll(`details[data-disclosure-key^="${prefix}"]`)];
-  if(!nodes.length)return;
-  const shouldOpen=nodes.every(x=>!x.open);
-  nodes.forEach(x=>{
-    x.open=shouldOpen;
-    const key=x.dataset.disclosureKey||"";
-    if(key)disclosureState[key]=shouldOpen;
+const disclosureGroups=[
+  ["upcoming:","upcomingAllToggle","upcomingSectionBody"],
+  ["funding:","projectFundingAllToggle","projectFundingSectionBody"]
+];
+function toggleDisclosureGroup(prefix){
+  const group=disclosureGroups.find(x=>x[0]===prefix);
+  if(!group)return;
+  const body=document.getElementById(group[2]);
+  if(!body)return;
+  const shouldOpen=body.hidden;
+  disclosureState[prefix+"__section__"]=shouldOpen;
+  const nodes=[...body.querySelectorAll(`details[data-disclosure-key^="${prefix}"]`)];
+  nodes.forEach(node=>{
+    node.open=shouldOpen;
+    if(node.dataset.disclosureKey)disclosureState[node.dataset.disclosureKey]=shouldOpen;
   });
+  body.hidden=!shouldOpen;
   try{localStorage.setItem(disclosureStorageKey,JSON.stringify(disclosureState))}catch(e){}
-  if(button)button.textContent=shouldOpen?"全部收起":"全部展开";
   updateDisclosureAllToggles();
 }
 function updateDisclosureAllToggles(){
-  [
-    ["upcoming:","upcomingAllToggle"],
-    ["funding:","projectFundingAllToggle"]
-  ].forEach(([prefix,id])=>{
+  disclosureGroups.forEach(([prefix,id,bodyId])=>{
     const btn=document.getElementById(id);
-    if(!btn)return;
-    const nodes=[...document.querySelectorAll(`details[data-disclosure-key^="${prefix}"]`)];
-    if(!nodes.length){
-      btn.style.display="none";
-      return;
-    }
-    btn.style.display="";
-    btn.textContent=nodes.every(x=>!x.open)?"全部展开":"全部收起";
+    const body=document.getElementById(bodyId);
+    if(!btn||!body)return;
+    const expanded=disclosureState[prefix+"__section__"]!==false;
+    body.hidden=!expanded;
+    btn.textContent=expanded?"收起":"展开";
+    btn.setAttribute("aria-expanded",String(expanded));
   });
 }
 
