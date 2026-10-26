@@ -7211,10 +7211,14 @@ function txHtml(t,del=false,edit=false,effects=null){
     const metaParts=[
       t.date,
       `计划储蓄 ${M(ea.saving)}`,
-      `当时零花钱 ${M(ea.safe)}`,
+      `收入初始零花分配 ${M(ea.safe)}`,
       `基础生活 ${M(ea.living)}`,
       `固定账单 ${M(ea.bills)}`
     ];
+    if(isCycleIncomeTx(t)){
+      const settled=cycleStatsForIncome(t);
+      metaParts.push(`结算及转存联动后零花 ${M(settled.pocketBalance)}`);
+    }
     if(t.deductLiving===false)metaParts.push("基础生活本次不扣");
     if(t.deductBills===false)metaParts.push("固定账单本次不扣");
     if(Wallets.inlineTag(t))metaParts.push(Wallets.inlineTag(t).slice(3));
@@ -12808,6 +12812,9 @@ function openTxEdit(id){
           <input id="editShortPocket" type="number" min="0" step="0.01" inputmode="decimal" value="${pocketAmount}">
           <div class="note">其余金额由已有储蓄余额转入；两部分合计为本次转入金额。</div>
         </div>`:""}
+        ${t.type==="short_transfer"?`<div><label>${inTransfer?"实际转出账户":"实际转回账户"}</label>
+          <select id="editShortWallet">${shortWalletAccountOptions(inTransfer?t.walletFromAccountId:t.walletToAccountId,t.date||td())}</select>
+        </div>`:""}
         <div>
           <label>备注</label>
           <input id="editShortNote" maxlength="80" value="${esc(t.note||"")}">
@@ -12833,6 +12840,10 @@ function openTxEdit(id){
           <label>存放账户</label>
           <div class="note">${t.shortAccountId?"锁定储蓄 · "+esc(shortSavingsAccountLabel(t.shortAccountId)):"储蓄余额"}</div>
         </div>
+        ${t.shortAccountId?`<div style="grid-column:1/-1">
+          <label>实际转出账户</label>
+          <select id="editExtraSavingWallet">${shortWalletAccountOptions(t.walletFromAccountId,t.date||td())}</select>
+        </div>`:""}
         <div style="grid-column:1/-1">
           <label>备注</label>
           <input id="editExtraSavingNote" value="${esc(t.note||"")}">
@@ -13117,12 +13128,27 @@ saveTxEdit.onclick=()=>{
       t.savingPortion=Math.round((amount-pocketAmount)*100)/100;
       t.fundingMode=pocketAmount>0?"combined":"saving";
     }
+    if(t.type==="short_transfer"){
+      const walletId=document.getElementById("editShortWallet").value;
+      if(walletId&&!Wallets.account(walletId)){
+        Object.assign(t,previous);
+        return msg("请选择有效的实际转账账户");
+      }
+      delete t.walletFromAccountId;
+      delete t.walletToAccountId;
+      if(walletId)t[inTransfer?"walletFromAccountId":"walletToAccountId"]=walletId;
+    }
     const validAccounts=[...new Set([previous.shortAccountId,accountId])]
       .filter(Boolean).every(id=>shortLedgerValid(id));
-    if(!validAccounts||!walletFundingRemainsCovered(before,walletFundingSnapshots(checkpoints))){
+    if(!validAccounts
+      ||!walletFundingRemainsCovered(before,walletFundingSnapshots(checkpoints))
+      ||!shortWalletFundingValid(checkpoints[0]||date,[t.walletFromAccountId])){
+      Object.keys(t).forEach(k=>{if(!(k in previous))delete t[k]});
       Object.assign(t,previous);
       return msg("修改会影响已有资金或后续转存，请调整金额、账户或日期");
     }
+    applyShortWalletAllocation(previous,true);
+    applyShortWalletAllocation(t);
   }else if(t.type==="extra_saving"){
     const date=document.getElementById("editExtraSavingDate").value||t.date||td();
     const amount=Math.round(N(document.getElementById("editExtraSavingAmount").value)*100)/100;
@@ -13133,9 +13159,19 @@ saveTxEdit.onclick=()=>{
     t.date=date;
     t.amount=amount;
     t.note=document.getElementById("editExtraSavingNote").value.trim();
-    if(t.shortAccountId&&!shortLedgerValid(t.shortAccountId)){
+    if(t.shortAccountId){
+      const walletId=document.getElementById("editExtraSavingWallet")?.value||"";
+      if(walletId&&!Wallets.account(walletId)){
+        Object.assign(t,previous);
+        return msg("请选择有效的实际转出账户");
+      }
+      t.walletFromAccountId=walletId;
+    }
+    const affected=walletFundingCheckDates(date<previous.date?date:previous.date);
+    if((t.shortAccountId&&!shortLedgerValid(t.shortAccountId))
+      ||!shortWalletFundingValid(affected[0]||date,[t.walletFromAccountId])){
       Object.assign(t,previous);
-      return msg("修改会导致锁定账户后续资金不足，请检查金额或日期");
+      return msg("修改会导致实际支付渠道或锁定账户后续余额不足，请检查金额或日期");
     }
   }else if(t.type==="pocket_to_saving"||t.type==="pocket_to_project"){
     const target=document.getElementById("editTransferTarget").value;
