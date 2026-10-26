@@ -63,14 +63,14 @@ button{touch-action:manipulation}
 .heroSub{font-size:12px;color:var(--muted);line-height:1.55}
 .heroAction{margin-top:14px;display:flex;gap:8px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-/* 首页资金概览：四张卡片延续原下排的紧凑高度和清晰层级。 */
-#now > .grid{
+/* 「现在」与「结果概览」共用同一组紧凑资金卡片样式。 */
+.overviewStatsGrid{
   grid-auto-rows:1fr;
   align-items:stretch;
   gap:8px;
   margin-top:9px;
 }
-#now > .grid .stat{
+.overviewStatsGrid .stat{
   display:flex;
   flex-direction:column;
   justify-content:center;
@@ -81,13 +81,13 @@ button{touch-action:manipulation}
   border-radius:16px;
   box-shadow:none;
 }
-#now > .grid .stat .k{
+.overviewStatsGrid .stat .k{
   font-size:11.5px;
   line-height:1.3;
   font-weight:600;
   color:var(--muted);
 }
-#now > .grid .stat .v{
+.overviewStatsGrid .stat .v{
   max-width:100%;
   margin-top:5px;
   font-size:clamp(18px,5.1vw,21px);
@@ -108,8 +108,8 @@ button{touch-action:manipulation}
 }
 #now .hero .explainRow.total > strong{font-size:13px;font-weight:760}
 @media(max-width:360px){
-  #now > .grid .stat{padding:10px 11px}
-  #now > .grid .stat .v{font-size:18px}
+  .overviewStatsGrid .stat{padding:10px 11px}
+  .overviewStatsGrid .stat .v{font-size:18px}
 }
 .section{margin-top:16px}
 .sectionTitle{font-size:16px;font-weight:760;margin:0}
@@ -2409,7 +2409,7 @@ details[open]>summary .savingsFoldChevron::before,
       </div>
     </div>
 
-    <div class="grid">
+    <div class="grid overviewStatsGrid">
       <div class="card stat"><div class="k">零花钱余额</div><div class="v" id="livingBal">¥0</div></div>
       <div class="card stat"><div class="k">本周期账单</div><div class="v" id="billBal">¥0</div></div>
       <div class="card stat"><div class="k">专项可用</div><div class="v" id="projectBal">¥0</div></div>
@@ -2702,7 +2702,7 @@ details[open]>summary .savingsFoldChevron::before,
     <div class="section">
       <div class="sectionTitle">结果概览</div>
 
-      <div class="grid">
+      <div class="grid overviewStatsGrid">
         <div class="card stat"><div class="k">收入</div><div class="v" id="mIncome">¥0</div></div>
         <div class="card stat"><div class="k">消费</div><div class="v" id="mSpend">¥0</div></div>
         <div class="card stat"><div class="k" id="mOutcomeLabel">本月预计可存</div><div class="v" id="mExpectedSaving">¥0</div></div>
