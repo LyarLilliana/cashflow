@@ -551,9 +551,26 @@ function saveResolution(){
    a.resolutionAmount=a.direction==="receivable"?R(a.total-paidBack):R(a.total);
  }else if(mode==="void"){
    const realTransactions=related.filter(t=>t.type==="expense"||t.type==="aa_receive");
-   if(!confirm("确认这笔交易实际没有发生，或之前的款项已全部原路退回？将撤销相关 "+
-      realTransactions.length+" 条收支流水并重新计算渠道及预算余额。若有钱尚未退还，请暂勿选此方式。"))return;
-   S.tx=S.tx.filter(t=>t.aaId!==a.id||t.type==="aa_open");
+   if(realTransactions.length&&!$("aaResolveRefundConfirm").checked)
+     return msg("请先确认原付款和回款均已实际退回或清算");
+   if(!confirm(realTransactions.length
+      ?"确认实际收付款已全部退款或清算完毕？将撤销 "+realTransactions.length+" 笔过账，原始内容保留为已取消历史流水。"
+      :"确认取消这笔尚无实际收支的 AA 往来？"))return;
+   // Full journal: retain each original record as a no-posting audit event
+   // rather than physically removing it. This also undoes the original
+   // pocket/project/savings and payment-channel effects with no new spending.
+   const reversed=related.filter(t=>t.type==="expense"||t.type==="aa_receive");
+   S.tx=S.tx.map(t=>{
+     if(t.aaId!==a.id||t.type==="aa_open")return t;
+     return {...t,type:"aa_void_history",
+       voidOriginalType:t.type,voidOriginalKind:t.aaKind||"",
+       voidOriginalAmount:R(t.amount),voidOriginalBucket:t.bucket||"",
+       voidOriginalWallet:t.walletAccountId||"",
+       amount:0,note:t.note||a.title};
+   });
+   a.voidReversedCount=reversed.length;
+   a.voidReversedPayments=R(reversed.filter(t=>t.type==="expense").reduce((n,t)=>n+R(t.amount),0));
+   a.voidReversedReceipts=R(reversed.filter(t=>t.type==="aa_receive").reduce((n,t)=>n+R(t.amount),0));
    a.resolution="void";
    a.resolutionAmount=0;
  }else return;
@@ -570,7 +587,7 @@ function renderEntry(a){
  const resolutionText=a.resolution==="expense"?"已转个人支出":a.resolution==="void"?"已取消":rest>.005?(isReceive?"待收 ":"待付 ")+money(rest):"已结清";
  const outcomeMeta=a.resolution==="expense"?
     " · 最终个人承担 "+money(a.resolutionAmount)+" · 不再 AA"+(a.resolutionDueAtClose>.005?" · 放弃待结清 "+money(a.resolutionDueAtClose):""):
-    a.resolution==="void"?" · 原支付与收款流水已撤销":
+    a.resolution==="void"?" · 历史收付已取消 · 账务金额撤销"+(a.voidReversedCount?" · "+a.voidReversedCount+" 笔记录保留":"") :
     "";
  const buttons=a.resolution?"":rest>.005?
    '<div class="aaEntryActions"><button type="button" onclick="AA.openSettlement('+"'"+safe(a.id)+"'"+')">'+(isReceive?"收到还款":"支付核销")+'</button>'+
