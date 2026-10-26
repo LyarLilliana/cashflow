@@ -99,6 +99,13 @@ const uiStyle=[
 '.aaUpcomingGroup .aaEntryActions button{border:0;background:transparent;border-radius:0;padding:5px 1px;min-height:28px;font-size:10.5px;font-weight:640;color:var(--accent)}',
 '.aaUpcomingGroup .aaEntryActions button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}',
 '@media(max-width:370px){.aaInlineTotals{gap:5px 10px}.aaUpcomingGroup .aaMainTitle{font-size:11.5px}.aaUpcomingGroup .aaMainBadges{font-size:9.5px}}',
+'.aaUpcomingGroup{margin:0 0 9px;padding:0;border:1px solid #E1E5DF;border-radius:16px;background:#fff;overflow:hidden}',
+'.aaUpcomingGroup:last-child{margin-bottom:0}',
+'.aaUpcomingGroup .aaMainDisclosure>summary.upcomingGroupTitle{padding:10px 11px;font-size:13px;font-weight:800;color:var(--text);line-height:1.2}',
+'.aaUpcomingGroup .aaMainDisclosure[open]>summary.upcomingGroupTitle{border-bottom:1px solid #ECEEEA}',
+'.aaUpcomingGroup .aaMainDisclosure .upcomingGroupCount{padding:3px 7px;font-size:9px;font-weight:700;border-radius:999px;background:#F1F3F0;color:var(--muted)}',
+'.aaUpcomingGroup .aaMainDisclosure .disclosureState{min-width:34px;padding:4px 7px}',
+'.aaUpcomingGroup .aaDisclosureBody{padding:0 11px 9px}',
 '#aaInlineHost .aaFormMode{margin-bottom:5px}'
 ].join("\n");
 function mount(){
