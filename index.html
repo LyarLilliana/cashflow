@@ -7332,7 +7332,8 @@ function openTxActions(id){
   ].filter(Boolean).join(" · ");
 
   txActionEditBtn.style.display=transactionEditable(t)?"":"none";
-  txActionDeleteBtn.style.display=t.type==="aa_resolution"?"none":"";
+  const aaResolved=t.aaId&&(S.aaEntries||[]).some(a=>a.id===t.aaId&&a.resolution);
+  txActionDeleteBtn.style.display=aaResolved||t.type==="aa_resolution"?"none":"";
   txActionSheet.classList.add("show");
 }
 
@@ -7346,6 +7347,8 @@ txActionDeleteBtn.onclick=()=>{
   const id=txActionId.value;
   const t=S.tx.find(x=>x.id===id);
   if(!t)return;
+  if(t.aaId&&(S.aaEntries||[]).some(a=>a.id===t.aaId&&a.resolution))
+    return msg("AA 已经结案，请到近期必须处理的已处理列表管理完整记录");
   if(t.type==="aa_resolution")return msg("AA 结束流水需要随完整往来记录管理");
 
   if(t.aaId&&window.AA&&(t.type==="aa_open"||t.aaKind==="advance")){
