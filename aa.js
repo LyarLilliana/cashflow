@@ -77,6 +77,28 @@ const uiStyle=[
 '.aaSpendTabs button.selected{color:var(--accent);background:#fff;box-shadow:0 2px 8px rgba(20,45,32,.08)}',
 '#aaInlineHost[hidden],#spendRegularForm[hidden]{display:none!important}',
 '#aaInlineHost>.sheetTitle{display:none}',
+'/* Lightweight AA section: ledger-style summary, not nested statistical cards. */',
+'.aaUpcomingGroup{margin:0;border-bottom:1px solid var(--line)}',
+'.aaUpcomingGroup .aaMainDisclosure>summary{padding:10px 12px}',
+'.aaUpcomingGroup .aaMainTitle{font-size:12px;font-weight:720;letter-spacing:0;color:var(--text)}',
+'.aaUpcomingGroup .aaMainBadges{font-size:10px;font-weight:500;color:var(--muted)}',
+'.aaUpcomingGroup .aaMainArrow{font-size:12px}',
+'.aaUpcomingGroup .aaDisclosureBody{padding:0 12px 11px}',
+'.aaInlineTotals{display:flex;align-items:center;flex-wrap:wrap;gap:6px 15px;padding:2px 1px 11px;border-bottom:1px solid var(--line)}',
+'.aaInlineItem{display:inline-flex;gap:5px;align-items:baseline;white-space:nowrap;font-size:10.5px;color:var(--muted);font-weight:500}',
+'.aaInlineItem strong{font-size:11.5px;font-weight:680;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}',
+'.aaInlineItem .aaWarn{color:var(--warn)}',
+'.aaUpcomingGroup .aaRecords{margin-top:8px;border-top:0;padding-top:0}',
+'.aaUpcomingGroup .aaRecords>summary{font-size:10.5px;font-weight:630;padding:5px 1px;color:var(--muted)}',
+'.aaUpcomingGroup .aaEntry{padding:9px 0;border-top:1px solid var(--line)}',
+'.aaUpcomingGroup .aaEntryTitle{font-size:11.5px;font-weight:680;line-height:1.45}',
+'.aaUpcomingGroup .aaEntryMeta{font-size:10px;line-height:1.5;margin-top:3px;color:var(--muted)}',
+'.aaUpcomingGroup .aaEntrySum{font-size:11.5px;font-weight:680;line-height:1.45;max-width:38%;white-space:normal}',
+'.aaUpcomingGroup .aaEntryTop{gap:8px}',
+'.aaUpcomingGroup .aaEntryActions{margin-top:4px;gap:3px 14px;justify-content:flex-start}',
+'.aaUpcomingGroup .aaEntryActions button{border:0;background:transparent;border-radius:0;padding:5px 1px;min-height:28px;font-size:10.5px;font-weight:640;color:var(--accent)}',
+'.aaUpcomingGroup .aaEntryActions button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}',
+'@media(max-width:370px){.aaInlineTotals{gap:5px 10px}.aaUpcomingGroup .aaMainTitle{font-size:11.5px}.aaUpcomingGroup .aaMainBadges{font-size:9.5px}}',
 '#aaInlineHost .aaFormMode{margin-bottom:5px}'
 ].join("\n");
 function mount(){
@@ -86,12 +108,12 @@ function mount(){
   target.insertAdjacentHTML("beforeend",[
    '<div class="upcomingGroup aaUpcomingGroup" id="aaSection"><details class="aaMainDisclosure" id="aaMainDisclosure" data-disclosure-key="upcoming:aa">',
    '<summary><span class="aaMainTitle">AA 与往来</span>',
-   '<span class="aaMainSummaryRight"><span class="aaMainBadges" id="aaMainBadges">待收 ¥0 · 待付 ¥0</span><span class="aaMainArrow">⌄</span></span></summary>',
-   '<div class="aaDisclosureBody"><div class="aaSummary">',
-   '<div class="aaCell"><span>待收回</span><strong id="aaReceivable">¥0</strong></div>',
-   '<div class="aaCell"><span>待支付</span><strong id="aaPayable">¥0</strong></div>',
-   '<div class="aaCell"><span>已结清</span><strong id="aaSettled">¥0</strong></div>',
-   '</div><div class="aaDisclosureTools"><button class="secondary" type="button" id="aaAdd">新增 AA 消费</button></div>',
+   '<span class="aaMainSummaryRight"><span class="aaMainBadges" id="aaMainBadges">0 笔待处理</span><span class="aaMainArrow">⌄</span></span></summary>',
+   '<div class="aaDisclosureBody"><div class="aaInlineTotals" aria-label="AA 往来统计">',
+   '<span class="aaInlineItem">待收 <strong id="aaReceivable">¥0</strong></span>',
+   '<span class="aaInlineItem">待付 <strong id="aaPayable">¥0</strong></span>',
+   '<span class="aaInlineItem">已结清 <strong id="aaSettled">¥0</strong></span>',
+   '</div>',
    '<details class="aaRecords" id="aaOpenDetails" open><summary id="aaOpenSummary">待处理往来</summary><div id="aaOpenList"></div></details>',
    '<details class="aaRecords" id="aaClosedDetails"><summary id="aaClosedSummary">已结清</summary><div id="aaClosedList"></div></details>',
    '</div></details></div>'
@@ -167,7 +189,6 @@ function mount(){
    '</div></div>'
   ].join(""));
   document.querySelectorAll("#aaFormSheet,#aaSettleSheet,#aaResolveSheet").forEach(s=>s.addEventListener("click",e=>{if(e.target===s)s.classList.remove("show");}));
-  $("aaAdd").onclick=()=>{openSpend();switchToAA(false);};
   $("aaSpendTabNormal").onclick=restoreSpendingForm;
   $("aaSpendTabSplit").onclick=()=>switchToAA(true);
   $("aaModeReceive").onclick=()=>changeMode("receivable");
@@ -619,7 +640,7 @@ function render(){
  $("aaReceivable").textContent=money(receivable);
  $("aaPayable").textContent=money(payable);
  $("aaSettled").textContent=money(cleared);
- $("aaMainBadges").textContent="待收 "+money(receivable)+" · 待付 "+money(payable);
+ $("aaMainBadges").textContent=openEntries.length?openEntries.length+" 笔待处理":"暂无待处理";
  $("aaReceivable").classList.toggle("aaWarn",receivable>0);
  $("aaPayable").classList.toggle("aaWarn",payable>0);
  $("aaOpenSummary").textContent="待处理 "+openEntries.length+" 笔"+(openEntries.length?" · 点按展开 / 收起":"");
