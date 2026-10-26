@@ -2780,7 +2780,7 @@ details[open]>summary .savingsFoldChevron::before,
 
       <div class="resultRangeBar">
         <span class="resultRangeLabel">统计范围</span>
-        <button class="resultRangeToggle" id="resultRangeToggle">
+        <button class="resultRangeToggle" id="resultRangeToggle" type="button" aria-controls="resultRangePanel" aria-expanded="false">
           <span class="rangeValue" id="historyRangeText">本月</span>
           <span class="rangeAction">修改</span>
         </button>
@@ -7876,8 +7876,8 @@ function setHistoryMode(mode){
   }
 
   historyCustomDates.hidden=true;
-  resultRangePanel.hidden=mode!=="cycle";
-  resultRangeToggle.setAttribute("aria-expanded",String(mode==="cycle"));
+  // Keep the range selector open only while the user is editing it.
+  // Choosing an income-cycle range must not automatically expand it on page load.
   refreshStatsCycleSelects();
 
   syncDateDisplays();
@@ -8541,10 +8541,13 @@ historyMonthBtn.onclick=()=>setHistoryMode("month");
 historyYearBtn.onclick=()=>setHistoryMode("year");
 historyAllBtn.onclick=()=>setHistoryMode("all");
 
+function setResultRangePanelOpen(open){
+  resultRangePanel.hidden=!open;
+  resultRangeToggle.setAttribute("aria-expanded",String(!!open));
+  if(open)historyCustomDates.hidden=historyMode!=="custom";
+}
 resultRangeToggle.onclick=()=>{
-  const opening=resultRangePanel.hidden;
-  resultRangePanel.hidden=!opening;
-  if(!opening)historyCustomDates.hidden=true;
+  setResultRangePanelOpen(resultRangePanel.hidden);
 };
 
 historyCustomBtn.onclick=()=>{
@@ -14108,6 +14111,9 @@ resetAll.onclick=()=>{if(confirm("确认清空全部数据？")){S=JSON.parse(JS
 
 /* nav + sheet */
 function activateMainTab(tab,{scrollTop=false}={}){
+  // Reopening Results always starts with its range editor folded; the saved
+  // selection and the numbers calculated from it remain unchanged.
+  if(tab==="history")setResultRangePanelOpen(false);
   document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
   document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===tab));
   if(scrollTop)window.scrollTo({top:0,left:0,behavior:"auto"});
@@ -14216,13 +14222,16 @@ if(!historyStartDate.value&&!historyEndDate.value){
     historyCustomBtn.classList.add("active");
 
     historyCustomDates.hidden=false;
-    resultRangePanel.hidden=true;
     syncDateDisplays();
     renderHistory();
   }else{
     setHistoryMode(pref.mode||"month");
   }
 }
+
+// On each app launch the selected result range is restored above, while its
+// editor starts collapsed regardless of whether the choice is an income cycle.
+setResultRangePanelOpen(false);
 
 // 储蓄统计默认本月，样式与流水筛选保持一致。
 if(!savingStartDate.value&&!savingEndDate.value)setSavingRangePreset("month");
