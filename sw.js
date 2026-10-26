@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-130-net-savings-breakdown";
+const CACHE = "safespend-v10-131-compact-buttons-wallet-saving-allocation";
 const ASSETS = [
   "./",
   "./index.html",
