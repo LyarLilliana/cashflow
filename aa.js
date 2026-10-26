@@ -448,6 +448,103 @@ function saveSettlement(){
  save();closeSheet("aaSettleSheet");renderAll();
  msg(isReceive?"已核销AA收款":"已核销AA付款");
 }
+
+function openResolution(aaId){
+ const a=get(aaId);
+ if(!a||a.resolution)return msg("此笔 AA 已经结束");
+ const paid=R(S.tx.filter(t=>t.aaId===a.id&&t.type==="expense"&&t.aaKind==="pay")
+   .reduce((sum,t)=>sum+R(t.amount),0));
+ const received=R(S.tx.filter(t=>t.aaId===a.id&&t.type==="aa_receive")
+   .reduce((sum,t)=>sum+R(t.amount),0));
+ $("aaResolveSheet").dataset.aaId=a.id;
+ $("aaResolveTitle").textContent=a.title+" · 总金额 "+money(a.total)+
+   (a.direction==="receivable"?" · 已收回 "+money(received):" · 已支付 "+money(paid));
+ $("aaResolveAmount").value=Math.max(0,R(a.total-paid)).toFixed(2);
+ $("aaResolveDate").value=td();$("aaResolveDate").max=td();
+ $("aaResolveBucket").value="safe";
+ fillProjects("aaResolveProject");
+ fillWallet("aaResolveWallet",S.settings.walletSpendDefault||"");
+ $("aaResolveNote").value="";
+ chooseResolution("expense");
+ $("aaResolveSheet").classList.add("show");
+ if(typeof syncDateDisplays==="function")syncDateDisplays();
+}
+function chooseResolution(mode){
+ const a=get($("aaResolveSheet").dataset.aaId);
+ if(!a)return;
+ $("aaResolveSheet").dataset.mode=mode;
+ $("aaResolveExpense").classList.toggle("selected",mode==="expense");
+ $("aaResolveVoid").classList.toggle("selected",mode==="void");
+ $("aaResolvePayFields").hidden=mode!=="expense"||a.direction==="receivable";
+ $("aaResolveProjectWrap").hidden=$("aaResolveBucket").value!=="project";
+ if(mode==="void"){
+   $("aaResolveHint").textContent="仅在整笔交易最终没有发生，或所有实际款项已退回时使用。确认后将撤销原 AA 关联的垫付、收款及付款记录，恢复对应预算和渠道余额。";
+ }else if(a.direction==="receivable"){
+   $("aaResolveHint").textContent="你已支付过的整个消费仍是原来的实际支出，这里仅结束尚未收回的 AA 款项，不会再次扣款。已收到的还款继续保留在流水中。";
+ }else{
+   const paid=R(S.tx.filter(t=>t.aaId===a.id&&t.aaKind==="pay").reduce((n,t)=>n+R(t.amount),0));
+   $("aaResolveHint").textContent="此前已付 "+money(paid)+"。若改成自己承担全单，还需实际补付 "+
+     money(Math.max(0,R(a.total-paid)))+"。只有确实完成付款后才能确认，不提前记支出。";
+ }
+}
+function saveResolution(){
+ const a=get($("aaResolveSheet").dataset.aaId);
+ if(!a||a.resolution)return msg("该笔 AA 已经结束");
+ const mode=$("aaResolveSheet").dataset.mode;
+ const note=$("aaResolveNote").value.trim();
+ const related=S.tx.filter(t=>t.aaId===a.id);
+ const oldPayments=R(related.filter(t=>t.type==="expense"&&t.aaKind==="pay")
+   .reduce((n,t)=>n+R(t.amount),0));
+ const paidBack=R(related.filter(t=>t.type==="aa_receive")
+   .reduce((n,t)=>n+R(t.amount),0));
+ const outstanding=R(a.people.reduce((n,p)=>n+left(a,p),0));
+ let newExpense=null;
+ if(mode==="expense"){
+   if(a.direction==="receivable"){
+     if(!related.some(t=>t.aaKind==="advance"))
+       return msg("找不到已记录的原始垫付支出，请核对 AA 流水");
+   }else{
+     const amount=R($("aaResolveAmount").value);
+     const required=Math.max(0,R(a.total-oldPayments));
+     const date=$("aaResolveDate").value;
+     if(!validDate(date)||date<a.date)return msg("请核对实际付款日期");
+     if(Math.abs(amount-required)>.005)
+       return msg("实际补付金额应为 "+money(required)+"，扣除以前已付部分");
+     if(amount>.005){
+       const bucket=$("aaResolveBucket").value;
+       const projectId=bucket==="project"?$("aaResolveProject").value:"";
+       const wallet=$("aaResolveWallet").value;
+       if(bucket==="project"&&!projectId)return msg("请选择付款专项");
+       if(bucket==="saving"&&amount>Math.max(0,N(bal().saving))+.005)
+         return msg("可用普通储蓄不足");
+       if(wallet&&!Wallets.account(wallet))return msg("请选择有效的付款渠道");
+       newExpense={id:id("e"),type:"expense",date,amount,bucket,refId:projectId,
+         cycleIncomeId:cycleIncomeIdForDate(date),walletAccountId:wallet,
+         aaId:a.id,aaKind:"conversion",projectOverrunSource:"safe",
+         note:a.title+" · 个人承担全单"};
+     }
+   }
+   const question=a.direction==="receivable"
+     ?"不再追收剩余 "+money(outstanding)+"？整笔消费原先已经扣款，此操作仅结束 AA 往来，不重复扣钱。"
+     :"确认已经实际补付 "+money(newExpense?.amount||0)+"，由自己承担整笔 "+money(a.total)+"？";
+   if(!confirm(question))return;
+   if(newExpense)S.tx.push(newExpense);
+   a.resolution="expense";
+   a.resolutionAmount=a.direction==="receivable"?R(a.total-paidBack):R(a.total);
+ }else if(mode==="void"){
+   const realTransactions=related.filter(t=>t.type==="expense"||t.type==="aa_receive");
+   if(!confirm("确认这笔交易实际没有发生，或之前的款项已全部原路退回？将撤销相关 "+
+      realTransactions.length+" 条收支流水并重新计算渠道及预算余额。若有钱尚未退还，请暂勿选此方式。"))return;
+   S.tx=S.tx.filter(t=>t.aaId!==a.id||t.type==="aa_open");
+   a.resolution="void";
+   a.resolutionAmount=0;
+ }else return;
+ a.resolvedAt=td();a.resolutionMemo=note;a.resolutionDueAtClose=outstanding;
+ S.tx.push({id:id("aares"),type:"aa_resolution",aaId:a.id,date:td(),
+   action:a.resolution,amount:0,note,summary:a.title});
+ save();closeSheet("aaResolveSheet");renderAll();
+ msg(mode==="expense"?"AA 已结转为个人承担":"AA 已取消，不计入实际支出");
+}
 function renderEntry(a){
  const rest=totalLeft(a),isReceive=a.direction==="receivable",people=a.people||[];
  const lines=people.map(p=>safe(p.name)+"："+money(posted(a,p))+" / "+money(p.amount)).join("；");
