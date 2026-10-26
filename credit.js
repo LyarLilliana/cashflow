@@ -331,7 +331,7 @@ function renderCredit(){
     +(a.limit>0?" · 可用 "+M(Math.max(0,a.limit-owed)):"")+'</div></div>'
     +'<div style="text-align:right"><div class="amount">'+M(owed)+'</div>'
     +'<button class="ghost" type="button" style="margin-top:6px;padding:5px 9px;font-size:11px" data-credit-edit="'+esc(a.id)+'">修改</button></div></div></div>';
-  }).join(""):'<div class="note">添加信用账户后可记录信用支付。</div>';
+  }).join(""):'<div class="note">暂无信用账户</div>';
  el("creditAccountList").querySelectorAll("[data-credit-edit]").forEach(b=>b.onclick=()=>openAccount(b.dataset.creditEdit));
  el("creditNowSection").style.display=enabled||entries.length?"":"none";
  el("creditNowList").innerHTML=entries.length
