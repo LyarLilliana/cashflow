@@ -94,10 +94,10 @@ function mount(){
   planSection.innerHTML=
     '<div class="sectionTitle">支付渠道管理</div><div class="card">'+
     '<div class="name">账户设置与余额校准</div>'+
-    '<div class="meta">管理微信、支付宝及银行卡等账户。点击账户，可编辑名称并校准实际余额。</div>'+
+
     '<div class="walletList" id="walletAccountList" style="margin-top:9px"></div>'+
     '<div class="walletPlanActions"><button class="secondary" id="walletAddBtn" type="button">添加支付渠道</button></div>'+
-    '<div class="note" style="margin-top:9px">账户余额调整单独留存流水，保留既有收入、消费及储蓄计算方式。渠道之间的转账可在“现在”操作。</div>'+
+
     '</div>';
   // Keep earlier Plan sections' collapse-state keys unchanged.
   $("plan")?.appendChild(planSection);
@@ -109,7 +109,7 @@ function mount(){
     '<div class="card"><div class="walletNowHead"><span class="name">当前账户合计</span>'+
     '<strong id="walletTotal" class="walletSummary">¥0</strong></div>'+
     '<div class="walletNowGrid" id="walletNowList"></div>'+
-    '<div class="walletNote">实际渠道余额根据已指定的收入和付款记录更新。</div></div></div>');
+    '</div></div>');
   $("incSaving")?.closest("div")?.insertAdjacentHTML("afterend",field("income","到账渠道"));
   $("spendAmount")?.closest("div")?.insertAdjacentHTML("afterend",field("spend","实际付款渠道"));
   $("livingActualSpent")?.closest("div")?.insertAdjacentHTML("afterend",field("living","额外基础生活的付款渠道"));
@@ -120,19 +120,19 @@ function mount(){
     '<div><label>转账金额</label><input id="wallet_transferAmount" type="number" inputmode="decimal" step="0.01" min="0.01"></div>',
     '<div><label>日期</label><input id="wallet_transferDate" type="date"></div>',
     '<div><label>备注</label><input id="wallet_transferNote" placeholder="例如 微信转支付宝"></div>',
-    '</div><div class="note">只影响渠道余额，当前周期的收入、消费和预计可存保持一致。</div>',
+    '</div>',
     '<div class="actions"><button class="ghost" type="button" id="wallet_transferCancel">取消</button><button class="primary" type="button" id="wallet_transferSave">确认转账</button></div></div></div>',
     '<div class="sheet" id="walletAccountSheet"><div class="sheetCard"><div class="sheetTitle" id="walletAccountTitle">支付渠道</div>',
     '<input id="wallet_accountId" type="hidden"><div class="formGrid one">',
     '<div><label>渠道名称</label><input id="wallet_accountName" maxlength="36" placeholder="例如 招商银行储蓄卡"></div>',
     '<div><label id="wallet_accountBalanceLabel">当前实际余额</label><input id="wallet_accountBalance" type="number" inputmode="decimal" step="0.01"></div>',
     '<div><label>备注</label><input id="wallet_accountNote" maxlength="80" placeholder="余额校准说明，可选"></div>',
-    '</div><div class="note" id="wallet_accountHint">余额校准单独留存流水，不增加收入或消费。</div>',
+    '</div>',
     '<div class="actions"><button class="ghost" type="button" id="wallet_accountCancel">取消</button><button class="primary" type="button" id="wallet_accountSave">保存</button></div>',
     '<button class="danger" type="button" id="wallet_accountDelete" style="display:none;width:100%;margin-top:9px">删除渠道</button></div></div>',
     '<div class="sheet" id="walletBillSheet"><div class="sheetCard"><div class="sheetTitle" id="wallet_billTitle">确认账单付款</div><div class="formGrid one">',
     field("bill","实际付款渠道"),
-    '</div><div class="note">账单预留是预算归属，实际支付从选择的渠道扣减一次。</div>',
+    '</div>',
     '<div class="actions"><button class="ghost" type="button" id="wallet_billCancel">取消</button><button class="primary" type="button" id="wallet_billSave">确认已支付</button></div></div></div>'
   ].join("");
   document.body.insertAdjacentHTML("beforeend",markup);
@@ -189,7 +189,6 @@ function openAccount(id){
   $("wallet_accountBalanceLabel").textContent=a?"当前实际余额（校准）":"初始实际余额";
   $("walletAccountTitle").textContent=a?"支付渠道 · "+a.name:"添加支付渠道";
   $("wallet_accountDelete").style.display=a?"block":"none";
-  $("wallet_accountHint").textContent=a?"调整余额将登记一条独立校准流水。":"填写渠道登记时的实有余额，后续由交易流水自动加减。";
   $("walletAccountSheet").classList.add("show");
 }
 function saveAccount(){
