@@ -2172,7 +2172,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
         </div>
       </div>
       <div class="card" style="margin-top:10px" id="lightPlanList">
-        <div class="note">已加入的待处理事项统一显示在“现在 → 近期必须处理”。</div>
+        
       </div>
       <details class="card archiveBox" id="lightPlanDoneWrap" style="display:none">
         <summary>已处理计划 <span id="lightPlanDoneCount"></span></summary>
@@ -2374,11 +2374,11 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
           <button class="secondary" type="button" onclick="openExtraSaving('short')">合并余额转入</button>
           <button class="ghost" type="button" onclick="openShortTransfer('','interest')">登记收益</button>
         </div>
-        <div class="small" style="margin-top:9px">支持按任意日期补记转入或转出。过去日期会重算账目，未来日期记为待生效计划，到日期才影响余额。资金转入后锁定，不参与零花钱兜底。</div>
+        
       </div>
       <div class="card bankReminderWithinSaving">
         <div class="name" style="margin-bottom:5px">累计转存目标</div>
-        <div class="meta">已存储蓄加上本周期待结转零花，合计为预计累计金额；结转后即可实际转存。</div>
+        
 
         <div class="divider"></div>
 
@@ -3204,7 +3204,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
 <h2 class="sheetTitle">普通储蓄支付渠道分布</h2>
 <div class="meta" id="ordinaryWalletEditHeader"></div><div id="ordinaryWalletFields" class="ordinaryWalletFields"></div>
 <div class="ordinaryBalancePreview" id="ordinaryWalletEditTotal"></div>
-<p class="note">渠道分布是对普通储蓄存放位置的核对。修改标记后，普通储蓄总额与渠道实有余额保持原状；资金真实转移时继续通过转账或存款操作记账。</p>
+
 <div class="actions"><button class="ghost" type="button" onclick="closeSheet('ordinaryWalletSheet')">取消</button>
 <button class="primary" type="button" id="saveOrdinaryWalletAllocation">保存分布</button></div>
 </div></div>
@@ -3217,7 +3217,7 @@ details:not([open])>.disclosureSummary .disclosureState::after{content:"展开"}
     <div><label>调整备注</label><input maxlength="100" id="ordinaryBalanceAdjustmentNote" placeholder="例如 与实际资金核对"></div>
   </div>
   <div class="ordinaryBalancePreview" id="ordinaryBalanceAdjustmentPreview"></div>
-  <p class="note">余额校准只修正普通储蓄账户资金，与实际银行、微信、支付宝之间的转存或消费分开记录。差额保留流水并从本期新存储蓄中剔除。</p>
+  
   <div class="actions"><button class="ghost" type="button" onclick="closeSheet('ordinaryBalanceSheet')">取消</button>
     <button class="primary" id="saveOrdinaryBalanceAdjustment" type="button">保存校准</button></div>
   <button type="button" class="danger" id="deleteOrdinaryBalanceAdjustment" style="display:none;width:100%;margin-top:10px">删除本条校准</button>
@@ -6483,7 +6483,7 @@ function renderPlan(){
     <button class="ghost" style="padding:4px 8px;font-size:10px;margin-top:6px" onclick="event.stopPropagation();quickDeleteBill('${b.id}')">删除</button></div></div></div>`).join("")
     :'<div class="note">还没有固定账单。</div>';
 
-  lightPlanList.innerHTML='<div class="note">已加入的待处理事项统一显示在“现在 → 近期必须处理”。</div>';
+  lightPlanList.innerHTML='';
 
   const lightDone=completedLightPlans();
   lightPlanDoneWrap.style.display=lightDone.length?"":"none";
@@ -9210,9 +9210,7 @@ function renderOrdinaryWalletDistribution(){
   box.innerHTML=d.accounts.map(a=>`<div class="ordinaryWalletLine"><span>${esc(a.name)}</span><strong>${M(d.allocation[a.id])}</strong></div>`).join("")
     +`<div class="ordinaryWalletLine"><span>待核对渠道</span><strong>${M(d.unassigned)}</strong></div>`;
   document.getElementById("ordinaryWalletHint").textContent=
-    (d.needsReview?"部分历史渠道归属超过当前储蓄或渠道余额，请重新核对。 ":"")+
-    (d.unassigned>.005?"点击“编辑分布”，确认这部分普通储蓄实际存放的位置。":"分布合计与当前普通储蓄余额一致。")+
-    " 各支付渠道余额还包括生活及其他资金。";
+    d.needsReview?"渠道归属超额，请核对":d.unassigned>.005?"仍有未分配渠道的储蓄":"";
 }
 function ordinaryWalletDraft(){
   const inputs=[...document.querySelectorAll("#ordinaryWalletFields [data-ordinary-wallet-id]")];
@@ -9271,7 +9269,7 @@ function previewOrdinaryBalanceCorrection(){
   document.getElementById("ordinaryBalanceAdjustmentPreview").textContent=
     "校准前 "+M(baseline)+(difference===null?" · 请填写目标余额":
     "，校准后 "+M(target)+"，差额 "+(difference>=0?"+":"−")+M(Math.abs(difference)))+
-    "。历史校准将联动后续资金流水。";
+    "";
 }
 function openOrdinaryBalanceEditor(id=""){
   const record=id?S.tx.find(t=>t.id===id&&t.type==="ordinary_balance_adjustment"):null;
@@ -9301,7 +9299,7 @@ function changeOrdinaryBalanceCorrection(mode="save"){
   const value=document.getElementById("ordinaryBalanceAdjustmentTarget").value.trim();
   const target=Number(value);
   if(mode!=="delete"){
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||date>td()||
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>td()||
       !Number.isFinite(D(date).getTime())||localDateString(D(date))!==date)
       return msg("请输入有效的历史或当日日期");
     if(value===""||!Number.isFinite(target)||target<0)return msg("请输入有效的目标储蓄余额");
