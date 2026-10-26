@@ -7861,7 +7861,10 @@ function selectedPlanSourceSavingForRange(start="",end=""){
   const close=virtualCycleCloseEvents().find(t=>t.sourceIncomeId===receipt.id);
   if(close&&close.date<=td()&&(!end||close.date<=end)){
     const booked=Math.max(0,N(effects[close.id]?.cycleCloseSaving));
-    const fromSource=Math.min(available,booked);
+    // A later ordinary-balance reconciliation can reverse an erroneous
+    // automatic closeout. Respect the currently reconciled holding.
+    const reconciledOrdinary=Math.max(0,N(accounting().saving));
+    const fromSource=Math.min(available,booked,reconciledOrdinary);
     ordinary+=fromSource;
     saveEvent(close,"本次收入周期结余转储蓄",fromSource);
   }
