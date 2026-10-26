@@ -8197,7 +8197,8 @@ function periodSavableForRange(start="",end="",mode=historyMode){
     t=>N(t.amount)
   );
   const selectedPlanCycle=mode==="cycle"&&!!selectedStatsCyclePlanId;
-  const savings=savingSummaryForRange(start,end,mode==="cycle"&&!selectedPlanCycle);
+  const savings=rangeSavingsSummary(start,end,mode==="cycle"&&!selectedPlanCycle,
+    selectedPlanCycle||mode==="week");
   let expected=N(savings.cashflowGrowth);
   const active=currentCycleStats();
   if((selectedPlanCycle||mode==="week")&&active.income
@@ -9215,6 +9216,28 @@ function projectInternalSavingReallocationForRange(start="",end=""){
   });
 }
 
+function rangeSavingsSummary(start="",end="",cycleMode=false,excludeOpeningCarry=false){
+  const summary=savingSummaryForRange(start,end,cycleMode);
+  if(cycleMode||!excludeOpeningCarry||!start)return summary;
+  const closes=virtualCycleCloseEvents().filter(t=>t.date===start);
+  if(closes.length===0)return summary;
+  const effects=accounting().effects;
+  const carry=Math.max(0,sm(closes,t=>N(effects[t.id]?.cycleCloseSaving)));
+  if(carry<=.005)return summary;
+  return {
+    ...summary,
+    selectedCycleCarry:true,
+    priorCycleCarry:carry,
+    openingAssets:N(summary.openingAssets)+carry,
+    ordinaryBooked:N(summary.ordinaryBooked)-carry,
+    dailyBase:N(summary.dailyBase)-carry,
+    dailyBeforeBank:N(summary.dailyBeforeBank)-carry,
+    dailyAfterBank:N(summary.dailyAfterBank)-carry,
+    expected:N(summary.expected)-carry,
+    cashflowGrowth:Math.round((N(summary.cashflowGrowth)-carry)*100)/100,
+    grossSaved:N(summary.grossSaved)-carry
+  };
+}
 function savingSummaryForRange(start="",end="",cycleMode=false){
   const range={start,end};
   const raw=expectedSavingGrowthForRange(start,end,cycleMode);
@@ -9317,9 +9340,8 @@ function savingsAssetBalanceAt(asOf=td()){
 function savingsAssetReconciliationForRange(start="",end="",summary=null){
   const closingDate=end&&end<td()?end:td();
   const openingDate=start?addDays(start,-1):"";
-  const priorCycleCarry=summary?.cycleMode&&start
-    ?N(summary.priorCycleCarry)
-    :0;
+  const priorCycleCarry=(summary?.cycleMode||summary?.selectedCycleCarry)&&start
+    ?N(summary.priorCycleCarry):0;
   const opening=(openingDate?savingsAssetBalanceAt(openingDate):0)+priorCycleCarry;
   const closing=savingsAssetBalanceAt(closingDate);
   // Cycle opening includes handover and any same-day historical corrections.
@@ -9338,8 +9360,9 @@ function savingsAssetReconciliationForRange(start="",end="",summary=null){
 function selectedSavingRangeSummary(){
   const range=savingRangeBounds();
   return {
-    ...savingSummaryForRange(range.start,range.end,
-      savingRangePreset==="cycle"&&!selectedStatsCyclePlanId),
+    ...rangeSavingsSummary(range.start,range.end,
+      savingRangePreset==="cycle"&&!selectedStatsCyclePlanId,
+      (savingRangePreset==="cycle"&&!!selectedStatsCyclePlanId)||savingRangePreset==="week"),
     range
   };
 }
