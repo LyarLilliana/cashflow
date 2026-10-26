@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-124-result-stat-card-unify";
+const CACHE = "safespend-v10-125-cycle-choice-income-saving-target";
 const ASSETS = [
   "./",
   "./index.html",
