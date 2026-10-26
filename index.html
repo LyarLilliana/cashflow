@@ -4178,10 +4178,7 @@ function incomeSavingTargetFromTx(t){
 }
 function incomeLockedSavingAmount(t){
   if(t?.type!=="income"||t?.alloc?.savingDestination!=="short"||!t?.alloc?.savingShortAccountId)return 0;
-  return Math.max(0,Math.min(
-    Math.round(N(t.alloc.saving)*100)/100,
-    Math.round(N(effectiveIncomeAllocation(t).saving)*100)/100
-  ));
+  return Math.max(0,Math.round(N(t.alloc.saving)*100)/100);
 }
 function refreshIncomeSavingDestination(edit=false,tx=null){
   const id=edit?"editIncomeSavingDestination":"incSavingDestination";
@@ -4221,13 +4218,15 @@ function deletedShortAccountId(id){
 function shortAccountBalance(id,asOf=td(),excludeBankId=""){
   let n=0;
   S.tx.forEach(t=>{
-    if(t.shortAccountId!==id||!t.date||t.date>asOf)return;
+    const incomeLocked=t.type==="income"&&t.alloc?.savingDestination==="short"
+      &&t.alloc?.savingShortAccountId===id;
+    if((t.shortAccountId!==id&&!incomeLocked)||!t.date||t.date>asOf)return;
     const a=N(t.amount);
     if(t.type==="short_transfer")n+=t.direction==="in"?a:-a;
     if(t.type==="short_balance_adjustment")n+=N(t.delta);
     if(t.type==="project_transfer"&&t.toProjectId==="__saving__"&&t.savingDestination==="short")n+=a;
     if(t.type==="pocket_to_short")n+=a;
-    if(t.type==="income"&&incomeSavingTargetFromTx(t)==="short:"+id)n+=incomeLockedSavingAmount(t);
+    if(incomeLocked)n+=incomeLockedSavingAmount(t);
     if(t.type==="extra_saving"&&t.shortAccountId)n+=a;
     if(t.type==="short_interest")n+=a;
     if(t.type==="short_spend")n-=a;
@@ -4256,7 +4255,9 @@ function shortFlowForRange(start="",end=""){
 }
 function shortLedgerValid(id){
   const dates=new Set([td()]);
-  S.tx.filter(t=>t.shortAccountId===id).forEach(t=>dates.add(t.date));
+  S.tx.filter(t=>t.shortAccountId===id
+    ||(t.type==="income"&&t.alloc?.savingDestination==="short"&&t.alloc?.savingShortAccountId===id))
+    .forEach(t=>dates.add(t.date));
   S.deposits.filter(d=>d.source==="short"&&d.shortAccountId===id).forEach(d=>dates.add(d.startDate));
   return [...dates].every(date=>shortAccountBalance(id,date)>=-0.005)
     &&(!deletedShortAccountId(id)||Math.abs(shortAccountBalance(id))<0.005);
