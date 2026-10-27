@@ -4069,7 +4069,9 @@ function cyclePocketSnapshot(incomeTx){
   const cycleTx=cycleTransactionsForIncome(incomeTx);
 
   const expenses=cycleTx.filter(t=>t.type==="expense");
-  const projectEffects=expenses.some(t=>t.bucket==="project")?accounting().effects:{};
+  const postedEffects=expenses.some(t=>t.bucket==="project"||t.bucket==="bill"||!!t.settledBillId)
+    ?accounting().effects:{};
+  const projectEffects=postedEffects;
   const settlements=cycleTx.filter(t=>t.type==="living_settlement");
   const savingTransfers=cycleTx.filter(t=>t.type==="pocket_to_saving"||t.type==="pocket_to_short"||(t.type==="short_transfer"&&t.direction==="in"&&N(t.pocketPortion)>0));
   const projectTransfers=cycleTx.filter(t=>t.type==="pocket_to_project");
@@ -4083,30 +4085,10 @@ function cyclePocketSnapshot(incomeTx){
   const fixedReserved=N(baseAlloc.bills)+sm(extraAllocs,x=>N(x.bills));
   const projectReserved=N(baseAlloc.projectTotal)+sm(extraAllocs,x=>N(x.projectTotal));
 
-  const billReserveByCycle={};
-  const addBillReserveItems=items=>{
-    (items||[]).forEach(x=>{
-      const key=`${x.billId||""}|${x.dueDate||""}`;
-      billReserveByCycle[key]=(billReserveByCycle[key]||0)+N(x.amount);
-    });
-  };
-  addBillReserveItems(baseAlloc.billItems);
-  extraAllocs.forEach(x=>addBillReserveItems(x.billItems));
-
+  // Use the ledger posting to identify the actual funding source of a paid bill.
+  // Prior-cycle reservations remain valid when the payment happens in a later cycle.
   const billExpenses=expenses.filter(t=>t.bucket==="bill"||!!t.settledBillId);
-  let billPocketSpent=0;
-  billExpenses
-    .slice()
-    .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date))
-    .forEach(t=>{
-      const bid=billPaymentRefId(t);
-      const due=t.cycleDueDate||"";
-      const key=`${bid}|${due}`;
-      const reserved=Math.max(0,N(billReserveByCycle[key]));
-      const fromReserve=Math.min(N(t.amount),reserved);
-      billReserveByCycle[key]=reserved-fromReserve;
-      billPocketSpent+=Math.max(0,N(t.amount)-fromReserve);
-    });
+  const billPocketSpent=sm(billExpenses,t=>Math.max(0,N(postedEffects[t.id]?.billPocketDraw)));
 
   // 普通日常支出统一按“当日基础生活 → 零花钱 → 储蓄”消耗。
   // 周期统计必须只把真正落到零花钱上的部分计入 pocketSpent，
