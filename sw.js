@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-136-independent-income-cycles";
+const CACHE = "safespend-v10-136-income-ordinary-wallet";
 const ASSETS = [
   "./",
   "./index.html",
