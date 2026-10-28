@@ -9795,6 +9795,8 @@ function ordinaryWalletDistribution(){
   const total=Math.max(0,Math.round(N(posted.saving)*100));
   let remaining=total,needsReview=false;
   const allocation={};
+  const inferredMovementIds=[];
+  const absorbed=S.settings.ordinaryWalletAbsorbedMovements||{};
   accounts.forEach(a=>{
     const wanted=Math.max(0,Math.round(N(stored[a.id])*100));
     const cap=Math.max(0,Math.round(N(Wallets.balance(a.id))*100));
@@ -9811,7 +9813,7 @@ function ordinaryWalletDistribution(){
   const receiptById=new Map((S.tx||[]).filter(t=>t.type==="income").map(t=>[t.id,t]));
   const txById=new Map((S.tx||[]).map(t=>[t.id,t]));
   (posted.ordinaryMovements||[]).forEach(row=>{
-    if(remaining<=0||N(row.delta)<=.005)return;
+    if(remaining<=0||N(row.delta)<=.005||absorbed[row.id])return;
     let receipt=null;
     if(row.type==="cycle_close_saving"){
       receipt=receiptById.get(row.sourceIncomeId);
@@ -9829,8 +9831,26 @@ function ordinaryWalletDistribution(){
     if(addition<=0)return;
     allocation[id]=(prior+addition)/100;
     remaining-=addition;
+    inferredMovementIds.push(row.id);
   });
-  return {accounts,allocation,total:total/100,unassigned:remaining/100,needsReview};
+  return {accounts,allocation,total:total/100,unassigned:remaining/100,needsReview,inferredMovementIds};
+}
+
+// Payment-channel moves affect allocation only; savings assets remain unchanged.
+// Freeze the already attributed virtual cycle closures before relocating them.
+function moveOrdinaryWalletShares(fromId,toId,amount,distribution=null){
+  const cents=Math.round(N(amount)*100);
+  if(cents<=0)return true;
+  const d=distribution||ordinaryWalletDistribution();
+  const available=Math.round(N(d.allocation[fromId])*100);
+  if(available<cents||!Wallets.account(fromId)||!Wallets.account(toId))return false;
+  S.settings.ordinaryWalletShares={...d.allocation};
+  const absorbed=S.settings.ordinaryWalletAbsorbedMovements
+    ||(S.settings.ordinaryWalletAbsorbedMovements={});
+  (d.inferredMovementIds||[]).forEach(id=>{absorbed[id]=true;});
+  S.settings.ordinaryWalletShares[fromId]=(available-cents)/100;
+  S.settings.ordinaryWalletShares[toId]=(Math.round(N(S.settings.ordinaryWalletShares[toId])*100)+cents)/100;
+  return true;
 }
 
 // Unspent daily living allowance first returns to pocket cash. It remains
