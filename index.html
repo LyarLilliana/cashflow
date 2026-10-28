@@ -3202,7 +3202,7 @@ details[open]>summary .savingsFoldChevron::before,
 
       <div class="actions">
         <button class="ghost" onclick="closeSheet('livingSheet')">关闭</button>
-        <button class="primary" id="saveLivingSettlement">确认结算</button>
+        <button class="primary" type="button" id="saveLivingSettlement">确认结算</button>
       </div>
     </div>
 
@@ -11741,7 +11741,12 @@ function openLivingSettlement(){
   const manual=existing?livingSettlementManualActual(existing):0;
 
   livingActualSpent.value=manual;
-  wallet_living.value=Wallets.account(existing?.walletAccountId)?existing.walletAccountId:(Wallets.account(S.settings.walletSpendDefault)?S.settings.walletSpendDefault:"");
+  const paymentSelect=document.getElementById("wallet_living");
+  if(paymentSelect){
+    paymentSelect.value=Wallets.account(existing?.walletAccountId)?existing.walletAccountId:(Wallets.account(S.settings.walletSpendDefault)?S.settings.walletSpendDefault:"");
+    const paymentRow=paymentSelect.closest(".walletField");
+    if(paymentRow)paymentRow.style.display=manual>0.005?"":"none";
+  }
   livingAllowance.textContent=M(remaining);
   livingAllowance.style.color=remaining<0?"var(--danger)":"inherit";
   livingSumAllowance.textContent=M(allowance);
@@ -11765,6 +11770,11 @@ function recalcLivingSettlement(){
   const batch=livingBatchShareForDate(td());
   const remaining=allowance-batch;
   const manual=Math.max(0,N(livingActualSpent.value));
+  // A batch purchase was paid on its own recorded payment date.
+  // Only an additional manual purchase requires a payment-channel debit.
+  const paymentSelect=document.getElementById("wallet_living");
+  const paymentRow=paymentSelect?.closest(".walletField");
+  if(paymentRow)paymentRow.style.display=manual>0.005?"":"none";
   const {dailyDraw,net:release}=livingSettlementPreviewForDate(td(),allowance,manual);
 
   livingAllowance.textContent=M(remaining);
@@ -11798,10 +11808,12 @@ saveLivingSettlement.onclick=()=>{
   const actual=manual+batch;
   const allowance=N(existing?.allowance||info.allowance);
   const release=livingSettlementPreviewForDate(td(),allowance,manual).net;
+  // The distributed batches already debited their payment channels on purchase.
+  const paymentWallet=manual>0.005?Wallets.selected("living"):"";
 
   if(existing){
     existing.manualActualSpent=manual;
-    existing.walletAccountId=Wallets.selected("living");
+    existing.walletAccountId=paymentWallet;
     existing.actualSpent=actual;
     existing.allowance=allowance;
     existing.autoSettled=false;
@@ -11816,7 +11828,7 @@ saveLivingSettlement.onclick=()=>{
       allowance,
       manualActualSpent:manual,
       actualSpent:actual,
-      walletAccountId:Wallets.selected("living")
+      walletAccountId:paymentWallet
     });
   }
 
@@ -11833,7 +11845,8 @@ saveLivingSettlement.onclick=()=>{
   else if(release<0)msg(`今日基础生活超支 ${M(Math.abs(release))}`);
   else msg(existing?"今日基础生活结算已更新":"今日基础生活已结清");
 
-  openLivingSettlement();
+  // Completion closes the sheet; reopening it looked like an unresponsive button.
+  closeSheet("livingSheet");
 };
 
 function pastLivingSettlementRows(){
