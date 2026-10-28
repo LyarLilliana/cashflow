@@ -124,6 +124,12 @@ function mount(){
     '<div class="sheet" id="walletTransferSheet"><div class="sheetCard"><div class="sheetTitle">渠道之间转账</div><div class="formGrid one">',
     field("from","转出账户"),field("to","转入账户"),
     '<div><label>转账金额</label><input id="wallet_transferAmount" type="number" inputmode="decimal" step="0.01" min="0.01"></div>',
+    '<div><label>资金性质</label><select id="wallet_transferFunding">'+
+    '<option value="daily">可用资金</option><option value="ordinary">普通储蓄</option>'+
+    '<option value="mixed">混合资金</option></select></div>',
+    '<div id="wallet_transferOrdinaryRow" style="display:none">'+
+    '<label>其中普通储蓄金额</label><input id="wallet_transferOrdinaryAmount" type="number" inputmode="decimal" step="0.01" min="0"></div>',
+    '<div class="meta" id="wallet_transferFundingHint"></div>',
     '<div><label>日期</label><input id="wallet_transferDate" type="date"></div>',
     '<div><label>备注</label><input id="wallet_transferNote" placeholder="例如 微信转支付宝"></div>',
     '</div>',
@@ -162,6 +168,11 @@ function mount(){
   $("wallet_accountSave").onclick=saveAccount;
   $("wallet_accountDelete").onclick=deleteAccount;
   $("wallet_transferSave").onclick=saveTransfer;
+  ["wallet_from","wallet_transferFunding","wallet_transferAmount","wallet_transferOrdinaryAmount","wallet_transferDate"].forEach(id=>{
+    $(id).addEventListener("change",refreshTransferFunding);
+    if(id==="wallet_transferAmount"||id==="wallet_transferOrdinaryAmount")
+      $(id).addEventListener("input",refreshTransferFunding);
+  });
   $("wallet_billSave").onclick=()=>{
     const d=$("walletBillSheet").dataset,id=selected("bill");
     closeSheet("walletBillSheet");
@@ -257,6 +268,22 @@ function deleteAccount(){
   S.paymentAccounts=S.paymentAccounts.filter(x=>x.id!==id);
   save();closeSheet("walletAccountSheet");renderAll();msg("渠道已删除");
 }
+function refreshTransferFunding(){
+  const from=$("wallet_from").value;
+  const saving=typeof ordinaryWalletDistribution==="function"
+    ?Math.max(0,round(ordinaryWalletDistribution().allocation[from])):0;
+  const kind=$("wallet_transferFunding").value;
+  const amount=round(Number($("wallet_transferAmount").value));
+  $("wallet_transferOrdinaryRow").style.display=kind==="mixed"?"":"none";
+  if(kind==="mixed"){
+    const input=$("wallet_transferOrdinaryAmount");
+    const max=Math.min(Math.max(0,amount),saving);
+    input.max=max.toFixed(2);
+    if(round(Number(input.value))>max+0.005)input.value=max.toFixed(2);
+  }
+  $("wallet_transferFundingHint").textContent=
+    "该渠道余额 "+money(balance(from))+"，其中普通储蓄 "+money(saving);
+}
 function openTransfer(){
   refreshSelectors();
   $("wallet_from").value=accounts()[0]?.id||"";
@@ -264,18 +291,52 @@ function openTransfer(){
   $("wallet_transferDate").value=td();
   $("wallet_transferDate").max=td();
   $("wallet_transferAmount").value="";
+  $("wallet_transferOrdinaryAmount").value="0";
+  $("wallet_transferFunding").value="daily";
   $("wallet_transferNote").value="";
+  refreshTransferFunding();
   $("walletTransferSheet").classList.add("show");
   if(typeof syncDateDisplays==="function")syncDateDisplays();
 }
 function saveTransfer(){
-  const from=$("wallet_from").value,to=$("wallet_to").value,date=$("wallet_transferDate").value||td(),amount=round(Number($("wallet_transferAmount").value));
+  const from=$("wallet_from").value,to=$("wallet_to").value,date=$("wallet_transferDate").value||td();
+  const amount=round(Number($("wallet_transferAmount").value));
   if(!account(from)||!account(to)||from===to)return msg("请选择两个不同渠道");
   if(!Number.isFinite(amount)||amount<=0)return msg("请输入有效的转账金额");
-  if(date>td())return msg("日期不能晚于今天");
-  if(amount>balance(from)+0.005)return msg("转出账户的当前余额不足");
-  S.tx.push({id:"wt"+Date.now(),type:"wallet_transfer",date,fromAccountId:from,toAccountId:to,amount,note:$("wallet_transferNote").value.trim()});
-  save();closeSheet("walletTransferSheet");renderAll();msg("两个渠道余额已同步");
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>td())return msg("请选择有效的转账日期");
+  const kind=$("wallet_transferFunding").value;
+  const input=$("wallet_transferOrdinaryAmount").value;
+  const ordinary=kind==="ordinary"?amount:kind==="mixed"?round(Number(input)):0;
+  if(kind==="mixed"&&(input.trim()===""||!Number.isFinite(Number(input))||Number(input)<0))
+    return msg("请输入有效的普通储蓄金额");
+  if(ordinary<0||ordinary>amount+0.005)return msg("普通储蓄金额须介于零和转账金额之间");
+  const distribution=ordinaryWalletDistribution();
+  const saving=Math.max(0,round(distribution.allocation[from]));
+  const total=Math.max(0,round(balance(from)));
+  const free=Math.max(0,round(total-saving));
+  if(ordinary>saving+0.005)return msg("该渠道普通储蓄金额不足");
+  if(round(amount-ordinary)>free+0.005)return msg("该渠道可用资金不足，请调整普通储蓄份额");
+  if(amount>balanceAt(from,date)+0.005)return msg("转账日期的账户余额不足");
+  if(ordinary>0&&ordinary>accounting(date).saving+0.005)return msg("转账日期的普通储蓄余额不足");
+  const dates=[...new Set([date,td(),...S.tx.map(t=>t.date).filter(d=>d&&d>=date)])].sort();
+  const before=dates.map(d=>balanceAt(from,d));
+  const oldShares={...(S.settings.ordinaryWalletShares||{})};
+  const oldAbsorbed={...(S.settings.ordinaryWalletAbsorbedMovements||{})};
+  S.tx.push({id:"wt"+Date.now()+Math.random().toString(36).slice(2,5),
+    type:"wallet_transfer",date,fromAccountId:from,toAccountId:to,
+    amount,ordinaryAmount:ordinary,note:$("wallet_transferNote").value.trim()});
+  if(!dates.every((d,i)=>balanceAt(from,d)>=Math.min(0,before[i])-0.005)){
+    S.tx.pop();
+    return msg("这笔转账会造成后续账户余额不足，请检查日期");
+  }
+  if(ordinary>0&&!moveOrdinaryWalletShares(from,to,ordinary,distribution)){
+    S.tx.pop();
+    S.settings.ordinaryWalletShares=oldShares;
+    S.settings.ordinaryWalletAbsorbedMovements=oldAbsorbed;
+    return msg("普通储蓄渠道分布校验失败");
+  }
+  save();closeSheet("walletTransferSheet");renderAll();
+  msg(ordinary>0?"渠道互转完成，普通储蓄分布已同步":"两个渠道余额已同步");
 }
 function openBillPayment(billId,dueDate){
   const b=S.bills.find(x=>x.id===billId);if(!b)return;
@@ -299,7 +360,8 @@ function editSelected(t){
 function inlineTag(t){return t?.walletAccountId&&account(t.walletAccountId)?" · "+clean(name(t.walletAccountId)):"";}
 function txHtml(t){
   if(t.type==="wallet_transfer")return '<div class="item"><div class="txRow"><div class="txLeft"><div class="name">支付渠道互转 · '+clean(name(t.fromAccountId))+' → '+clean(name(t.toAccountId))+
-    '</div><div class="meta">'+clean(t.date)+(t.note?" · "+clean(t.note):"")+'</div></div><div class="txRight"><div class="txAmount txMuted">'+money(t.amount)+'</div></div></div></div>';
+    '</div><div class="meta">'+clean(t.date)+(round(t.ordinaryAmount)>0?" · 其中普通储蓄 "+money(t.ordinaryAmount):"")+
+    (t.note?" · "+clean(t.note):"")+'</div></div><div class="txRight"><div class="txAmount txMuted">'+money(t.amount)+'</div></div></div></div>';
   if(t.type==="wallet_adjustment")return '<div class="item"><div class="txRow"><div class="txLeft"><div class="name">支付渠道余额校准 · '+clean(name(t.walletAccountId))+
     '</div><div class="meta">'+clean(t.date)+' · 校准后 '+money(t.targetBalance)+(t.note?" · "+clean(t.note):"")+'</div></div><div class="txRight"><div class="txAmount txMuted">'+(t.delta>=0?"+":"−")+money(Math.abs(t.delta))+'</div></div></div></div>';
   return "";
