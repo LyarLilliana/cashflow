@@ -7361,6 +7361,8 @@ function txHtml(t,del=false,edit=false,effects=null){
     ];
     if(incomeLockedSavingAmount(t)>.005)
       metaParts.push("存入锁定储蓄 "+esc(shortSavingsAccountLabel(t.alloc.savingShortAccountId)));
+    else if(N(ea.saving)>.005&&Wallets.account(t.walletAccountId))
+      metaParts.push("普通储蓄存放于 "+esc(Wallets.account(t.walletAccountId).name));
     if(t.deductLiving===false)metaParts.push("基础生活本次不扣");
     if(t.deductBills===false)metaParts.push("固定账单本次不扣");
     if(Wallets.inlineTag(t))metaParts.push(Wallets.inlineTag(t).slice(3));
@@ -9702,6 +9704,48 @@ function bankReminderThresholdValue(){
 
 
 
+// Income preferential savings in the ordinary pool remain in the actual
+// arrival channel. This is an earmark, not a second physical transfer.
+function applyIncomeOrdinaryWalletAllocation(t,reverse=false){
+  if(!t||t.type!=="income")return;
+  const shares=S.settings.ordinaryWalletShares||(S.settings.ordinaryWalletShares={});
+  if(reverse){
+    const oldId=t.walletOrdinaryShareAccountId||"";
+    if(oldId){
+      shares[oldId]=Math.max(0,Math.round(
+        (N(shares[oldId])-N(t.walletOrdinaryShareDelta))*100)/100);
+    }
+    return;
+  }
+  t.walletOrdinaryShareAccountId="";
+  t.walletOrdinaryShareDelta=0;
+  if(t.alloc?.savingDestination==="short")return;
+  const id=t.walletAccountId||"";
+  if(!Wallets.account(id))return;
+  const amount=Math.max(0,Math.round(N(t.alloc?.saving)*100));
+  if(!amount)return;
+  const total=Math.max(0,Math.round(ordinarySavingsAvailable()*100));
+  const assigned=Object.values(shares).reduce((n,v)=>n+Math.max(0,Math.round(N(v)*100)),0);
+  const oldShare=Math.max(0,Math.round(N(shares[id])*100));
+  const channelBalance=Math.max(0,Math.round(N(Wallets.balance(id))*100));
+  const delta=Math.min(amount,Math.max(0,total-assigned),Math.max(0,channelBalance-oldShare));
+  shares[id]=(oldShare+delta)/100;
+  t.walletOrdinaryShareAccountId=id;
+  t.walletOrdinaryShareDelta=delta/100;
+}
+function syncIncomeOrdinaryWalletAllocations(){
+  // One-time migration for prior receipts and imported backups.
+  const pending=(S.tx||[]).filter(t=>t.type==="income"
+    &&t.alloc?.savingDestination!=="short"
+    &&N(t.alloc?.saving)>.005
+    &&Wallets.account(t.walletAccountId)
+    &&t.walletOrdinaryShareAccountId===undefined);
+  if(!pending.length)return;
+  pending.sort((a,b)=>String(a.date).localeCompare(String(b.date))||txStamp(a)-txStamp(b))
+    .forEach(t=>applyIncomeOrdinaryWalletAllocation(t));
+  save();
+}
+
 // A pocket-to-ordinary-savings transfer changes the ownership of money
 // already held in a payment channel. It must update the savings portion of
 // that channel without changing the channel's actual cash balance.
@@ -9744,6 +9788,7 @@ function syncPocketOrdinaryWalletAllocations(){
 
 function ordinaryWalletDistribution(){
   syncPocketOrdinaryWalletAllocations();
+  syncIncomeOrdinaryWalletAllocations();
   const accounts=(S.paymentAccounts||[]).filter(a=>a?.id);
   const stored=S.settings.ordinaryWalletShares||{};
   const total=Math.max(0,Math.round(N(ordinarySavingsAvailable())*100));
@@ -11479,9 +11524,8 @@ saveIncome.onclick=()=>{
   if(amount<=0)return msg("请输入到账金额");
   if(!incomeSavingSelectionValid(saving,incSavingDestination.value))
     return msg("请选择有效的优先储蓄账户");
-  if(saving>.005&&incSavingDestination.value.startsWith("short:")
-    &&!Wallets.account(wallet_income.value))
-    return msg("转入短期储蓄时，请选择本次收入的实际到账渠道");
+  if(saving>.005&&!Wallets.account(wallet_income.value))
+    return msg("请先选择实际到账渠道，以记录储蓄存放位置");
 
   const plan=S.incomePlans.find(x=>x.id===planId);
   const recurring=!!(plan&&isRecurringPlan(plan));
@@ -11560,6 +11604,7 @@ saveIncome.onclick=()=>{
     }
   }
 
+  applyIncomeOrdinaryWalletAllocation(tx);
   incIncomeNote.value="";
   save();
   closeSheet("incomeSheet");
@@ -13666,9 +13711,9 @@ saveTxEdit.onclick=()=>{
 
   if(["income","expense","living_batch","living_settlement"].includes(t.type))Wallets.editSelected(t);
   if(incomeOriginal){
-    if(incomeLockedSavingAmount(t)>.005&&!Wallets.account(t.walletAccountId)){
+    if(N(t.alloc?.saving)>.005&&!Wallets.account(t.walletAccountId)){
       restoreIncome();
-      return msg("转入短期储蓄时，请选择实际到账渠道");
+      return msg("请选择实际到账渠道，以记录储蓄存放位置");
     }
     const affected=new Set([incomeOriginal.alloc?.savingShortAccountId,t.alloc?.savingShortAccountId]);
     const validShort=[...affected].filter(Boolean).every(id=>shortLedgerValid(id));
@@ -13684,7 +13729,11 @@ saveTxEdit.onclick=()=>{
     }
   }
   // 保存前重新归属历史生活结算，避免更改扣除开关后多算结余。
-  if(t.type==="income")syncLivingSettlementTotals();
+  if(t.type==="income"){
+    syncLivingSettlementTotals();
+    applyIncomeOrdinaryWalletAllocation(incomeOriginal,true);
+    applyIncomeOrdinaryWalletAllocation(t);
+  }
   t.editedAt=Date.now();
 
   const reopenLivingHistory=returnToLivingHistory&&t.type==="living_settlement";
@@ -13991,6 +14040,7 @@ function removeTx(id){
   }
   if(target.type==="living_batch")syncLivingSettlementTotals();
   if(target.type==="pocket_to_saving")applyPocketOrdinaryWalletAllocation(target,true);
+  if(target.type==="income")applyIncomeOrdinaryWalletAllocation(target,true);
   save();
   render();
 
