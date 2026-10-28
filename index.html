@@ -9791,7 +9791,8 @@ function ordinaryWalletDistribution(){
   syncIncomeOrdinaryWalletAllocations();
   const accounts=(S.paymentAccounts||[]).filter(a=>a?.id);
   const stored=S.settings.ordinaryWalletShares||{};
-  const total=Math.max(0,Math.round(N(ordinarySavingsAvailable())*100));
+  const posted=accounting();
+  const total=Math.max(0,Math.round(N(posted.saving)*100));
   let remaining=total,needsReview=false;
   const allocation={};
   accounts.forEach(a=>{
@@ -9803,8 +9804,64 @@ function ordinaryWalletDistribution(){
     if(shown!==wanted)needsReview=true;
   });
   if(Object.keys(stored).some(id=>!accounts.some(a=>a.id===id)&&N(stored[id])>0))needsReview=true;
+
+  // When a cycle closes, remaining pocket money (including living surpluses)
+  // becomes ordinary savings held in the original receipt's payment channel.
+  // Derive from current ledger events so edits and deletions update the source.
+  const receiptById=new Map((S.tx||[]).filter(t=>t.type==="income").map(t=>[t.id,t]));
+  const txById=new Map((S.tx||[]).map(t=>[t.id,t]));
+  (posted.ordinaryMovements||[]).forEach(row=>{
+    if(remaining<=0||N(row.delta)<=.005)return;
+    let receipt=null;
+    if(row.type==="cycle_close_saving"){
+      receipt=receiptById.get(row.sourceIncomeId);
+    }else if(row.type==="living_settlement"){
+      const settlement=txById.get(row.id);
+      receipt=receiptById.get(settlement?.sourceIncomeId)
+        ||livingDayInfo(settlement?.coveredDate||settlement?.date||"").income;
+    }else return;
+    const id=receipt?.walletAccountId;
+    if(!id||!Wallets.account(id))return;
+    const cap=Math.max(0,Math.round(N(Wallets.balance(id))*100));
+    const prior=Math.max(0,Math.round(N(allocation[id])*100));
+    const addition=Math.min(Math.max(0,Math.round(N(row.delta)*100)),
+      remaining,Math.max(0,cap-prior));
+    if(addition<=0)return;
+    allocation[id]=(prior+addition)/100;
+    remaining-=addition;
+  });
   return {accounts,allocation,total:total/100,unassigned:remaining/100,needsReview};
 }
+
+// Unspent daily living allowance first returns to pocket cash. It remains
+// physically in the original income wallet until the user spends or saves it.
+// Expose its remaining wallet location separately from ordinary savings.
+function livingSurplusWalletDistribution(){
+  const ordinary=ordinaryWalletDistribution().allocation;
+  const result={};
+  openCycleIncomes().forEach(income=>{
+    let remaining=Math.max(0,Math.round(N(cyclePocketSnapshot(income).pocketBalance)*100));
+    if(!remaining)return;
+    cycleTransactionsForIncome(income)
+      .filter(t=>t.type==="living_settlement")
+      .sort((a,b)=>String(a.date).localeCompare(String(b.date))||txStamp(a)-txStamp(b))
+      .forEach(t=>{
+        const released=Math.max(0,Math.round(N(livingSettlementRemaining(t))*100));
+        if(!released||!remaining)return;
+        const original=S.tx.find(x=>x.id===t.sourceIncomeId&&x.type==="income")||income;
+        const id=original.walletAccountId;
+        if(!id||!Wallets.account(id))return;
+        const cap=Math.max(0,Math.round(
+          (N(Wallets.balance(id))-N(ordinary[id])-N(result[id]))*100));
+        const used=Math.min(released,remaining,cap);
+        if(used<=0)return;
+        result[id]=Math.round((N(result[id])*100+used))/100;
+        remaining-=used;
+      });
+  });
+  return result;
+}
+window.livingSurplusWalletShares=()=>livingSurplusWalletDistribution();
 window.ordinaryWalletShares=()=>ordinaryWalletDistribution().allocation;
 function renderOrdinaryWalletDistribution(){
   const box=document.getElementById("ordinaryWalletDistribution");
@@ -9973,6 +10030,8 @@ function ordinaryLedgerSource(row,tx){
     return {
       title:"系统周期结转 · 关联 "+priorName,
       meta:(prior?.date||"")+" 周期的剩余零花，于 "+row.date+" 下一周期入账前结转"
+        +(prior?.walletAccountId&&Wallets.account(prior.walletAccountId)
+          ?" · 存放于 "+Wallets.account(prior.walletAccountId).name:"")
         +(next?" · 下期 "+transactionActionTitle(next):""),
       kind:prior?"tx":"",ref:prior?.id||"",action:"查看上期收入流水"
     };
