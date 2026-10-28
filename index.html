@@ -3992,14 +3992,27 @@ function cycleIncomeRows(){
     .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
 }
 
+function recurringIncomeSourceKey(t){
+  // Each recurring income plan owns its cycle, even when receipt dates overlap.
+  return t?.planId?"plan:"+t.planId
+    :"legacy:"+(t?.planNameAtRecord||t?.planFreqAtRecord||"default");
+}
 function cycleWindowForIncome(incomeTx){
   const rows=cycleIncomeRows();
   const pos=rows.findIndex(x=>x.id===incomeTx.id);
+  const source=recurringIncomeSourceKey(incomeTx);
   return {
     rows,
     pos,
-    next:pos>=0?rows[pos+1]:null
+    next:pos>=0?rows.slice(pos+1).find(x=>recurringIncomeSourceKey(x)===source)||null:null
   };
+}
+function openCycleIncomes(asOf=td()){
+  return cycleIncomeRows().filter(t=>{
+    if(t.date>asOf)return false;
+    const {next}=cycleWindowForIncome(t);
+    return !next||next.date>asOf;
+  });
 }
 function transactionBelongsToCycle(t,incomeTx,next){
   if(!t||t.id===incomeTx.id)return false;
@@ -4015,26 +4028,19 @@ function transactionBelongsToCycle(t,incomeTx,next){
   const boundCycleId=effectiveExpenseCycleIncomeId(t);
   if(boundCycleId)return boundCycleId===incomeTx.id;
 
-  // Legacy fallback: infer by calendar date + record timestamp.
-  if(t.date>incomeTx.date){
-    if(!next)return true;
-    return t.date<next.date || (t.date===next.date&&txStamp(t)<txStamp(next));
-  }
-
-  if(t.date<incomeTx.date)return false;
-
-  // Same calendar day as cycle start.
-  if(txStamp(t)<=txStamp(incomeTx))return false;
-  if(!next)return true;
-  if(t.date<next.date)return true;
-  if(t.date>next.date)return false;
-  return txStamp(t)<txStamp(next);
+  // Only the most recently opened plan owns unbound legacy transactions.
+  // Explicit cycleIncomeId above remains authoritative.
+  const owner=cycleIncomeRows().filter(row=>
+    row.date<t.date||(row.date===t.date&&txStamp(row)<txStamp(t))
+  ).slice(-1)[0];
+  return !!owner&&owner.id===incomeTx.id;
 }
 
-function cycleTransactionsForIncome(incomeTx){
+function cycleTransactionsForIncome(incomeTx,beforeExclusive=""){
   const {next}=cycleWindowForIncome(incomeTx);
-  // A future-dated wallet entry is a pending movement, not current-cycle cash.
-  return S.tx.filter(t=>(!t.date||t.date<=td())&&transactionBelongsToCycle(t,incomeTx,next));
+  return S.tx.filter(t=>(!t.date||t.date<=td())
+    &&(!beforeExclusive||!t.date||t.date<beforeExclusive)
+    &&transactionBelongsToCycle(t,incomeTx,next));
 }
 
 function cycleIncomeIdForDate(date){
@@ -4064,13 +4070,16 @@ function effectiveExpenseCycleIncomeId(t){
   }
   return stored;
 }
-function cyclePocketSnapshot(incomeTx){
+function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive=""){
   const {next}=cycleWindowForIncome(incomeTx);
-  const cycleTx=cycleTransactionsForIncome(incomeTx);
+  const cycleTx=cycleTransactionsForIncome(incomeTx,beforeExclusive);
 
   const expenses=cycleTx.filter(t=>t.type==="expense");
-  const postedEffects=expenses.some(t=>t.bucket==="project"||t.bucket==="bill"||!!t.settledBillId)
-    ?accounting().effects:{};
+  // The posting engine passes its effects to avoid recursive accounting and
+  // to use only spending already posted by the time the cycle closes.
+  const postedEffects=postedEffectsOverride
+    ||(expenses.some(t=>t.bucket==="project"||t.bucket==="bill"||!!t.settledBillId)
+      ?accounting().effects:{});
   const projectEffects=postedEffects;
   const settlements=cycleTx.filter(t=>t.type==="living_settlement");
   const savingTransfers=cycleTx.filter(t=>t.type==="pocket_to_saving"||t.type==="pocket_to_short"||(t.type==="short_transfer"&&t.direction==="in"&&N(t.pocketPortion)>0));
@@ -4115,6 +4124,7 @@ function cyclePocketSnapshot(incomeTx){
     fallbackLivingDayRows().filter(x=>
       x.date>=incomeTx.date
       &&(!next||x.date<next.date)
+      &&(!beforeExclusive||x.date<beforeExclusive)
     ),
     x=>fallbackLivingCommitmentForDate(x.date)
   );
@@ -4198,14 +4208,14 @@ function cyclePocketSnapshot(incomeTx){
 }
 
 function virtualCycleCloseEvents(){
-  // 结算标记固定在下一笔周期收入入账前，实际金额由资金池实时结算。
-  const rows=cycleIncomeRows();
-  return rows.slice(0,-1).map((incomeTx,i)=>{
-    const next=rows[i+1];
-    return {id:`cycleclose_${incomeTx.id}`,date:next.date,
+  // A plan closes upon its own next receipt, not another plan's receipt.
+  return cycleIncomeRows().flatMap(incomeTx=>{
+    const {next}=cycleWindowForIncome(incomeTx);
+    if(!next)return [];
+    return [{id:`cycleclose_${incomeTx.id}`,date:next.date,
       type:"cycle_close_saving",amount:0,sourceIncomeId:incomeTx.id,
       nextIncomeId:next.id,
-      _sortStamp:Math.max(0,txStamp(next)-0.25)};
+      _sortStamp:Math.max(0,txStamp(next)-0.25)}];
   });
 }
 
@@ -4637,13 +4647,17 @@ function accounting(asOf=td()){
       return;
     }
     if(t.type==="cycle_close_saving"){
-      // Close the prior cycle. Record remaining unfunded amounts in the
-      // historic shortfall ledger instead of carrying them into new pocket.
-      const amount=Math.max(0,N(raw.safe));
-      const historicalShortfall=Math.max(0,-N(raw.safe));
-      raw.safe=0;
+      // Sweep the closing income plan alone; preserve other open plan pockets.
+      const source=S.tx.find(x=>x.id===t.sourceIncomeId);
+      const signed=source?N(cyclePocketSnapshot(source,effects,t.date).pocketBalance):0;
+      const amount=Math.min(Math.max(0,signed),Math.max(0,N(raw.safe)));
+      const historicalShortfall=Math.max(0,-signed);
+      raw.safe-=amount;
       saving+=amount;
-      effects[t.id]={cycleCloseSaving:amount,cycleCloseUncovered:historicalShortfall};
+      effects[t.id]={
+        cycleCloseSaving:amount,cycleCloseUncovered:historicalShortfall,
+        cycleCloseSourceBalance:signed
+      };
       return;
     }
 
@@ -5039,9 +5053,11 @@ function projectAvail(p){
   return N(accounting().projects[p.id]||0);
 }
 function currentPocketBalance(a=accounting(),cycle=currentCycleStats()){
-  // The signed pocket always belongs to the active recurring income cycle.
-  // Historical shortfalls stay in the savings and uncovered ledgers.
-  return cycle.income?N(cycle.pocketBalance):N(a.raw.safe);
+  // Aggregate all open recurring plans, preserving any signed budget deficit.
+  const open=openCycleIncomes();
+  return open.length
+    ?sm(open,t=>N(cyclePocketSnapshot(t,a.effects).pocketBalance))
+    :N(a.raw.safe);
 }
 function bal(){
   const a=accounting();
@@ -5072,7 +5088,7 @@ function txStamp(t){
 function cycleStatsForIncome(incomeTx){
   const snap=cyclePocketSnapshot(incomeTx);
   const next=snap.next;
-  const isClosed=!!next;
+  const isClosed=!!next&&next.date<=td();
 
   // “预计可存”只追踪本周期收入里仍可沉淀的资金。
   // 单位一一对应：专项只动专项、账单只动账单、既有储蓄只动储蓄资产；
@@ -5153,7 +5169,7 @@ function monthlyCycleStats(ym=md()){
   };
 }
 function currentCycleStats(){
-  const incomes=S.tx.filter(isCycleIncomeTx)
+  const incomes=S.tx.filter(t=>isCycleIncomeTx(t)&&t.date<=td())
     .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
   const latest=incomes[incomes.length-1];
 
@@ -7071,7 +7087,7 @@ function renderNow(){
   }
 
   // 只有日常资金池实际出现负余额才提示缺口。储蓄净动用可由既有资产覆盖。
-  const cycleGap=Math.max(0,-N(cycle.pocketBalance));
+  const cycleGap=Math.max(0,-N(b.safe));
   const gapHtml=cycleGap>0
     ?`<div class="upcomingAlert"><div class="item"><div class="row"><div><div class="name">本周期日常预算超额</div><div class="meta">日常预算不足</div></div><div class="amount neg">${M(cycleGap)}</div></div></div></div>`
     :"";
@@ -8158,23 +8174,19 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
   // 当前开放周期尚未正式沉淀的正零花结余属于“预计”部分。
   // 只有它预计结算的日期落在当前统计范围内时才计入；
   // “当前周期”模式直接把本周期结束时可能沉淀的余额纳入预计。
-  let pendingPocket=0;
-  if(cycle.income&&!cycle.isClosed){
-    const closeDate=
-      cycle.nextCycleIncome?.date
-      ||cycle.income?.nextIncomeDate
-      ||nextRecurringIncome()?.nextDate
-      ||"";
-
-    const shouldInclude=
-      forceCurrentCycle
+  const open=forceCurrentCycle
+    ?openCycleIncomes().filter(t=>t.id===cycle.income?.id)
+    :openCycleIncomes();
+  const effects=open.length?accounting().effects:{};
+  const closingPockets=sm(open.filter(t=>{
+    const next=cycleWindowForIncome(t).next;
+    const closeDate=next?.date||t.nextIncomeDate
+      ||S.incomePlans.find(p=>p.id===t.planId)?.nextDate||"";
+    return forceCurrentCycle
       ||(closeDate&&inRange(closeDate))
       ||(!closeDate&&!start&&!end);
-
-    if(shouldInclude){
-      pendingPocket=Math.max(0,N(cycle.pocketBalance));
-    }
-  }
+  }),t=>N(cyclePocketSnapshot(t,effects).pocketBalance));
+  const pendingPocket=Math.max(0,closingPockets);
 
   const expectedPrincipal=confirmedPrincipal+pendingPocket;
   const interestGrowth=N(saving.interest);
@@ -10037,7 +10049,10 @@ function ordinaryCycleTransferReminderState(){
   const latest=cycles[cycles.length-1];
   const next=nextRecurringIncome()?.nextDate||"";
   const overdue=!!(latest&&next&&next<=td()&&next>latest.date);
-  const previous=overdue?latest:(cycles.length>=2?cycles[cycles.length-2]:null);
+  const closedOnLatest=latest?virtualCycleCloseEvents()
+    .filter(t=>t.date===latest.date):[];
+  const previous=overdue?latest:
+    S.tx.find(t=>t.id===closedOnLatest[0]?.sourceIncomeId)||null;
   const closedAt=overdue?next:(latest?.date||"");
   const current=Math.max(0,ordinarySavingsAvailable());
   let ordinary=current;
@@ -10105,9 +10120,7 @@ function bankReminderState(){
   const otherSaved=N(ordinarySavingsAvailable());
   const shortSaved=N(shortBalanceTotal());
   const actual=Math.max(0,otherSaved+shortSaved);
-  const pending=cycle.income&&!cycle.isClosed
-    ?Math.max(0,N(cycle.pocketBalance))
-    :0;
+  const pending=Math.max(0,N(currentPocketBalance()));
   const expected=actual+pending;
   const threshold=bankReminderThresholdValue();
   const enabled=threshold>0;
