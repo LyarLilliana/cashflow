@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-135-crosscycle-bill-pocket";
+const CACHE = "safespend-v10-136-independent-income-cycles";
 const ASSETS = [
   "./",
   "./index.html",
