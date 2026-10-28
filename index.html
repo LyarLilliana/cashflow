@@ -3992,19 +3992,15 @@ function cycleIncomeRows(){
     .sort((a,b)=>a.date===b.date?txStamp(a)-txStamp(b):a.date.localeCompare(b.date));
 }
 
-function recurringIncomeSourceKey(t){
-  // Each recurring income plan owns its cycle, even when receipt dates overlap.
-  return t?.planId?"plan:"+t.planId
-    :"legacy:"+(t?.planNameAtRecord||t?.planFreqAtRecord||"default");
-}
+// All recurring receipts share one chronological handover sequence.
+// At each new receipt the immediately previous income cycle closes.
 function cycleWindowForIncome(incomeTx){
   const rows=cycleIncomeRows();
   const pos=rows.findIndex(x=>x.id===incomeTx.id);
-  const source=recurringIncomeSourceKey(incomeTx);
   return {
     rows,
     pos,
-    next:pos>=0?rows.slice(pos+1).find(x=>recurringIncomeSourceKey(x)===source)||null:null
+    next:pos>=0?rows[pos+1]||null:null
   };
 }
 function openCycleIncomes(asOf=td()){
@@ -4208,7 +4204,7 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
 }
 
 function virtualCycleCloseEvents(){
-  // A plan closes upon its own next receipt, not another plan's receipt.
+  // Close the previous cycle just before the next recurring receipt, regardless of plan.
   return cycleIncomeRows().flatMap(incomeTx=>{
     const {next}=cycleWindowForIncome(incomeTx);
     if(!next)return [];
@@ -5053,7 +5049,7 @@ function projectAvail(p){
   return N(accounting().projects[p.id]||0);
 }
 function currentPocketBalance(a=accounting(),cycle=currentCycleStats()){
-  // Aggregate all open recurring plans, preserving any signed budget deficit.
+  // Only the latest income cycle owns the current pocket balance.
   const open=openCycleIncomes();
   return open.length
     ?sm(open,t=>N(cyclePocketSnapshot(t,a.effects).pocketBalance))
@@ -10169,32 +10165,15 @@ document.getElementById("ordinarySavingLedgerRows").addEventListener("click",eve
 });
 
 function ordinaryCycleTransferReminderState(){
-  const cycles=cycleIncomeRows().filter(t=>t.date&&t.date<=td());
-  const latest=cycles[cycles.length-1];
-  const next=nextRecurringIncome()?.nextDate||"";
-  const overdue=!!(latest&&next&&next<=td()&&next>latest.date);
-  const closedOnLatest=latest?virtualCycleCloseEvents()
-    .filter(t=>t.date===latest.date):[];
-  const previous=overdue?latest:
-    S.tx.find(t=>t.id===closedOnLatest[0]?.sourceIncomeId)||null;
-  const closedAt=overdue?next:(latest?.date||"");
-  const current=Math.max(0,ordinarySavingsAvailable());
-  let ordinary=current;
-  if(!overdue&&latest&&previous){
-    const account=accounting();
-    const closingCarry=sm((account.ordinaryMovements||[]).filter(row=>
-      row.type==="cycle_close_saving"&&row.date===latest.date&&row.nextIncomeId===latest.id
-    ),row=>N(row.delta));
-    // Only older-cycle funds are eligible. Today's fresh earnings and
-    // living settlement remainder remain in the current cycle.
-    let older=Math.max(0,N(accounting(addDays(latest.date,-1)).saving)+closingCarry);
-    (account.ordinaryMovements||[]).forEach(row=>{
-      if(row.date<latest.date||row.type==="cycle_close_saving")return;
-      if(N(row.delta)<0)older=Math.max(0,older+N(row.delta));
-    });
-    ordinary=Math.min(current,older);
-  }
-  return {visible:!!previous&&ordinary>.005,closedAt,ordinary,overdue};
+  const latest=currentCycleStats().income;
+  // The previous cycle is closed by cycle_close_saving before the new income.
+  // Show savings allocated to the CURRENT cycle only. Historical savings,
+  // old-cycle closing transfers and today's new pocket remain separate.
+  const currentCycleOrdinary=Math.max(0,N(currentCycleSavingPerformance().ordinary));
+  const ordinary=Math.round(Math.min(
+    Math.max(0,ordinarySavingsAvailable()),currentCycleOrdinary
+  )*100)/100;
+  return {visible:!!latest&&ordinary>.005,closedAt:latest?.date||"",ordinary,overdue:false};
 }
 
 function openOrdinaryCycleTransferShort(){
@@ -10230,9 +10209,9 @@ function renderOrdinaryCycleTransferReminder(){
     card.style.display=reminder.visible?"":"none";
     if(!reminder.visible)continue;
     document.getElementById("ordinaryTransfer"+loc+"Title").textContent=
-      reminder.overdue?"收入周期结束 · 待结转转存":"周期结束 · 普通储蓄待转存";
+      "普通储蓄待转存";
     document.getElementById("ordinaryTransfer"+loc+"Meta").textContent=
-      `${reminder.closedAt} 周期交接 · 待转存 ${M(reminder.ordinary)}`;
+      `${reminder.closedAt} 当前普通储蓄 · 待转存 ${M(reminder.ordinary)}`;
   }
 }
 
