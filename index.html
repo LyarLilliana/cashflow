@@ -8203,10 +8203,10 @@ function expectedSavingGrowthForRange(start="",end="",forceCurrentCycle=false){
 function periodOutcomeLabels(mode=historyMode){
   if(mode==="cycle"){
     return {
-      outcome:selectedStatsCyclePlanId?"所选期间预计可存":"本周期预计可存",
+      outcome:selectedStatsCyclePlanId?"所选期间已存":"本周期预计可存",
       income:"期间总收入",
       sub:"按收入周期的日期统计全部真实储蓄变化",
-      rateSub:"所选期间预计可存 ÷ 期间总收入"
+      rateSub:selectedStatsCyclePlanId?"所选期间已存 ÷ 期间总收入":"本周期预计可存 ÷ 期间总收入"
     };
   }
   if(mode==="week"){
