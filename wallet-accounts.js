@@ -201,14 +201,18 @@ function render(){
   // Read the reconciled ordinary-savings allocation used by the Savings page,
   // not the raw stored distribution. Zero and unallocated portions stay hidden.
   const ordinaryShares=typeof window.ordinaryWalletShares==="function"?window.ordinaryWalletShares():{};
+  const livingShares=typeof window.livingSurplusWalletShares==="function"?window.livingSurplusWalletShares():{};
   $("walletTotal").textContent=money(list.reduce((sum,a)=>sum+a.amount,0));
   $("walletNowList").innerHTML=list.length?list.map(a=>{
     const ordinaryCents=Math.max(0,Math.round((Number(ordinaryShares[a.id])||0)*100));
     const ordinaryNote=ordinaryCents>0
       ?'<div class="walletNowSaving">其中普通储蓄 '+money(ordinaryCents/100)+'</div>':"";
+    const livingCents=Math.max(0,Math.round((Number(livingShares[a.id])||0)*100));
+    const livingNote=livingCents>0
+      ?'<div class="walletNowSaving">其中生活费结余 '+money(livingCents/100)+'</div>':"";
     return '<div class="walletNowCell"><div class="meta">'+clean(a.name)+'</div>'+
       '<strong class="'+(a.amount<0?"walletNegative":"")+'">'+money(a.amount)+'</strong>'+
-      ordinaryNote+'</div>';
+      ordinaryNote+livingNote+'</div>';
   }).join(""):'<div class="note" style="grid-column:1/-1">前往“计划”添加支付渠道。</div>';
   $("walletAccountList").innerHTML=list.map(a=>
     '<div class="walletAccountRow" data-wallet-id="'+clean(a.id)+'" role="button" tabindex="0">'+
