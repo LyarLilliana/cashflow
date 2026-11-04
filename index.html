@@ -9702,32 +9702,61 @@ function bankReminderThresholdValue(){
 
 // Income preferential savings in the ordinary pool remain in the actual
 // arrival channel. This is an earmark, not a second physical transfer.
+// Ordinary savings are an earmark on money held in a payment channel.
+// Explicit allocations take priority over stale stored channel snapshots.
+function reserveOrdinaryWalletShare(id,requested){
+  if(!id||!Wallets.account(id))return {amount:0,displaced:{}};
+  const shares=S.settings.ordinaryWalletShares||(S.settings.ordinaryWalletShares={});
+  const accounts=(S.paymentAccounts||[]).filter(a=>a?.id);
+  const cents=value=>Math.max(0,Math.round(N(value)*100));
+  const total=cents(ordinarySavingsAvailable());
+  const raw={},capped={};
+  accounts.forEach(a=>{
+    raw[a.id]=cents(shares[a.id]);
+    capped[a.id]=Math.min(raw[a.id],cents(Wallets.balance(a.id)));
+  });
+  const own=Math.min(capped[id]||0,total);
+  const amount=Math.min(cents(requested),Math.max(0,total-own),
+    Math.max(0,cents(Wallets.balance(id))-own));
+  const next={[id]:(own+amount)/100},displaced={};
+  let remaining=Math.max(0,total-own-amount);
+  accounts.forEach(a=>{
+    if(a.id===id)return;
+    const kept=Math.min(capped[a.id],remaining);
+    next[a.id]=kept/100;
+    remaining-=kept;
+    const removed=raw[a.id]-kept;
+    if(removed>0)displaced[a.id]=removed/100;
+  });
+  // Orphaned account shares cannot represent a current physical holding.
+  S.settings.ordinaryWalletShares=next;
+  return {amount:amount/100,displaced};
+}
+function undoOrdinaryWalletShare(t){
+  const shares=S.settings.ordinaryWalletShares||(S.settings.ordinaryWalletShares={});
+  const id=t.walletOrdinaryShareAccountId||"";
+  if(id)shares[id]=Math.max(0,Math.round(
+    (N(shares[id])-Math.max(0,N(t.walletOrdinaryShareDelta)))*100)/100);
+  Object.entries(t.walletOrdinaryDisplaced||{}).forEach(([walletId,amount])=>{
+    if(Wallets.account(walletId))
+      shares[walletId]=Math.round((Math.max(0,N(shares[walletId]))+Math.max(0,N(amount)))*100)/100;
+  });
+}
 function applyIncomeOrdinaryWalletAllocation(t,reverse=false){
   if(!t||t.type!=="income")return;
-  const shares=S.settings.ordinaryWalletShares||(S.settings.ordinaryWalletShares={});
-  if(reverse){
-    const oldId=t.walletOrdinaryShareAccountId||"";
-    if(oldId){
-      shares[oldId]=Math.max(0,Math.round(
-        (N(shares[oldId])-N(t.walletOrdinaryShareDelta))*100)/100);
-    }
-    return;
-  }
+  if(reverse){undoOrdinaryWalletShare(t);return;}
   t.walletOrdinaryShareAccountId="";
   t.walletOrdinaryShareDelta=0;
+  delete t.walletOrdinaryDisplaced;
+  t.walletOrdinaryAllocationChecked=true;
   if(t.alloc?.savingDestination==="short")return;
   const id=t.walletAccountId||"";
-  if(!Wallets.account(id))return;
-  const amount=Math.max(0,Math.round(N(t.alloc?.saving)*100));
-  if(!amount)return;
-  const total=Math.max(0,Math.round(ordinarySavingsAvailable()*100));
-  const assigned=Object.values(shares).reduce((n,v)=>n+Math.max(0,Math.round(N(v)*100)),0);
-  const oldShare=Math.max(0,Math.round(N(shares[id])*100));
-  const channelBalance=Math.max(0,Math.round(N(Wallets.balance(id))*100));
-  const delta=Math.min(amount,Math.max(0,total-assigned),Math.max(0,channelBalance-oldShare));
-  shares[id]=(oldShare+delta)/100;
+  if(!Wallets.account(id)||N(t.alloc?.saving)<=.005)return;
+  const reserved=reserveOrdinaryWalletShare(id,t.alloc.saving);
   t.walletOrdinaryShareAccountId=id;
-  t.walletOrdinaryShareDelta=delta/100;
+  t.walletOrdinaryShareDelta=reserved.amount;
+  if(Object.keys(reserved.displaced).length)
+    t.walletOrdinaryDisplaced=reserved.displaced;
 }
 function syncIncomeOrdinaryWalletAllocations(){
   // One-time migration for prior receipts and imported backups.
@@ -9735,7 +9764,9 @@ function syncIncomeOrdinaryWalletAllocations(){
     &&t.alloc?.savingDestination!=="short"
     &&N(t.alloc?.saving)>.005
     &&Wallets.account(t.walletAccountId)
-    &&t.walletOrdinaryShareAccountId===undefined);
+    &&(t.walletOrdinaryShareAccountId===undefined
+      ||(t.walletOrdinaryShareAccountId===t.walletAccountId
+        &&N(t.walletOrdinaryShareDelta)<=.005&&!t.walletOrdinaryAllocationChecked)));
   if(!pending.length)return;
   pending.sort((a,b)=>String(a.date).localeCompare(String(b.date))||txStamp(a)-txStamp(b))
     .forEach(t=>applyIncomeOrdinaryWalletAllocation(t));
@@ -9747,29 +9778,18 @@ function syncIncomeOrdinaryWalletAllocations(){
 // that channel without changing the channel's actual cash balance.
 function applyPocketOrdinaryWalletAllocation(t,reverse=false){
   if(!t)return;
-  const shares=S.settings.ordinaryWalletShares||(S.settings.ordinaryWalletShares={});
-  if(reverse){
-    const previousId=t.walletOrdinaryShareAccountId||"";
-    if(previousId){
-      const current=Math.max(0,N(shares[previousId]));
-      shares[previousId]=Math.max(0,Math.round((current-Math.max(0,N(t.walletOrdinaryShareDelta)))*100)/100);
-    }
-    return;
-  }
+  if(reverse){undoOrdinaryWalletShare(t);return;}
   t.walletOrdinaryShareAccountId="";
   t.walletOrdinaryShareDelta=0;
+  delete t.walletOrdinaryDisplaced;
   if(t.type!=="pocket_to_saving")return;
   const id=t.walletFromAccountId||"";
-  if(!id||!Wallets.account(id))return;
-  // Retain manual allocations from earlier versions; only assign the
-  // portion that is still unallocated in the reconciled savings balance.
-  const currentTotal=Math.max(0,Math.round(ordinarySavingsAvailable()*100));
-  const allocated=Object.values(shares).reduce((n,v)=>n+Math.max(0,Math.round(N(v)*100)),0);
-  const available=Math.max(0,currentTotal-allocated);
-  const delta=Math.min(Math.max(0,Math.round(N(t.amount)*100)),available);
-  shares[id]=Math.round((Math.max(0,Math.round(N(shares[id])*100))+delta))/100;
+  if(!Wallets.account(id))return;
+  const reserved=reserveOrdinaryWalletShare(id,t.amount);
   t.walletOrdinaryShareAccountId=id;
-  t.walletOrdinaryShareDelta=delta/100;
+  t.walletOrdinaryShareDelta=reserved.amount;
+  if(Object.keys(reserved.displaced).length)
+    t.walletOrdinaryDisplaced=reserved.displaced;
 }
 function syncPocketOrdinaryWalletAllocations(){
   // Backfill existing saved transfers once, including imported backups.
@@ -9924,6 +9944,13 @@ document.getElementById("ordinaryWalletFields").addEventListener("input",refresh
 document.getElementById("saveOrdinaryWalletAllocation").onclick=()=>{
   const d=ordinaryWalletDraft();
   if(d.error)return msg(d.error);
+  // A manual distribution supersedes attribution of earlier virtual cycle closings.
+  // Newly closed cycles can still be inferred from later ledger events.
+  const absorbed=S.settings.ordinaryWalletAbsorbedMovements
+    ||(S.settings.ordinaryWalletAbsorbedMovements={});
+  (accounting().ordinaryMovements||[]).filter(row=>N(row.delta)>.005
+    &&(row.type==="cycle_close_saving"||row.type==="living_settlement"))
+    .forEach(row=>{absorbed[row.id]=true;});
   S.settings.ordinaryWalletShares=d.allocation;
   save();closeSheet("ordinaryWalletSheet");render();
   msg(d.remainder>.005?"渠道分布已保存，剩余部分待核对":"普通储蓄渠道分布已保存");
