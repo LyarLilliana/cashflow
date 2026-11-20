@@ -185,6 +185,9 @@ removeTx=function(id){
   if(item?.isIncomeHolding){
     return msg("这笔转账属于收入分配，请修改或删除对应的收入流水");
   }
+  if(item?.isProjectSavingsEntry||item?.linkedProjectWalletFundingId||item?.linkedProjectWalletTxId){
+    return msg("专项账户关联流水请在储蓄页通过反向变动调整，资金记录将保持一致");
+  }
   const wasIncome=item?.type==="income";
   previousRemove(id);
   if(wasIncome&&!S.tx.some(t=>t.id===id)){
