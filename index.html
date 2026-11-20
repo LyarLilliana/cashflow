@@ -11483,6 +11483,7 @@ function projectSuggestionInputs(){
       </div>`).join("")
     :"";
   projectSuggest.innerHTML=projectHtml+repayHtml+lightHtml;
+  if(window.projectIncomeHoldingFields)projectIncomeHoldingFields(projectSuggest,false);
   document.querySelectorAll(".projectContrib,.projectRepayContrib,.lightPlanContrib")
     .forEach(x=>x.addEventListener("input",recalcIncomeSummary));
   projectSuggest.querySelectorAll(".incomeFillPlannedGap").forEach(btn=>
@@ -11623,13 +11624,13 @@ saveIncome.onclick=()=>{
   const billItems=billsList.map(x=>({billId:x.id,dueDate:x.dueDate,amount:N(x.amount)}));
 
   const projects=[...document.querySelectorAll(".projectContrib")]
-    .map(x=>({projectId:x.dataset.id,amount:N(x.value)}))
+    .map(x=>({projectId:x.dataset.id,amount:N(x.value),...projectIncomeHoldingRead("project",x.dataset.id)}))
     .filter(x=>x.amount>0);
   const repayments=[...document.querySelectorAll(".projectRepayContrib")]
-    .map(x=>({projectId:x.dataset.id,amount:N(x.value),repayment:true}))
+    .map(x=>({projectId:x.dataset.id,amount:N(x.value),repayment:true,...projectIncomeHoldingRead("repayment",x.dataset.id)}))
     .filter(x=>x.amount>0);
   const lightPlans=[...document.querySelectorAll(".lightPlanContrib")]
-    .map(x=>({lightPlanId:x.dataset.id,amount:N(x.value)}))
+    .map(x=>({lightPlanId:x.dataset.id,amount:N(x.value),...projectIncomeHoldingRead("light",x.dataset.id)}))
     .filter(x=>x.amount>0);
   const ps=sm([...projects,...repayments],x=>x.amount);
   const lps=sm(lightPlans,x=>x.amount);
@@ -11638,6 +11639,10 @@ saveIncome.onclick=()=>{
   if(repayments.some(x=>x.amount>projectRepayPending(x.projectId)+0.005))
     return msg("专项补回金额超过待补回余额");
   if(safe<-0.005)return msg("本次收入分配超过实际到账金额，请减少预留或补回金额");
+  if([...projects,...repayments,...lightPlans].some(x=>x.holdingAccountId&&!Wallets.account(x.holdingAccountId)))
+    return msg("请选择有效的专项存放渠道");
+  if([...projects,...repayments,...lightPlans].some(x=>x.holdingAccountId)&&!Wallets.account(wallet_income.value))
+    return msg("先选择到账渠道，再设置专项存放渠道");
 
   const planNextDateBefore=plan?.nextDate||"";
   const planFreqAtRecord=plan?.freq||"none";
@@ -11671,11 +11676,16 @@ saveIncome.onclick=()=>{
       living,bills,billItems,projects:[...projects,...repayments],lightPlans,safe}
   };
 
+  const priorIncomeTx=S.tx;
   if(pending){
     const idx=S.tx.findIndex(x=>x.id===pending.id);
-    if(idx>=0)S.tx[idx]=tx;
+    if(idx>=0)S.tx=[...S.tx.slice(0,idx),tx,...S.tx.slice(idx+1)];
   }else{
-    S.tx.push(tx);
+    S.tx=[...S.tx,tx];
+  }
+  if(!projectIncomeHoldingSync(tx)){
+    S.tx=priorIncomeTx;
+    return msg("专项存放转账导致支付渠道余额不足，请核对账户和金额");
   }
 
   if(plan){
