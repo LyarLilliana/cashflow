@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-149-living-batch-cycle";
+const CACHE = "safespend-v10-150-living-batch-cycle-links";
 const ASSETS = [
   "./",
   "./index.html",
