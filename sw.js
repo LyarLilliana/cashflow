@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-148-wallet-ui";
+const CACHE = "safespend-v10-149-living-batch-cycle";
 const ASSETS = [
   "./",
   "./index.html",
