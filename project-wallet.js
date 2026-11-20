@@ -35,8 +35,10 @@ function incomeHoldingFields(scope,edit=false,tx=null){
       const title=kind==="light"
         ?(S.plannedExpenses||[]).find(p=>p.id===id)?.name||"计划"
         :S.projects.find(p=>p.id===id)?.name||"专项";
-      const defaultLabel=kind==="light"?title+"预留":title.endsWith("专项")?title:title+"专项";
-      const existingWallet=existing?.holdingAccountId||"__income__";
+      const project=kind==="light"?null:S.projects.find(p=>p.id===id);
+      const defaultLabel=kind==="light"?title+"预留":project?.savingsAccountName||(title.endsWith("专项")?title:title+"专项");
+      const existingWallet=edit?(existing?.holdingAccountId||"__income__"):
+        (project?.savingsWalletId||"__income__");
       const chosen=availableChannels().some(a=>a.id===existingWallet)?existingWallet:"__income__";
       const label=existing?.holdingName||defaultLabel;
       const row=document.createElement("div");
@@ -158,63 +160,7 @@ function migrateLegacyProjectAccounts(){
   }
   if(changed)save();
 }
-const originalFinance=projectFinanceDetailHtml;
-projectFinanceDetailHtml=function(p,a){
-  const base=originalFinance(p,a);
-  const rows=records(p.id).sort((x,y)=>String(y.date).localeCompare(String(x.date))||txStamp(y)-txStamp(x));
-  let history="";
-  rows.forEach(t=>{
-    history+='<div class="projectLedgerRow"><div class="projectLedgerInfo">'+
-      '<div class="projectLedgerName">'+clean(walletName(t.fromAccountId))+' → '+clean(walletName(t.toAccountId))+'</div>'+
-      '<div class="projectLedgerMeta">'+clean(t.date)+' · '+clean(kindName[t.projectHoldingSource]||"专项转账")+
-      (t.note?' · '+clean(t.note):"")+'</div></div>'+
-      '<div class="projectLedgerAmount">'+M(t.amount)+'</div></div>';
-  });
-  const holdings={};
-  const events=(S.tx||[]).filter(t=>
-    (t.type==="wallet_transfer"&&t.projectId===p.id&&t.projectHoldingSource)
-    ||(t.type==="income"&&(t.alloc?.projects||[]).some(x=>x.projectId===p.id))
-    ||((t.type==="pocket_to_project"||t.type==="saving_to_project")&&t.projectId===p.id&&!t.linkedProjectWalletTxId)
-    ||(t.type==="expense"&&t.bucket==="project"&&t.refId===p.id))
-    .filter(t=>!t.date||t.date<=td())
-    .sort((x,y)=>String(x.date).localeCompare(String(y.date))||txStamp(x)-txStamp(y));
-  events.forEach(t=>{
-    if(t.type==="wallet_transfer"){
-      const amount=round(t.amount);
-      if(t.projectHoldingSource==="project"&&holdings[t.fromAccountId])
-        holdings[t.fromAccountId]=Math.max(0,round(holdings[t.fromAccountId]-amount));
-      holdings[t.toAccountId]=round((holdings[t.toAccountId]||0)+amount);
-    }else if(t.type==="income"){
-      (t.alloc?.projects||[]).filter(x=>x.projectId===p.id).forEach(x=>{
-        const id=x.holdingAccountId||t.walletAccountId;
-        if(id)holdings[id]=round((holdings[id]||0)+round(x.amount));
-      });
-    }else if(t.type==="pocket_to_project"||t.type==="saving_to_project"){
-      const id=t.projectHoldingAccountId||t.walletFromAccountId;
-      if(id)holdings[id]=round((holdings[id]||0)+round(t.amount));
-    }else if(t.walletAccountId&&holdings[t.walletAccountId]){
-      holdings[t.walletAccountId]=Math.max(0,round(holdings[t.walletAccountId]-round(t.amount)));
-    }
-  });
-  let available=Math.max(0,round(a.projects[p.id]));
-  let situated="";
-  Object.keys(holdings).forEach(id=>{
-    const amount=Math.min(Math.max(0,round(holdings[id])),
-      Math.max(0,round(Wallets.balance(id))),available);
-    if(amount>.005){
-      situated+='<div class="projectLedgerRow"><div class="projectLedgerInfo"><div class="projectLedgerName">'+clean(walletName(id))+
-        '</div></div><div class="projectLedgerAmount">'+M(amount)+'</div></div>';
-      available=round(available-amount);
-    }
-  });
-  if(available>.005)situated+='<div class="projectLedgerRow"><div class="projectLedgerInfo"><div class="projectLedgerName">尚待指定存放位置</div>'+
-    '</div><div class="projectLedgerAmount">'+M(available)+'</div></div>';
-  const area='<details class="projectLedger"><summary><span>专项资金存放 · '+rows.length+' 笔账户转存</span></summary>'+
-    '<div class="projectLedgerMeta" style="margin-top:9px">当前已登记的存放位置</div>'+situated+
-    '<div class="projectLedgerMeta" style="margin-top:9px">账户转存记录</div>'+
-    (history||'<div class="note">尚无账户转存记录</div>')+'</details>';
-  return base+area;
-};
+// Project account holdings are displayed and managed in the Savings panel.
 const priorWalletHtml=Wallets.txHtml;
 Wallets.txHtml=function(t){
   if(t?.type==="wallet_transfer"&&t.isIncomeHolding){
