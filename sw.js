@@ -1,12 +1,12 @@
-const CACHE = "safespend-v10-146-variable-savings-accounts";
+const CACHE = "safespend-v10-147-income-variable-balance";
 const ASSETS = [
   "./",
   "./index.html",
   "./credit.js",
   "./project-transfer.js",
-  "./project-wallet.js",
-  "./project-savings.js",
-  "./wallet-accounts.js",
+  "./project-wallet.js?v=10-147",
+  "./project-savings.js?v=10-147",
+  "./wallet-accounts.js?v=10-147",
   "./aa.js",
   "./manifest.webmanifest",
   "./apple-touch-icon.png",
