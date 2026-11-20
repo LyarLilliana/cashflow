@@ -337,7 +337,7 @@ function record(){
   if(mode==="in"&&R(afterBudget.projects[p.id])<R(beforeBudget.projects[p.id])-.005){
     revert();return msg("资金变动验证失败");
   }
-  p.savingsWalletId=to;
+  if(mode==="in"||mode==="move")p.savingsWalletId=to;
   save();closeSheet("projectSavingsSheet");render();msg("专项账户余额与渠道已同步更新");
 }
 const previousSavings=renderSavings;
