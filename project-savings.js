@@ -197,6 +197,7 @@ style.textContent= [
 ].join("");
 document.head.appendChild(style);
 function refresh(){
+  initAccounts();
   const data=snapshot(),list=$("projectSavingsList");
   if(!list)return;
   $("projectSavingsTotal").textContent=M(R(Object.values(data.totals).reduce((a,b)=>a+R(b),0)));
