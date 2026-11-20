@@ -209,4 +209,5 @@ Wallets.txHtml=function(t){
 const previousRemove=removeTx;
 removeTx=function(id){if(deleteRecord(id))return;return previousRemove(id);};
 window.openProjectWalletTransfer=open;
+render();
 })();
