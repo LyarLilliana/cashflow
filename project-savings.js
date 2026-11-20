@@ -228,7 +228,7 @@ modal.innerHTML='<div class="sheetCard"><div class="sheetTitle" id="projectSavin
  '<input type="hidden" id="projectSavingId"><input type="hidden" id="projectSavingMode">'+
  '<div class="formGrid one">'+
  '<div id="projectSavingNameRow"><label>账户名称</label><input id="projectSavingName" maxlength="36"></div>'+
- '<div id="projectSavingFromRow"><label>实际转出渠道</label><select id="projectSavingFrom"></select></div>'+
+ '<div id="projectSavingFromRow"><label id="projectSavingFromLabel">实际转出渠道</label><select id="projectSavingFrom"></select></div>'+
  '<div id="projectSavingToRow"><label id="projectSavingToLabel">实际存放的支付渠道</label><select id="projectSavingTo"></select></div>'+
  '<div id="projectSavingVariableRow"><label>转入哪个可变动账户</label><select id="projectSavingVariable"></select></div>'+
  '<div id="projectSavingProjectRow"><label>资金所属专项</label><select id="projectSavingProject"></select></div>'+
@@ -269,6 +269,8 @@ function open(mode,id=""){
   $("projectSavingFundingRow").hidden=mode!=="in";
   $("projectSavingAmountRow").hidden=mode==="new"||mode==="edit";
   $("projectSavingToLabel").textContent=mode==="in"?"账户所在支付渠道":"账户默认存放渠道";
+  $("projectSavingFromLabel").textContent=mode==="out"
+    ?"转出后普通储蓄存放的支付渠道":"资金实际转出渠道";
   $("projectSavingSheetTitle").textContent=({new:"新增可变动账户",edit:"编辑可变动账户",
     in:"转入可变动账户",out:"转出到普通储蓄",move:"可变动账户间转存"})[mode];
   $("projectSavingConfirm").textContent=mode==="new"||mode==="edit"?"保存账户":"确认变动";
@@ -317,6 +319,15 @@ function record(){
     const available=kind==="saving"?Math.max(0,R(accounting().saving)):Math.max(0,R(bal().safe));
     if(amount>available+.005)return msg("选定资金池可用余额不足");
     if(amount>sourceWalletAmount(from)+.005)return msg("来源支付渠道余额不足");
+    if(kind==="safe"){
+      const snapshotBefore=snapshot();
+      const alreadyReserved=accounts().filter(x=>x.walletAccountId===from)
+        .reduce((sum,x)=>sum+R(snapshotBefore.totals[x.id]),0);
+      const ordinary=R(ordinaryWalletDistribution().allocation[from]);
+      const availableInWallet=Math.max(0,R(sourceWalletAmount(from)-alreadyReserved-ordinary));
+      if(amount>availableInWallet+.005)
+        return msg("该支付渠道的自由资金不足，请核对已分配到储蓄账户的金额");
+    }
     if(kind==="saving"){
       const dist=ordinaryWalletDistribution();
       if(amount>R(dist.allocation[from])+.005)return msg("来源渠道普通储蓄余额不足");
