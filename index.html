@@ -4013,10 +4013,11 @@ function openCycleIncomes(asOf=td()){
 function transactionBelongsToCycle(t,incomeTx,next){
   if(!t||t.id===incomeTx.id)return false;
 
-  // The covered day owns the settlement. On the transition date this is
-  // the new income cycle regardless of the former living reservation.
+  // Attribute a settled living day to the income that actually reserved
+  // that day's allowance. Another recurring receipt may start on the same
+  // calendar day without funding the same living allowance twice.
   if(t.type==="living_settlement"){
-    const cycleId=cycleIncomeIdForDate(t.coveredDate||t.date||"");
+    const cycleId=livingSettlementBudgetOwner(t);
     return !!cycleId&&cycleId===incomeTx.id;
   }
 
@@ -4695,10 +4696,10 @@ function accounting(asOf=td()){
       );
       const netRelease=grossRelease-dailyDraw;
 
-      // Use the settlement's calendar cycle, not the prior living
-      // reservation source; on a handover date its remainder is spendable
-      // in the new cycle rather than swept into the prior cycle's savings.
-      const settledCycleId=cycleIncomeIdForDate(date);
+      // Settle against the income that funded this daily living allowance.
+      // After a different income cycle opens, the former cycle's later
+      // consumption/release is reconciled with its savings at posting time.
+      const settledCycleId=livingSettlementBudgetOwner(t);
       const belongsToClosedCycle=!!(
         settledCycleId&&activeCycleIncomeId&&settledCycleId!==activeCycleIncomeId
       );
@@ -5299,6 +5300,15 @@ function livingDayInfo(date=td()){
   }
   return {covered:false,incomeId:"",allowance:0,income:null};
 }
+// A daily settlement belongs to the receipt that funded its living reserve.
+// The calendar owner is only a fallback for old/unfunded records.
+function livingSettlementBudgetOwner(t){
+  const date=t?.coveredDate||t?.date||"";
+  const funded=livingDayInfo(date);
+  return funded.covered&&funded.incomeId
+    ?funded.incomeId
+    :cycleIncomeIdForDate(date);
+}
 function livingSettlementForDate(date=td()){
   return S.tx.find(t=>t.type==="living_settlement"&&t.coveredDate===date)||null;
 }
@@ -5400,17 +5410,19 @@ function livingSettlementRemaining(t){
   return N(t.allowance)-livingSettlementTotalUsed(t);
 }
 function syncLivingSettlementTotals(){
+  let changed=false;
   S.tx.forEach(t=>{
     if(t.type!=="living_settlement")return;
+    const before=JSON.stringify([t.sourceIncomeId,t.allowance,t.manualActualSpent,t.actualSpent]);
 
     const date=t.coveredDate||t.date||"";
     const info=livingDayInfo(date);
     const oldSource=S.tx.find(x=>x.id===t.sourceIncomeId&&x.type==="income");
     if(info.covered){
       t.allowance=N(info.allowance);
-      // 历史收入切换“本次不扣”后，若该生活日由另一笔收入接手，
-      // 结算来源必须同步转给新的覆盖收入，避免归入错误周期。
-      const ownerId=cycleIncomeIdForDate(date)||info.incomeId;
+      // Always follow the receipt that actually reserved this living date.
+      // Later receipts with zero living allocation cannot take ownership.
+      const ownerId=info.incomeId;
       if(t.sourceIncomeId!==ownerId)t.sourceIncomeId=ownerId;
     }else if(oldSource?.deductLiving===false){
       // 旧的自动/手动结算保留流水，但不再释放未实际预留的生活额度。
@@ -5431,7 +5443,9 @@ function syncLivingSettlementTotals(){
     }
 
     t.actualSpent=livingSettlementEffectiveActual(t);
+    if(JSON.stringify([t.sourceIncomeId,t.allowance,t.manualActualSpent,t.actualSpent])!==before)changed=true;
   });
+  return changed;
 }
 function autoSettlePastLivingDays(){
   const map=livingReservationMap();
@@ -6717,10 +6731,11 @@ function removeProjectTimelineTx(id){
 }
 
 function render(){
-  // 每次刷新都先重算既往自动结算，确保后来新增/修改的日常支出继续优先占用对应日期的基础生活额度。
-  syncLivingSettlementTotals();
+  // Recalculate historical settlements before presenting budgets and wallets.
+  // Persist corrected ownership even when no new auto-settlement was added.
+  const settlementsUpdated=syncLivingSettlementTotals();
   const autoSettledCount=autoSettlePastLivingDays();
-  if(autoSettledCount>0)save();
+  if(settlementsUpdated||autoSettledCount>0)save();
 
   refreshStatsCycleSelects();
   renderPlan();
