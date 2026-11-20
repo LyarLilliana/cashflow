@@ -112,7 +112,7 @@ function mount(){
     '<button class="sectionToggle" id="walletTransferBtn" type="button">渠道互转</button>'+
     '<button class="sectionToggle" id="walletNowToggle" type="button" aria-controls="walletNowBody" aria-expanded="true">收起</button></div></div>'+
     '<div class="sectionBody" id="walletNowBody">'+
-    '<div class="card"><div class="walletNowHead"><span class="name">当前账户合计</span>'+
+    '<div class="card"><div class="walletNowHead"><span class="name">当前可用渠道合计</span>'+
     '<strong id="walletTotal" class="walletSummary">¥0</strong></div>'+
     '<div class="walletNowGrid" id="walletNowList"></div>'+
     '</div></div></div>');
@@ -209,12 +209,20 @@ function initWalletNowFold(){
 function render(){
   if(!$("walletAccountList"))return;
   const list=accounts().filter(a=>!a.isProjectSubaccount).map(a=>({id:a.id,name:a.name,amount:balance(a.id)}));
+  // The Now panel displays money available outside mutable savings. The
+  // underlying wallet ledger still records the real payment-channel balance.
+  const reserved=typeof window.projectSavingsReservedByWallet==="function"
+    ?window.projectSavingsReservedByWallet():{};
+  const availableList=list.map(a=>{
+    const earmarked=Math.max(0,round(reserved[a.id]));
+    return {...a,earmarked,available:round(a.amount-earmarked)};
+  });
   // Read the reconciled ordinary-savings allocation used by the Savings page,
   // not the raw stored distribution. Zero and unallocated portions stay hidden.
   const ordinaryShares=typeof window.ordinaryWalletShares==="function"?window.ordinaryWalletShares():{};
   const livingShares=typeof window.livingSurplusWalletShares==="function"?window.livingSurplusWalletShares():{};
-  $("walletTotal").textContent=money(list.reduce((sum,a)=>sum+a.amount,0));
-  $("walletNowList").innerHTML=list.length?list.map(a=>{
+  $("walletTotal").textContent=money(availableList.reduce((sum,a)=>sum+a.available,0));
+  $("walletNowList").innerHTML=availableList.length?availableList.map(a=>{
     const ordinaryCents=Math.max(0,Math.round((Number(ordinaryShares[a.id])||0)*100));
     const ordinaryNote=ordinaryCents>0
       ?'<div class="walletNowSaving">其中普通储蓄 '+money(ordinaryCents/100)+'</div>':"";
@@ -222,7 +230,9 @@ function render(){
     const livingNote=livingCents>0
       ?'<div class="walletNowSaving">其中生活费结余 '+money(livingCents/100)+'</div>':"";
     return '<div class="walletNowCell"><div class="meta">'+clean(a.name)+'</div>'+
-      '<strong class="'+(a.amount<0?"walletNegative":"")+'">'+money(a.amount)+'</strong>'+
+      '<strong class="'+(a.available<0?"walletNegative":"")+'">'+money(a.available)+'</strong>'+
+      (a.earmarked>.005
+        ?'<div class="walletNowSaving">已转入可变动账户 '+money(a.earmarked)+'</div>':"")+
       ordinaryNote+livingNote+'</div>';
   }).join(""):'<div class="note" style="grid-column:1/-1">前往“计划”添加支付渠道。</div>';
   $("walletAccountList").innerHTML=list.map(a=>
