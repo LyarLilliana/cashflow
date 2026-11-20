@@ -79,7 +79,8 @@ function projectRaw(p,asOf=td()){
       held[id]=R(held[id]-use);left=R(left-use);
     }
   };
-  if(p.initialFund>0&&p.savingsWalletId)add(p.savingsWalletId,p.initialFund);
+  if(p.initialFund>0&&(p.initialHoldingWalletId||p.savingsWalletId))
+    add(p.initialHoldingWalletId||p.savingsWalletId,p.initialFund);
   const rows=(S.tx||[]).filter(t=>!t.date||t.date<=asOf).slice().sort((a,b)=>
     String(a.date||"").localeCompare(String(b.date||""))||(
       a.type==="income"&&b.type!=="income"?-1:
@@ -247,6 +248,8 @@ function record(){
   if(mode==="edit"){
     if(!name)return msg("请输入账户名称");
     if(!Wallets.account(to))return msg("请选择有效的默认存放渠道");
+    if(p.initialFund>0&&!p.initialHoldingWalletId)
+      p.initialHoldingWalletId=p.savingsWalletId||to;
     p.savingsAccountName=name;
     p.savingsWalletId=to;
     save();closeSheet("projectSavingsSheet");render();return msg("专项账户设置已保存");
@@ -335,6 +338,8 @@ $("projectSavingsFold").onclick=()=>{
   const body=$("projectSavingsBody"),collapsed=!body.hidden;
   body.hidden=collapsed;
   $("projectSavingsFold").setAttribute("aria-expanded",String(!collapsed));
+  $("projectSavingsFold").setAttribute("aria-label",collapsed?"展开专项资金账户":"收起专项资金账户");
+  if(typeof writeSavingFold==="function")writeSavingFold("section:project",!collapsed);
 };
 $("projectSavingsList").addEventListener("click",event=>{
   const btn=event.target.closest("button[data-op]");
@@ -344,13 +349,16 @@ $("projectSavingsList").addEventListener("click",event=>{
 });
 $("projectSavingsList").addEventListener("toggle",event=>{
   const item=event.target.closest("details[data-project-saving]");
-  if(item===event.target&&typeof saveSavingFold==="function")
-    saveSavingFold("project:"+item.dataset.projectSaving,item.open);
+  if(item===event.target&&typeof writeSavingFold==="function")
+    writeSavingFold("project:"+item.dataset.projectSaving,item.open);
 },true);
 ["projectSavingFunding","projectSavingFrom","projectSavingTo","projectSavingAmount"].forEach(id=>{
   $(id).addEventListener("change",updatePreview);
   if(id==="projectSavingAmount")$(id).addEventListener("input",updatePreview);
 });
 if(typeof enhanceDateInputs==="function")enhanceDateInputs();
+const openByDefault=typeof readSavingFold==="function"?readSavingFold("section:project",true):true;
+$("projectSavingsBody").hidden=!openByDefault;
+$("projectSavingsFold").setAttribute("aria-expanded",String(openByDefault));
 renderSavings();
 })();
