@@ -5411,7 +5411,20 @@ function livingSettlementRemaining(t){
 }
 function syncLivingSettlementTotals(){
   let changed=false;
+  const knownIncomeIds=new Set(S.tx.filter(t=>t.type==="income").map(t=>t.id));
+  const cycleIncomes=cycleIncomeRows();
   S.tx.forEach(t=>{
+    // Repair dangling purchase-cycle references using the latest receipt
+    // recorded before this expense, including same-day transaction ordering.
+    if(t.type==="expense"&&(t.bucket==="safe"||t.bucket==="living")
+      &&t.cycleIncomeId&&!knownIncomeIds.has(t.cycleIncomeId)){
+      const owner=cycleIncomes.filter(row=>row.date<t.date
+        ||(row.date===t.date&&txStamp(row)<txStamp(t))).slice(-1)[0];
+      if(owner&&t.cycleIncomeId!==owner.id){
+        t.cycleIncomeId=owner.id;
+        changed=true;
+      }
+    }
     if(t.type!=="living_settlement")return;
     const before=JSON.stringify([t.sourceIncomeId,t.allowance,t.manualActualSpent,t.actualSpent]);
 
