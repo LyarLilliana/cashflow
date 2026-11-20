@@ -208,7 +208,7 @@ function initWalletNowFold(){
 }
 function render(){
   if(!$("walletAccountList"))return;
-  const list=accounts().map(a=>({id:a.id,name:a.name,amount:balance(a.id)}));
+  const list=accounts().filter(a=>!a.isProjectSubaccount).map(a=>({id:a.id,name:a.name,amount:balance(a.id)}));
   // Read the reconciled ordinary-savings allocation used by the Savings page,
   // not the raw stored distribution. Zero and unallocated portions stay hidden.
   const ordinaryShares=typeof window.ordinaryWalletShares==="function"?window.ordinaryWalletShares():{};
