@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-147-income-variable-balance";
+const CACHE = "safespend-v10-148-wallet-ui";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,7 +6,7 @@ const ASSETS = [
   "./project-transfer.js",
   "./project-wallet.js?v=10-147",
   "./project-savings.js?v=10-147",
-  "./wallet-accounts.js?v=10-147",
+  "./wallet-accounts.js?v=10-148",
   "./aa.js",
   "./manifest.webmanifest",
   "./apple-touch-icon.png",
