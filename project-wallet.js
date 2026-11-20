@@ -104,6 +104,13 @@ function synchronizeHoldingTransfers(income){
   const valid=before.every(rec=>baseline.every((d,i)=>
     Wallets.balanceAt(rec.id,d)>=Math.min(0,rec.balance[i])-0.005));
   if(!valid)S.tx=previous;
+  else if(Wallets.account(income.walletAccountId)){
+    let changed=false;
+    [...(income.alloc?.projects||[]),...(income.alloc?.lightPlans||[])].forEach(row=>{
+      const a=(S.variableSavingsAccounts||[]).find(v=>v.id===row.holdingVariableAccountId);
+      if(a&&!a.walletAccountId){a.walletAccountId=income.walletAccountId;changed=true;}
+    });
+  }
   return valid;
 }
 function migrateLegacyProjectAccounts(){
