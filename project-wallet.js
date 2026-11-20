@@ -77,7 +77,9 @@ function linkedHoldingTransfers(tx){
     ...(tx.alloc?.lightPlans||[]).map((x,i)=>({row:x,kind:"light",id:x.lightPlanId,number:i}))
   ];
   for(const entry of rows){
-    const item=entry.row,to=item.holdingAccountId||source;
+    const item=entry.row;
+    const variable=(S.variableSavingsAccounts||[]).find(a=>a.id===item.holdingVariableAccountId);
+    const to=item.holdingAccountId||variable?.walletAccountId||source;
     if(!(Number(item.amount)>0)||!source||!to||to===source)continue;
     if(!Wallets.account(to)||Wallets.account(to).isProjectSubaccount)return null;
     out.push({id:"ih_"+tx.id+"_"+entry.kind+"_"+entry.number,
@@ -109,6 +111,7 @@ function synchronizeHoldingTransfers(income){
     [...(income.alloc?.projects||[]),...(income.alloc?.lightPlans||[])].forEach(row=>{
       const a=(S.variableSavingsAccounts||[]).find(v=>v.id===row.holdingVariableAccountId);
       if(a&&!a.walletAccountId){a.walletAccountId=income.walletAccountId;changed=true;}
+      if(a&&!row.holdingAccountId&&a.walletAccountId){row.holdingAccountId=a.walletAccountId;changed=true;}
     });
   }
   return valid;
