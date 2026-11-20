@@ -191,7 +191,9 @@ projectFinanceDetailHtml=function(p,a){
     '</div><div class="projectLedgerAmount">'+M(available)+'</div></div>';
   const area='<div style="margin-top:9px"><button type="button" class="projectPlanAdd" onclick="event.stopPropagation();openProjectWalletTransfer(\''+clean(p.id)+'\')">+ 登记专项存放账户</button></div>'+
     '<details class="projectLedger"><summary><span>专项存放账户 · '+rows.length+' 笔记录</span></summary>'+
-    situated+history+'</details>';
+    '<div class="projectLedgerMeta" style="margin-top:9px">当前已登记的存放位置</div>'+situated+
+    '<div class="projectLedgerMeta" style="margin-top:9px">账户转存记录</div>'+
+    (history||'<div class="note">尚无账户转存记录</div>')+'</details>';
   return base+area;
 };
 const priorWalletHtml=Wallets.txHtml;
