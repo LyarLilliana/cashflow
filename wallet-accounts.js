@@ -249,7 +249,7 @@ function saveAccount(){
   const id=$("wallet_accountId").value,title=$("wallet_accountName").value.trim(),raw=$("wallet_accountBalance").value;
   const target=round(Number(raw));
   if(!title||!raw||!Number.isFinite(Number(raw)))return msg("请输入名称及有效余额");
-  const normalized=v=>String(v||"").replace(/[\\s·•._—–-]+/g,"").toLowerCase();
+  const normalized=v=>String(v||"").replace(/[\s·•._—–-]+/g,"").toLowerCase();
   if((S.projects||[]).some(p=>p.name&&normalized(title).includes(normalized(p.name)))
     &&accounts().some(a=>a.id!==id&&normalized(title).startsWith(normalized(a.name))
       &&normalized(title)!==normalized(a.name)))
