@@ -114,6 +114,14 @@ function migrateLegacyProjectAccounts(){
     .map(t=>t.toAccountId));
   (S.paymentAccounts||[]).filter(a=>a.isProjectSubaccount).forEach(a=>childIds.add(a.id));
   const normalized=v=>String(v||"").replace(/[\s·•._—–-]+/g,"").toLowerCase();
+  // Also reconcile previously created project-named accounts, even if no transfer
+  // transaction was posted before the user upgraded.
+  (S.paymentAccounts||[]).forEach(child=>{
+    const other=(S.paymentAccounts||[]).filter(a=>a.id!==child.id&&!a.isProjectSubaccount);
+    if(other.some(a=>normalized(child.name).startsWith(normalized(a.name))&&normalized(child.name)!==normalized(a.name))
+      &&(S.projects||[]).some(p=>p.name&&normalized(child.name).includes(normalized(p.name))))
+      childIds.add(child.id);
+  });
   for(const id of childIds){
     const child=Wallets.account(id);
     if(!child)continue;
