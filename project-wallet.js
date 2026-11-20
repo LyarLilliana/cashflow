@@ -8,6 +8,139 @@ const projectName=id=>S.projects.find(p=>p.id===id)?.name||"专项";
 const walletName=id=>Wallets.account(id)?.name||"原账户";
 const records=id=>(S.tx||[]).filter(t=>t.type==="wallet_transfer"&&t.projectId===id&&t.projectHoldingSource);
 const kindName={safe:"零花钱转入专项",saving:"普通储蓄转入专项",project:"已有专项资金调整存放"};
+
+// Income allocations retain budget ownership while recording the actual holding account.
+function availableChannels(){
+  return (S.paymentAccounts||[]).filter(a=>a?.id&&!a.isProjectSubaccount);
+}
+function incomeHoldingOptions(selected=""){
+  return '<option value="__income__">留在本次到账渠道</option>'+
+    availableChannels().map(a=>
+      '<option value="'+clean(a.id)+'"'+(selected===a.id?' selected':'')+'>'+
+      clean(a.name)+'</option>').join("");
+}
+function incomeHoldingFields(scope,edit=false,tx=null){
+  if(!scope)return;
+  const types=[
+    [edit?"editIncomeProjectAmount":"projectContrib","project"],
+    [edit?"editIncomeRepayAmount":"projectRepayContrib","repayment"],
+    [edit?"editIncomeLightAmount":"lightPlanContrib","light"]
+  ];
+  types.forEach(([className,kind])=>{
+    scope.querySelectorAll("."+className).forEach(input=>{
+      const id=input.dataset.id, parent=input.closest(".formGrid");
+      if(!id||!parent||parent.querySelector('.incomeHoldingSelect[data-kind="'+kind+'"]'))return;
+      const existing=kind==="light"?(tx?.alloc?.lightPlans||[]).find(x=>x.lightPlanId===id):
+        (tx?.alloc?.projects||[]).find(x=>x.projectId===id&&!!x.repayment===(kind==="repayment"));
+      const title=kind==="light"
+        ?(S.plannedExpenses||[]).find(p=>p.id===id)?.name||"计划"
+        :S.projects.find(p=>p.id===id)?.name||"专项";
+      const defaultLabel=kind==="light"?title+"预留":title.endsWith("专项")?title:title+"专项";
+      const existingWallet=existing?.holdingAccountId||"__income__";
+      const chosen=availableChannels().some(a=>a.id===existingWallet)?existingWallet:"__income__";
+      const label=existing?.holdingName||defaultLabel;
+      const row=document.createElement("div");
+      row.className="incomeHoldingFields";
+      row.style.cssText="grid-column:1/-1;display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:0 0 6px";
+      row.innerHTML='<div style="flex:1 1 135px;min-width:0"><label style="font-size:10px">实际存放渠道</label>'+
+        '<select class="incomeHoldingSelect" data-kind="'+kind+'" data-id="'+clean(id)+'">'+
+        incomeHoldingOptions(chosen)+'</select></div>'+
+        '<div style="flex:1 1 125px;min-width:0"><label style="font-size:10px">账户内资金名称</label>'+
+        '<input class="incomeHoldingName" data-kind="'+kind+'" data-id="'+clean(id)+'" maxlength="36" value="'+clean(label)+'"></div>';
+      parent.appendChild(row);
+      const selector=row.querySelector("select");
+      if(selector)selector.value=chosen;
+    });
+  });
+}
+function holdingFor(kind,id,edit=false){
+  const scope=edit?$("editTxFields"):$("projectSuggest");
+  const select=[...(scope?.querySelectorAll(".incomeHoldingSelect")||[])]
+    .find(x=>x.dataset.kind===kind&&x.dataset.id===id);
+  const label=[...(scope?.querySelectorAll(".incomeHoldingName")||[])]
+    .find(x=>x.dataset.kind===kind&&x.dataset.id===id);
+  const target=select?.value||"__income__";
+  return {holdingAccountId:target==="__income__"?"":target,
+    holdingName:(label?.value||"").trim()};
+}
+function holdingDescription(allocation,income){
+  const target=allocation?.holdingAccountId||income?.walletAccountId||"";
+  const name=Wallets.account(target)?.name||"存放渠道待核对";
+  const label=String(allocation?.holdingName||"").trim();
+  return name+(label?" · "+label:"");
+}
+function linkedHoldingTransfers(tx){
+  const out=[],source=tx.walletAccountId||"";
+  const rows=[
+    ...(tx.alloc?.projects||[]).map((x,i)=>({row:x,kind:x.repayment?"repayment":"project",id:x.projectId,number:i})),
+    ...(tx.alloc?.lightPlans||[]).map((x,i)=>({row:x,kind:"light",id:x.lightPlanId,number:i}))
+  ];
+  for(const entry of rows){
+    const item=entry.row,to=item.holdingAccountId||source;
+    if(!(Number(item.amount)>0)||!source||!to||to===source)continue;
+    if(!Wallets.account(to)||Wallets.account(to).isProjectSubaccount)return null;
+    out.push({id:"ih_"+tx.id+"_"+entry.kind+"_"+entry.number,
+      type:"wallet_transfer",date:tx.date,amount:round(item.amount),
+      fromAccountId:source,toAccountId:to,ordinaryAmount:0,
+      sourceIncomeId:tx.id,isIncomeHolding:true,holdingName:item.holdingName||"",
+      projectId:entry.kind==="light"?"":entry.id,
+      lightPlanId:entry.kind==="light"?entry.id:"",
+      note:"收入预留转存 · "+(entry.kind==="light"
+        ?((S.plannedExpenses||[]).find(p=>p.id===entry.id)?.name||"近期计划")
+        :projectName(entry.id))});
+  }
+  return out;
+}
+function synchronizeHoldingTransfers(income){
+  const previous=S.tx;
+  const oldTransfers=previous.filter(t=>t.isIncomeHolding&&t.sourceIncomeId===income.id);
+  const next=linkedHoldingTransfers(income);
+  if(next===null)return false;
+  const affected=[...new Set([...oldTransfers,...next].flatMap(t=>[t.fromAccountId,t.toAccountId]))];
+  const baseline=[...new Set([income.date,td(),...previous.filter(t=>t.date>=income.date).map(t=>t.date)])].sort();
+  const before=affected.map(id=>({id,balance:baseline.map(d=>Wallets.balanceAt(id,d))}));
+  S.tx=previous.filter(t=>!(t.isIncomeHolding&&t.sourceIncomeId===income.id)).concat(next);
+  const valid=before.every(rec=>baseline.every((d,i)=>
+    Wallets.balanceAt(rec.id,d)>=Math.min(0,rec.balance[i])-0.005));
+  if(!valid)S.tx=previous;
+  return valid;
+}
+function migrateLegacyProjectAccounts(){
+  let changed=false;
+  const transfers=(S.tx||[]).filter(t=>t.type==="wallet_transfer"&&t.projectHoldingSource);
+  for(const t of transfers){
+    const child=Wallets.account(t.toAccountId);
+    if(!child)continue;
+    const parent=availableChannels()
+      .filter(a=>a.id!==child.id)
+      .sort((a,b)=>b.name.length-a.name.length)
+      .find(a=>child.name.startsWith(a.name+" · ")||child.name.startsWith(a.name+"-"));
+    if(!parent)continue;
+    const childId=child.id;
+    // A legacy named project account is a virtual allocation inside its payment channel.
+    t.projectHoldingName=t.projectHoldingName||child.name.slice(parent.name.length).replace(/^[ ·-]+/,"");
+    parent.openingBalance=round((Number(parent.openingBalance)||0)+(Number(child.openingBalance)||0));
+    const cols=["walletAccountId","fromAccountId","toAccountId",
+      "walletFromAccountId","walletToAccountId","projectHoldingAccountId"];
+    for(const item of S.tx){
+      cols.forEach(key=>{if(item[key]===childId)item[key]=parent.id;});
+      if(item.type==="income"){
+        [...(item.alloc?.projects||[]),...(item.alloc?.lightPlans||[])].forEach(a=>{
+          if(a.holdingAccountId===childId)a.holdingAccountId=parent.id;
+        });
+      }
+    }
+    const shares=S.settings?.ordinaryWalletShares;
+    if(shares&&shares[childId]){
+      shares[parent.id]=round((Number(shares[parent.id])||0)+Number(shares[childId]));
+      delete shares[childId];
+    }
+    S.paymentAccounts=S.paymentAccounts.filter(a=>a.id!==childId);
+    changed=true;
+  }
+  if(changed)save();
+}
+
 const outer=document.createElement("div");
 outer.innerHTML='<div class="sheet" id="projectWalletSheet"><div class="sheetCard">'+
   '<div class="sheetTitle" id="projectWalletTitle">专项资金存放</div>'+
