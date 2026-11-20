@@ -13,9 +13,12 @@ const kindName={safe:"零花钱转入专项",saving:"普通储蓄转入专项",p
 function availableChannels(){
   return (S.paymentAccounts||[]).filter(a=>a?.id&&!a.isProjectSubaccount);
 }
+function variableAccounts(){
+  return (S.variableSavingsAccounts||[]).filter(a=>a?.id&&!a.archived);
+}
 function incomeHoldingOptions(selected=""){
-  return '<option value="__income__">留在本次到账渠道</option>'+
-    availableChannels().map(a=>
+  return '<option value="">选择储蓄页的可变动账户</option>'+
+    variableAccounts().map(a=>
       '<option value="'+clean(a.id)+'"'+(selected===a.id?' selected':'')+'>'+
       clean(a.name)+'</option>').join("");
 }
@@ -28,27 +31,21 @@ function incomeHoldingFields(scope,edit=false,tx=null){
   ];
   types.forEach(([className,kind])=>{
     scope.querySelectorAll("."+className).forEach(input=>{
-      const id=input.dataset.id, parent=input.closest(".formGrid");
-      if(!id||!parent||parent.querySelector('.incomeHoldingSelect[data-kind="'+kind+'"]'))return;
+      const id=input.dataset.id,parent=input.closest(".formGrid");
+      if(!id||!parent||parent.querySelector('.incomeVariableSelect[data-kind="'+kind+'"]'))return;
       const existing=kind==="light"?(tx?.alloc?.lightPlans||[]).find(x=>x.lightPlanId===id):
         (tx?.alloc?.projects||[]).find(x=>x.projectId===id&&!!x.repayment===(kind==="repayment"));
-      const title=kind==="light"
-        ?(S.plannedExpenses||[]).find(p=>p.id===id)?.name||"计划"
-        :S.projects.find(p=>p.id===id)?.name||"专项";
-      const project=kind==="light"?null:S.projects.find(p=>p.id===id);
-      const defaultLabel=kind==="light"?title+"预留":project?.savingsAccountName||(title.endsWith("专项")?title:title+"专项");
-      const existingWallet=edit?(existing?.holdingAccountId||"__income__"):
-        (project?.savingsWalletId||"__income__");
-      const chosen=availableChannels().some(a=>a.id===existingWallet)?existingWallet:"__income__";
-      const label=existing?.holdingName||defaultLabel;
+      const originalProject=kind==="light"?null:S.projects.find(p=>p.id===id);
+      const defaultId=originalProject?.defaultVariableAccountId||("va_"+id);
+      const selected=existing?.holdingVariableAccountId||
+        (kind==="light"?"":defaultId);
+      const chosen=variableAccounts().some(a=>a.id===selected)?selected:"";
       const row=document.createElement("div");
       row.className="incomeHoldingFields";
-      row.style.cssText="grid-column:1/-1;display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:0 0 6px";
-      row.innerHTML='<div style="flex:1 1 135px;min-width:0"><label style="font-size:10px">实际存放渠道</label>'+
-        '<select class="incomeHoldingSelect" data-kind="'+kind+'" data-id="'+clean(id)+'">'+
-        incomeHoldingOptions(chosen)+'</select></div>'+
-        '<div style="flex:1 1 125px;min-width:0"><label style="font-size:10px">账户内资金名称</label>'+
-        '<input class="incomeHoldingName" data-kind="'+kind+'" data-id="'+clean(id)+'" maxlength="36" value="'+clean(label)+'"></div>';
+      row.style.cssText="grid-column:1/-1;margin:0 0 7px;min-width:0";
+      row.innerHTML='<label style="font-size:11px">实际存放账户 · 储蓄 / 可变动账户</label>'+
+        '<select class="incomeVariableSelect" data-kind="'+kind+'" data-id="'+clean(id)+'">'+
+        incomeHoldingOptions(chosen)+'</select>';
       parent.appendChild(row);
       const selector=row.querySelector("select");
       if(selector)selector.value=chosen;
@@ -57,19 +54,21 @@ function incomeHoldingFields(scope,edit=false,tx=null){
 }
 function holdingFor(kind,id,edit=false){
   const scope=edit?$("editTxFields"):$("projectSuggest");
-  const select=[...(scope?.querySelectorAll(".incomeHoldingSelect")||[])]
+  const selector=[...(scope?.querySelectorAll(".incomeVariableSelect")||[])]
     .find(x=>x.dataset.kind===kind&&x.dataset.id===id);
-  const label=[...(scope?.querySelectorAll(".incomeHoldingName")||[])]
-    .find(x=>x.dataset.kind===kind&&x.dataset.id===id);
-  const target=select?.value||"__income__";
-  return {holdingAccountId:target==="__income__"?"":target,
-    holdingName:(label?.value||"").trim()};
+  const account=variableAccounts().find(a=>a.id===selector?.value);
+  return {holdingVariableAccountId:account?.id||"",
+    holdingAccountId:account?.walletAccountId||"",
+    holdingName:account?.name||""};
 }
 function holdingDescription(allocation,income){
-  const target=allocation?.holdingAccountId||income?.walletAccountId||"";
-  const name=Wallets.account(target)?.name||"存放渠道待核对";
-  const label=String(allocation?.holdingName||"").trim();
-  return name+(label?" · "+label:"");
+  const virtual=variableAccounts().find(a=>a.id===allocation?.holdingVariableAccountId);
+  if(virtual)return "可变动账户 · "+virtual.name+
+    (Wallets.account(allocation?.holdingAccountId||virtual.walletAccountId)
+      ?"（实际渠道 "+Wallets.account(allocation?.holdingAccountId||virtual.walletAccountId).name+"）":"");
+  const walletId=allocation?.holdingAccountId||income?.walletAccountId||"";
+  return (Wallets.account(walletId)?.name||"原存放渠道")+
+    (allocation?.holdingName?" · "+allocation.holdingName:"");
 }
 function linkedHoldingTransfers(tx){
   const out=[],source=tx.walletAccountId||"";
