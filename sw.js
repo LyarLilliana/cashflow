@@ -1,10 +1,11 @@
-const CACHE = "safespend-v10-141-income-project-holdings";
+const CACHE = "safespend-v10-142-project-savings-accounts";
 const ASSETS = [
   "./",
   "./index.html",
   "./credit.js",
   "./project-transfer.js",
   "./project-wallet.js",
+  "./project-savings.js",
   "./wallet-accounts.js",
   "./aa.js",
   "./manifest.webmanifest",
