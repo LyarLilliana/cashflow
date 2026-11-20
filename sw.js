@@ -1,9 +1,10 @@
-const CACHE = "safespend-v10-139-ordinary-wallet-reconcile";
+const CACHE = "safespend-v10-140-project-wallet-holdings";
 const ASSETS = [
   "./",
   "./index.html",
   "./credit.js",
   "./project-transfer.js",
+  "./project-wallet.js",
   "./wallet-accounts.js",
   "./aa.js",
   "./manifest.webmanifest",
