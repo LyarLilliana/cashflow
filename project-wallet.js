@@ -68,14 +68,20 @@ function open(projectId){
   if(typeof syncDateDisplays==="function")syncDateDisplays();
 }
 function deleteRecord(id){
-  const tx=S.tx.find(t=>t.id===id&&t.type==="wallet_transfer"&&t.projectId);
-  if(!tx)return false;
+  const selected=S.tx.find(t=>t.id===id);
+  const tx=selected?.type==="wallet_transfer"&&selected.projectId?selected:
+    selected?.linkedProjectWalletTxId?S.tx.find(t=>t.id===selected.linkedProjectWalletTxId):null;
+  if(!tx||tx.type!=="wallet_transfer"||!tx.projectId)return false;
+  const dates=[...new Set([tx.date,td(),...S.tx.map(t=>t.date).filter(d=>d&&d>=tx.date)])].sort();
+  const destinationBefore=dates.map(d=>Wallets.balanceAt(tx.toAccountId,d));
   const before=S.tx;
-  S.tx=S.tx.filter(t=>t.id!==id&&t.id!==tx.linkedProjectFundingTxId);
+  S.tx=S.tx.filter(t=>t.id!==tx.id&&t.id!==tx.linkedProjectFundingTxId);
   const remaining=accounting().projects[tx.projectId];
-  if(remaining<-.005){
+  const destinationValid=dates.every((d,i)=>
+    Wallets.balanceAt(tx.toAccountId,d)>=Math.min(0,destinationBefore[i])-.005);
+  if(remaining<-.005||!destinationValid){
     S.tx=before;
-    msg("该笔资金已用于后续专项支出，请先调整相关流水");
+    msg("后续专项或目标账户已经使用这笔资金，请先调整相关流水");
     return true;
   }
   save();render();msg("专项存放和关联资金分配已同步撤销");
@@ -154,10 +160,51 @@ projectFinanceDetailHtml=function(p,a){
       (t.note?' · '+clean(t.note):"")+'</div></div>'+
       '<div class="projectLedgerAmount">'+M(t.amount)+'</div></div>';
   });
+  const holdings={};
+  const events=(S.tx||[]).filter(t=>
+    (t.type==="wallet_transfer"&&t.projectId===p.id&&t.projectHoldingSource)
+    ||(t.type==="expense"&&t.bucket==="project"&&t.refId===p.id))
+    .filter(t=>!t.date||t.date<=td())
+    .sort((x,y)=>String(x.date).localeCompare(String(y.date))||txStamp(x)-txStamp(y));
+  events.forEach(t=>{
+    if(t.type==="wallet_transfer"){
+      const amount=round(t.amount);
+      if(t.projectHoldingSource==="project"&&holdings[t.fromAccountId])
+        holdings[t.fromAccountId]=Math.max(0,round(holdings[t.fromAccountId]-amount));
+      holdings[t.toAccountId]=round((holdings[t.toAccountId]||0)+amount);
+    }else if(t.walletAccountId&&holdings[t.walletAccountId]){
+      holdings[t.walletAccountId]=Math.max(0,round(holdings[t.walletAccountId]-round(t.amount)));
+    }
+  });
+  let available=Math.max(0,round(a.projects[p.id]));
+  let situated="";
+  Object.keys(holdings).forEach(id=>{
+    const amount=Math.min(Math.max(0,round(holdings[id])),
+      Math.max(0,round(Wallets.balance(id))),available);
+    if(amount>.005){
+      situated+='<div class="projectLedgerRow"><div class="projectLedgerInfo"><div class="projectLedgerName">'+clean(walletName(id))+
+        '</div></div><div class="projectLedgerAmount">'+M(amount)+'</div></div>';
+      available=round(available-amount);
+    }
+  });
+  if(available>.005)situated+='<div class="projectLedgerRow"><div class="projectLedgerInfo"><div class="projectLedgerName">尚待指定存放位置</div>'+
+    '</div><div class="projectLedgerAmount">'+M(available)+'</div></div>';
   const area='<div style="margin-top:9px"><button type="button" class="projectPlanAdd" onclick="event.stopPropagation();openProjectWalletTransfer(\''+clean(p.id)+'\')">+ 登记专项存放账户</button></div>'+
-    '<details class="projectLedger"><summary><span>资金存放记录 · '+rows.length+' 笔</span></summary>'+
-    (history||'<div class="note">专项资金存放位置可逐笔登记。</div>')+'</details>';
+    '<details class="projectLedger"><summary><span>专项存放账户 · '+rows.length+' 笔记录</span></summary>'+
+    situated+history+'</details>';
   return base+area;
+};
+const priorWalletHtml=Wallets.txHtml;
+Wallets.txHtml=function(t){
+  if(t?.type==="wallet_transfer"&&t.projectId&&t.projectHoldingSource){
+    return '<div class="item"><div class="txRow"><div class="txLeft">'+
+      '<div class="name">专项存放 · '+clean(projectName(t.projectId))+'</div>'+
+      '<div class="meta">'+clean(t.date)+' · '+clean(walletName(t.fromAccountId))+
+      ' → '+clean(walletName(t.toAccountId))+' · '+clean(kindName[t.projectHoldingSource]||"专项转账")+
+      (t.note?' · '+clean(t.note):"")+'</div></div>'+
+      '<div class="txRight"><div class="txAmount txMuted">'+M(t.amount)+'</div></div></div></div>';
+  }
+  return priorWalletHtml(t);
 };
 const previousRemove=removeTx;
 removeTx=function(id){if(deleteRecord(id))return;return previousRemove(id);};
