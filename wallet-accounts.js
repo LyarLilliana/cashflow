@@ -231,8 +231,6 @@ function render(){
       ?'<div class="walletNowSaving">其中生活费结余 '+money(livingCents/100)+'</div>':"";
     return '<div class="walletNowCell"><div class="meta">'+clean(a.name)+'</div>'+
       '<strong class="'+(a.available<0?"walletNegative":"")+'">'+money(a.available)+'</strong>'+
-      (a.earmarked>.005
-        ?'<div class="walletNowSaving">已转入可变动账户 '+money(a.earmarked)+'</div>':"")+
       ordinaryNote+livingNote+'</div>';
   }).join(""):'<div class="note" style="grid-column:1/-1">前往“计划”添加支付渠道。</div>';
   $("walletAccountList").innerHTML=list.map(a=>
