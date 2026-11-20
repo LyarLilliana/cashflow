@@ -114,6 +114,8 @@ function snapshot(){
     }
   }
   const posted=accounting();
+  // Deleted project budgets release their earmarks; historical rows stay in the ledger.
+  Object.keys(funds).forEach(id=>{if(!project(id))delete funds[id];});
   // The existing accounting engine owns project advances, reimbursements and AA offsets.
   // Align every project's account allocation with its authoritative remaining budget.
   S.projects.forEach(p=>{
@@ -296,6 +298,9 @@ function record(){
     const name=$("projectSavingName").value.trim();
     if(!name)return msg("请输入账户名称");
     if(!Wallets.account(destination))return msg("请选择实际支付渠道");
+    if(a.walletAccountId&&a.walletAccountId!==destination
+      &&R(snapshot().totals[a.id])>.005)
+      return msg("账户已有资金，请先通过渠道互转登记实际资金移动，再修改默认渠道");
     a.name=name;a.walletAccountId=destination;
     save();closeSheet("projectSavingsSheet");render();return msg("可变动账户已更新");
   }
