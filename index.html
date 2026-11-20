@@ -7668,7 +7668,7 @@ function openTxActions(id){
 
   txActionEditBtn.style.display=transactionEditable(t)?"":"none";
   const aaResolved=t.aaId&&(S.aaEntries||[]).some(a=>a.id===t.aaId&&a.resolution);
-  txActionDeleteBtn.style.display=aaResolved||t.type==="aa_resolution"?"none":"";
+  txActionDeleteBtn.style.display=aaResolved||t.type==="aa_resolution"||t.isIncomeHolding?"none":"";
   txActionSheet.classList.add("show");
 }
 
@@ -12798,11 +12798,11 @@ function incomeEditDraft(t){
   const billItems=deductBills&&end?editedIncomeBillItems(t,start,end):[];
   const bills=sm(billItems,x=>N(x.amount));
   const projects=[...editTxFields.querySelectorAll(".editIncomeProjectAmount")]
-    .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value))})).filter(x=>x.amount>0);
+    .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value)),...projectIncomeHoldingRead("project",x.dataset.id,true)})).filter(x=>x.amount>0);
   const repayments=[...editTxFields.querySelectorAll(".editIncomeRepayAmount")]
-    .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value)),repayment:true})).filter(x=>x.amount>0);
+    .map(x=>({projectId:x.dataset.id,amount:Math.max(0,N(x.value)),repayment:true,...projectIncomeHoldingRead("repayment",x.dataset.id,true)})).filter(x=>x.amount>0);
   const lightPlans=[...editTxFields.querySelectorAll(".editIncomeLightAmount")]
-    .map(x=>({lightPlanId:x.dataset.id,amount:Math.max(0,N(x.value))})).filter(x=>x.amount>0);
+    .map(x=>({lightPlanId:x.dataset.id,amount:Math.max(0,N(x.value)),...projectIncomeHoldingRead("light",x.dataset.id,true)})).filter(x=>x.amount>0);
   const projectTotal=sm([...projects,...repayments,...lightPlans],x=>N(x.amount));
   const free=amount-saving-N(livingInfo.amount)-bills-projectTotal;
   return {amount,saving,livingInfo,billItems,bills,projects,repayments,lightPlans,projectTotal,free,
@@ -13087,6 +13087,7 @@ function openTxEdit(id){
       <div class="note" id="editIncomeWarning" style="margin-top:8px"></div>
     `;
     editTxHint.textContent="修改后会重新计算相应日期的收入分配及关联余额。";
+    projectIncomeHoldingFields(editTxFields,true,t);
     document.getElementById("editIncomeSavingDestination").value=
       [...document.getElementById("editIncomeSavingDestination").options]
         .some(o=>o.value===incomeSavingTargetFromTx(t))
@@ -13473,6 +13474,7 @@ saveTxEdit.onclick=()=>{
   if(!t||!transactionEditable(t))return;
   // Preserve the original transaction before editing plan, date and allocations.
   const incomeOriginal=t.type==="income"?{...t,alloc:{...(t.alloc||{})}}:null;
+  const incomeOriginalTransactions=incomeOriginal?S.tx:null;
   const editDate=document.getElementById("editIncomeDate")?.value||t.date||td();
   const incomeAuditStart=editDate<t.date?editDate:(t.date||td());
   const incomeAuditDays=incomeOriginal?walletFundingCheckDates(incomeAuditStart):[];
@@ -13482,6 +13484,7 @@ saveTxEdit.onclick=()=>{
   })):[];
   const restoreIncome=()=>{
     if(!incomeOriginal)return;
+    S.tx=incomeOriginalTransactions;
     Object.keys(t).forEach(key=>{if(!(key in incomeOriginal))delete t[key]});
     Object.assign(t,incomeOriginal);
   };
@@ -13500,6 +13503,8 @@ saveTxEdit.onclick=()=>{
       const own=sm((t.alloc?.projects||[]).filter(v=>v.projectId===x.projectId&&v.repayment),v=>N(v.amount));
       return x.amount>projectRepayPending(x.projectId)+own+0.005;
     }))return msg("专项补回金额超过待补回余额");
+    if([...projects,...repayments,...lightPlans].some(x=>x.holdingAccountId&&!Wallets.account(x.holdingAccountId)))
+      return msg("请选择有效的专项存放渠道");
 
     let planId=t.planId||"";
     let planNameAtRecord=t.planNameAtRecord||"";
@@ -13818,6 +13823,10 @@ saveTxEdit.onclick=()=>{
   }
 
   if(["income","expense","living_batch","living_settlement"].includes(t.type))Wallets.editSelected(t);
+  if(incomeOriginal&& !projectIncomeHoldingSync(t)){
+    restoreIncome();
+    return msg("修改后的专项转账导致账户余额不足，请核对金额与存放渠道");
+  }
   if(incomeOriginal){
     if(N(t.alloc?.saving)>.005&&!Wallets.account(t.walletAccountId)){
       restoreIncome();
@@ -14141,7 +14150,7 @@ function removeTx(id){
   }
 
   const previousTx=S.tx;
-  S.tx=S.tx.filter(x=>x.id!==id);
+  S.tx=S.tx.filter(x=>x.id!==id&&!(target.type==="income"&&x.isIncomeHolding&&x.sourceIncomeId===id));
   if(target.shortAccountId&&!shortLedgerValid(target.shortAccountId)){
     S.tx=previousTx;
     return msg("这笔储蓄已被后续取用或转存，请先调整后续记录");
