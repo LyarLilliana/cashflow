@@ -277,13 +277,13 @@ function record(){
       (distribution.inferredMovementIds||[]).forEach(id=>{absorbed[id]=true});
       S.settings.ordinaryWalletShares[from]=R(R(S.settings.ordinaryWalletShares[from])-amount);
     }
-    const tx={id:newId("psf"),date:now,type:kind==="saving"?"saving_to_project":"pocket_to_project",
+    const tx={id:newId("psf"),date:now,isProjectSavingsEntry:true,type:kind==="saving"?"saving_to_project":"pocket_to_project",
       projectId:p.id,amount,cycleIncomeId:cycleIncomeIdForDate(now),
       walletFromAccountId:from,projectHoldingAccountId:to,projectHoldingName:accountLabel(p),
       note:"专项账户存入 · "+accountLabel(p)};
     newRows.push(tx);
     if(from!==to){
-      const movement={id:newId("psw"),date:now,type:"wallet_transfer",projectId:p.id,
+      const movement={id:newId("psw"),date:now,isProjectSavingsEntry:true,type:"wallet_transfer",projectId:p.id,
         projectHoldingSource:kind,fromAccountId:from,toAccountId:to,amount,
         linkedProjectWalletFundingId:tx.id,projectHoldingName:accountLabel(p),
         note:"专项账户转存"};
@@ -291,12 +291,12 @@ function record(){
       newRows.push(movement);
     }
   }else if(mode==="out"){
-    const tx={id:newId("pst"),date:now,type:"project_transfer",
+    const tx={id:newId("pst"),date:now,isProjectSavingsEntry:true,type:"project_transfer",
       fromProjectId:p.id,toProjectId:"__saving__",savingDestination:"ordinary",
       amount,cycleIncomeId:cycleIncomeIdForDate(now),walletFromAccountId:from,
       walletToAccountId:to,note:"专项账户转回普通储蓄"};
     newRows.push(tx);
-    if(from!==to)newRows.push({id:newId("psw"),date:now,type:"wallet_transfer",amount,
+    if(from!==to)newRows.push({id:newId("psw"),date:now,isProjectSavingsEntry:true,type:"wallet_transfer",amount,
       projectId:p.id,projectHoldingSource:"project_out",fromAccountId:from,toAccountId:to,
       linkedProjectWalletFundingId:tx.id,note:"专项账户转出同步换渠道"});
     const distribution=ordinaryWalletDistribution();
@@ -304,7 +304,7 @@ function record(){
     const absorbed=S.settings.ordinaryWalletAbsorbedMovements||(S.settings.ordinaryWalletAbsorbedMovements={});
     (distribution.inferredMovementIds||[]).forEach(id=>{absorbed[id]=true});
   }else if(mode==="move"){
-    newRows.push({id:newId("psw"),date:now,type:"wallet_transfer",amount,
+    newRows.push({id:newId("psw"),date:now,isProjectSavingsEntry:true,type:"wallet_transfer",amount,
       projectId:p.id,projectHoldingSource:"project",fromAccountId:from,toAccountId:to,
       projectHoldingName:accountLabel(p),note:"专项账户存放渠道调整"});
   }else return;
@@ -331,6 +331,15 @@ function record(){
 }
 const previousSavings=renderSavings;
 renderSavings=function(){previousSavings();refresh();};
+// Keep paired project-book and physical-channel transfers intact.
+// Corrections go through an opposite transfer, preserving the audit trail.
+const previousProjectTimelineRemove=removeProjectTimelineTx;
+removeProjectTimelineTx=function(id){
+  const t=S.tx.find(x=>x.id===id);
+  if(t?.isProjectSavingsEntry||t?.linkedProjectWalletFundingId||t?.linkedProjectWalletTxId)
+    return msg("专项账户的转入或转出请通过储蓄页反向变动调整，关联流水会保持一致");
+  return previousProjectTimelineRemove(id);
+};
 $("projectSavingsAdd").onclick=()=>open("new");
 $("projectSavingCancel").onclick=()=>closeSheet("projectSavingsSheet");
 $("projectSavingConfirm").onclick=record;
