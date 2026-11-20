@@ -192,9 +192,12 @@ function open(mode,id=""){
   $("projectSavingAmount").value="";
   $("projectSavingFunding").value="safe";
   const preferred=p?profile(p):physical()[0]?.id||"";
+  const latestIncome=[...(S.tx||[])].reverse().find(t=>t.type==="income"&&Wallets.account(t.walletAccountId));
+  const budgetSource=(S.settings?.walletSpendDefault&&Wallets.account(S.settings.walletSpendDefault))
+    ?S.settings.walletSpendDefault:latestIncome?.walletAccountId||physical()[0]?.id||"";
   $("projectSavingFrom").innerHTML=options(preferred,true);
   $("projectSavingTo").innerHTML=options(preferred,true);
-  $("projectSavingFrom").value=preferred;
+  $("projectSavingFrom").value=mode==="in"?budgetSource:preferred;
   $("projectSavingTo").value=preferred;
   $("projectSavingNameRow").hidden=!(mode==="new"||mode==="edit");
   $("projectSavingBudgetRow").hidden=mode!=="new";
@@ -269,6 +272,14 @@ function record(){
     const kind=$("projectSavingFunding").value;
     const available=kind==="saving"?Math.max(0,R(accounting().saving)):Math.max(0,R(bal().safe));
     if(amount>available+.005)return msg("资金来源可用余额不足");
+    if(kind==="safe"){
+      const alreadyEarmarked=(S.projects||[]).reduce((n,x)=>
+        n+R(projectPositions(x).held[from]),0);
+      const ordinary=R(ordinaryWalletDistribution().allocation[from]);
+      const unallocated=Math.max(0,R(Wallets.balance(from)-alreadyEarmarked-ordinary));
+      if(amount>unallocated+.005)
+        return msg("来源渠道的自由资金不足，请选择实际存放日常余额的支付渠道");
+    }
     if(kind==="saving"){
       const distribution=ordinaryWalletDistribution();
       if(amount>R(distribution.allocation[from])+.005)return msg("来源渠道的普通储蓄余额不足，请核对储蓄存放渠道");
@@ -361,7 +372,16 @@ $("projectSavingsList").addEventListener("toggle",event=>{
   if(item===event.target&&typeof writeSavingFold==="function")
     writeSavingFold("project:"+item.dataset.projectSaving,item.open);
 },true);
-["projectSavingFunding","projectSavingFrom","projectSavingTo","projectSavingAmount"].forEach(id=>{
+$("projectSavingFunding").addEventListener("change",()=>{
+  if($("projectSavingFunding").value==="saving"){
+    const share=ordinaryWalletDistribution().allocation;
+    const ranked=physical().slice().sort((a,b)=>R(share[b.id])-R(share[a.id]));
+    if(ranked.length&&R(share[ranked[0].id])>.005)
+      $("projectSavingFrom").value=ranked[0].id;
+  }
+  updatePreview();
+});
+["projectSavingFrom","projectSavingTo","projectSavingAmount"].forEach(id=>{
   $(id).addEventListener("change",updatePreview);
   if(id==="projectSavingAmount")$(id).addEventListener("input",updatePreview);
 });
