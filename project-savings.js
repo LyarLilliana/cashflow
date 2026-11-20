@@ -25,8 +25,19 @@ function initAccounts(){
       ||accounts().find(a=>a.projectId===p.id);
     if(existing){
       if(!p.defaultVariableAccountId){p.defaultVariableAccountId=existing.id;changed=true;}
+      // A completed project removes its linked mutable account from the active list.
+      // Keep the record and stable ID for audit history and a possible restoration.
+      const archived=!!p.archived;
+      if(!!existing.archived!==archived){
+        existing.archived=archived;
+        if(archived)existing.archivedAt=p.archivedAt||td();
+        else delete existing.archivedAt;
+        changed=true;
+      }
       continue;
     }
+    // Do not regenerate savings accounts for already completed projects.
+    if(p.archived)continue;
     const id="va_"+p.id;
     S.variableSavingsAccounts.push({
       id,name:label(p),projectId:p.id,
@@ -145,6 +156,17 @@ function snapshot(){
   }));
   return {funds,light,totals,byAccount};
 }
+// Report earmarked funds to the Now panel once per current-day render.
+// Payment-channel accounting retains its real-bank ledger; Now displays the
+// amount remaining outside mutable savings separately from the saved amount.
+window.projectSavingsReservedByWallet=function(){
+  const totals=snapshot().totals,byWallet={};
+  accounts().filter(a=>!a.archived).forEach(a=>{
+    if(!a.walletAccountId||!Wallets.account(a.walletAccountId))return;
+    byWallet[a.walletAccountId]=R((byWallet[a.walletAccountId]||0)+R(totals[a.id]));
+  });
+  return byWallet;
+};
 function historyFor(a){
   const rows=[];
   for(const t of S.tx||[]){
@@ -202,8 +224,9 @@ function refresh(){
   initAccounts();
   const data=snapshot(),list=$("projectSavingsList");
   if(!list)return;
-  $("projectSavingsTotal").textContent=M(R(Object.values(data.totals).reduce((a,b)=>a+R(b),0)));
-  list.innerHTML=accounts().length?accounts().filter(a=>!a.archived||data.totals[a.id]>.005).map(a=>{
+  const visible=accounts().filter(a=>!a.archived);
+  $("projectSavingsTotal").textContent=M(R(visible.reduce((sum,a)=>sum+R(data.totals[a.id]),0)));
+  list.innerHTML=visible.length?visible.map(a=>{
     const count=R(data.totals[a.id]),rows=data.byAccount[a.id]||{projects:{},light:{}};
     const belonging=Object.entries(rows.projects).map(([id,value])=>
       '<div class="varRow"><span>'+E(nameProject(id))+'</span><strong>'+M(value)+'</strong></div>').join("")+
