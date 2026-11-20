@@ -6414,7 +6414,9 @@ function projectFundingLedgerEntries(p){
         const origin=t.incomeNote||t.planNameAtRecord||S.incomePlans.find(y=>y.id===t.planId)?.name||"";
         push({id:"income:"+t.id+":"+i,date:t.date||"",order:txStamp(t),
           title:x.repayment?"收入补回专项":"收入分配存入",
-          source:(extra?"单次收入":"周期收入")+(origin?" · "+origin:""),
+          source:(extra?"单次收入":"周期收入")+(origin?" · "+origin:"")
+            +(typeof window.projectIncomeHoldingDescription==="function"
+              ?" · 存放于 "+window.projectIncomeHoldingDescription(x,t):""),
           amount:x.amount,kind:x.repayment?"repayment":"funding"});
       });
     }else if(t.type==="pocket_to_project"&&t.projectId===p.id){
@@ -7321,7 +7323,7 @@ function txHtml(t,del=false,edit=false,effects=null){
   if(t.type==="project_funding_view"){
     return `<div class="item"><div class="txRow">
       <div class="txLeft"><div class="name">${t.repayment?"专项挪用补回":"专项存入"} · ${esc(t.projectName)}</div>
-      <div class="meta">${esc(t.date||"")} · 来自${esc(t.incomeName||"到账收入")}的收入分配 · ${t.repayment?"恢复专项资金，不重复计入已备":"内部资金分配，不新增总收入"} · 长按可编辑来源收入</div></div>
+      <div class="meta">${esc(t.date||"")} · 来自${esc(t.incomeName||"到账收入")}的收入分配 · ${t.holdingAccountId&&Wallets.account(t.holdingAccountId)?"存放于 "+esc(Wallets.account(t.holdingAccountId).name)+(t.holdingName?" · "+esc(t.holdingName):"")+" · ":""}${t.repayment?"恢复专项余额":"内部资金分配"} · 长按可编辑来源收入</div></div>
       <div class="txRight"><div class="txAmount pos">+${M(t.amount)}</div></div>
     </div></div>`;
   }
@@ -7987,6 +7989,8 @@ function incomeProjectFundingViewRows(){
           projectName:p.name,
           sourceIncomeId:t.id,
           incomeName:t.incomeNote||t.planNameAtRecord||S.incomePlans.find(y=>y.id===t.planId)?.name||"",
+          holdingAccountId:x.holdingAccountId||t.walletAccountId||"",
+          holdingName:x.holdingName||"",
           repayment:!!x.repayment,
           amount:N(x.amount)
         });
