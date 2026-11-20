@@ -163,7 +163,7 @@ outer.innerHTML='<div class="sheet" id="projectWalletSheet"><div class="sheetCar
   '</div></div>';
 document.body.appendChild(outer);
 let currentProjectId="";
-const options=()=>((S.paymentAccounts||[]).map(a=>'<option value="'+clean(a.id)+'">'+clean(a.name)+'</option>')).join("");
+const options=()=>((availableChannels()).map(a=>'<option value="'+clean(a.id)+'">'+clean(a.name)+'</option>')).join("");
 function refreshNew(){
   $("projectWalletNewRow").style.display=$("projectWalletTo").value==="__new__"?"":"none";
   preview();
@@ -187,9 +187,9 @@ function open(projectId){
   currentProjectId=projectId;
   $("projectWalletTitle").textContent="专项存放账户 · "+p.name;
   $("projectWalletFrom").innerHTML=options();
-  $("projectWalletTo").innerHTML=options()+'<option value="__new__">+ 新建独立账户</option>';
-  $("projectWalletFrom").value=S.paymentAccounts[0].id;
-  $("projectWalletTo").value=S.paymentAccounts[1]?.id||"__new__";
+  $("projectWalletTo").innerHTML=options();
+  $("projectWalletFrom").value=availableChannels()[0]?.id||"";
+  $("projectWalletTo").value=availableChannels()[1]?.id||availableChannels()[0]?.id||"";
   $("projectWalletKind").value="";
   $("projectWalletAmount").value="";
   $("projectWalletDate").value=td();
@@ -204,7 +204,7 @@ function deleteRecord(id){
   const selected=S.tx.find(t=>t.id===id);
   const tx=selected?.type==="wallet_transfer"&&selected.projectId?selected:
     selected?.linkedProjectWalletTxId?S.tx.find(t=>t.id===selected.linkedProjectWalletTxId):null;
-  if(!tx||tx.type!=="wallet_transfer"||!tx.projectId)return false;
+  if(!tx||tx.isIncomeHolding||tx.type!=="wallet_transfer"||!tx.projectId)return false;
   const dates=[...new Set([tx.date,td(),...S.tx.map(t=>t.date).filter(d=>d&&d>=tx.date)])].sort();
   const destinationBefore=dates.map(d=>Wallets.balanceAt(tx.toAccountId,d));
   const before=S.tx;
@@ -296,6 +296,8 @@ projectFinanceDetailHtml=function(p,a){
   const holdings={};
   const events=(S.tx||[]).filter(t=>
     (t.type==="wallet_transfer"&&t.projectId===p.id&&t.projectHoldingSource)
+    ||(t.type==="income"&&(t.alloc?.projects||[]).some(x=>x.projectId===p.id))
+    ||((t.type==="pocket_to_project"||t.type==="saving_to_project")&&t.projectId===p.id&&!t.linkedProjectWalletTxId)
     ||(t.type==="expense"&&t.bucket==="project"&&t.refId===p.id))
     .filter(t=>!t.date||t.date<=td())
     .sort((x,y)=>String(x.date).localeCompare(String(y.date))||txStamp(x)-txStamp(y));
@@ -305,6 +307,14 @@ projectFinanceDetailHtml=function(p,a){
       if(t.projectHoldingSource==="project"&&holdings[t.fromAccountId])
         holdings[t.fromAccountId]=Math.max(0,round(holdings[t.fromAccountId]-amount));
       holdings[t.toAccountId]=round((holdings[t.toAccountId]||0)+amount);
+    }else if(t.type==="income"){
+      (t.alloc?.projects||[]).filter(x=>x.projectId===p.id).forEach(x=>{
+        const id=x.holdingAccountId||t.walletAccountId;
+        if(id)holdings[id]=round((holdings[id]||0)+round(x.amount));
+      });
+    }else if(t.type==="pocket_to_project"||t.type==="saving_to_project"){
+      const id=t.projectHoldingAccountId||t.walletFromAccountId;
+      if(id)holdings[id]=round((holdings[id]||0)+round(t.amount));
     }else if(t.walletAccountId&&holdings[t.walletAccountId]){
       holdings[t.walletAccountId]=Math.max(0,round(holdings[t.walletAccountId]-round(t.amount)));
     }
@@ -322,8 +332,7 @@ projectFinanceDetailHtml=function(p,a){
   });
   if(available>.005)situated+='<div class="projectLedgerRow"><div class="projectLedgerInfo"><div class="projectLedgerName">尚待指定存放位置</div>'+
     '</div><div class="projectLedgerAmount">'+M(available)+'</div></div>';
-  const area='<div style="margin-top:9px"><button type="button" class="projectPlanAdd" onclick="event.stopPropagation();openProjectWalletTransfer(\''+clean(p.id)+'\')">+ 登记专项存放账户</button></div>'+
-    '<details class="projectLedger"><summary><span>专项存放账户 · '+rows.length+' 笔记录</span></summary>'+
+  const area='<details class="projectLedger"><summary><span>专项存放渠道 · '+rows.length+' 笔单独转账记录</span></summary>'+
     '<div class="projectLedgerMeta" style="margin-top:9px">当前已登记的存放位置</div>'+situated+
     '<div class="projectLedgerMeta" style="margin-top:9px">账户转存记录</div>'+
     (history||'<div class="note">尚无账户转存记录</div>')+'</details>';
@@ -331,6 +340,12 @@ projectFinanceDetailHtml=function(p,a){
 };
 const priorWalletHtml=Wallets.txHtml;
 Wallets.txHtml=function(t){
+  if(t?.type==="wallet_transfer"&&t.isIncomeHolding){
+    const title=t.projectId?projectName(t.projectId):((S.plannedExpenses||[]).find(p=>p.id===t.lightPlanId)?.name||"近期计划");
+    return '<div class="item"><div class="txRow"><div class="txLeft"><div class="name">收入预留存放 · '+clean(title)+'</div>'+
+      '<div class="meta">'+clean(t.date)+' · '+clean(walletName(t.fromAccountId))+' → '+clean(walletName(t.toAccountId))+
+      (t.holdingName?' · '+clean(t.holdingName):"")+' · 内部转账</div></div><div class="txRight"><div class="txAmount txMuted">'+M(t.amount)+'</div></div></div></div>';
+  }
   if(t?.type==="wallet_transfer"&&t.projectId&&t.projectHoldingSource){
     return '<div class="item"><div class="txRow"><div class="txLeft">'+
       '<div class="name">专项存放 · '+clean(projectName(t.projectId))+'</div>'+
@@ -343,6 +358,11 @@ Wallets.txHtml=function(t){
 };
 const previousRemove=removeTx;
 removeTx=function(id){if(deleteRecord(id))return;return previousRemove(id);};
+window.projectIncomeHoldingFields=incomeHoldingFields;
+window.projectIncomeHoldingRead=holdingFor;
+window.projectIncomeHoldingSync=synchronizeHoldingTransfers;
+window.projectIncomeHoldingDescription=holdingDescription;
 window.openProjectWalletTransfer=open;
+migrateLegacyProjectAccounts();
 render();
 })();
