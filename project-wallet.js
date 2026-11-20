@@ -106,19 +106,29 @@ function synchronizeHoldingTransfers(income){
   return valid;
 }
 function migrateLegacyProjectAccounts(){
+  // Older versions may have created "支付宝 · 旅行专项" as a second payment channel.
+  // Fold that virtual location into the actual channel and keep the subaccount label.
   let changed=false;
-  const transfers=(S.tx||[]).filter(t=>t.type==="wallet_transfer"&&t.projectHoldingSource);
-  for(const t of transfers){
-    const child=Wallets.account(t.toAccountId);
+  const childIds=new Set((S.tx||[])
+    .filter(t=>t.type==="wallet_transfer"&&t.projectHoldingSource)
+    .map(t=>t.toAccountId));
+  (S.paymentAccounts||[]).filter(a=>a.isProjectSubaccount).forEach(a=>childIds.add(a.id));
+  const normalized=v=>String(v||"").replace(/[\s·•._—–-]+/g,"").toLowerCase();
+  for(const id of childIds){
+    const child=Wallets.account(id);
     if(!child)continue;
-    const parent=availableChannels()
-      .filter(a=>a.id!==child.id)
-      .sort((a,b)=>b.name.length-a.name.length)
-      .find(a=>child.name.startsWith(a.name+" · ")||child.name.startsWith(a.name+"-"));
+    const other=(S.paymentAccounts||[]).filter(a=>a.id!==id&&!a.isProjectSubaccount);
+    const parent=other.find(a=>a.id===child.parentAccountId||a.id===child.paymentParentId)
+      ||other.sort((a,b)=>b.name.length-a.name.length).find(a=>
+        normalized(child.name).startsWith(normalized(a.name))&&normalized(child.name)!==normalized(a.name));
     if(!parent)continue;
     const childId=child.id;
-    // A legacy named project account is a virtual allocation inside its payment channel.
-    t.projectHoldingName=t.projectHoldingName||child.name.slice(parent.name.length).replace(/^[ ·-]+/,"");
+    const segment=String(child.name||"");
+    const holdingLabel=(segment.includes(parent.name)
+      ?segment.slice(segment.indexOf(parent.name)+parent.name.length):segment)
+      .replace(/^[\s·•._—–-]+/,"").trim()||"专项";
+    S.tx.filter(t=>t.type==="wallet_transfer"&&t.projectHoldingSource&&t.toAccountId===childId)
+      .forEach(t=>{t.projectHoldingName=t.projectHoldingName||holdingLabel;});
     parent.openingBalance=round((Number(parent.openingBalance)||0)+(Number(child.openingBalance)||0));
     const cols=["walletAccountId","fromAccountId","toAccountId",
       "walletFromAccountId","walletToAccountId","projectHoldingAccountId"];
@@ -140,7 +150,6 @@ function migrateLegacyProjectAccounts(){
   }
   if(changed)save();
 }
-
 const originalFinance=projectFinanceDetailHtml;
 projectFinanceDetailHtml=function(p,a){
   const base=originalFinance(p,a);
@@ -217,7 +226,19 @@ Wallets.txHtml=function(t){
   return priorWalletHtml(t);
 };
 const previousRemove=removeTx;
-removeTx=function(id){if(deleteRecord(id))return;return previousRemove(id);};
+removeTx=function(id){
+  const item=S.tx.find(t=>t.id===id);
+  if(item?.isIncomeHolding){
+    return msg("这笔转账属于收入分配，请修改或删除对应的收入流水");
+  }
+  const wasIncome=item?.type==="income";
+  previousRemove(id);
+  if(wasIncome&&!S.tx.some(t=>t.id===id)){
+    const oldCount=S.tx.length;
+    S.tx=S.tx.filter(t=>!(t.isIncomeHolding&&t.sourceIncomeId===id));
+    if(S.tx.length!==oldCount){save();render();}
+  }
+};
 window.projectIncomeHoldingFields=incomeHoldingFields;
 window.projectIncomeHoldingRead=holdingFor;
 window.projectIncomeHoldingSync=synchronizeHoldingTransfers;
