@@ -11643,10 +11643,12 @@ saveIncome.onclick=()=>{
   if(repayments.some(x=>x.amount>projectRepayPending(x.projectId)+0.005))
     return msg("专项补回金额超过待补回余额");
   if(safe<-0.005)return msg("本次收入分配超过实际到账金额，请减少预留或补回金额");
+  if([...projects,...repayments,...lightPlans].some(x=>!S.variableSavingsAccounts?.some(a=>a.id===x.holdingVariableAccountId)))
+    return msg("请在储蓄页的可变动账户中选择实际存放账户");
   if([...projects,...repayments,...lightPlans].some(x=>x.holdingAccountId&&!Wallets.account(x.holdingAccountId)))
-    return msg("请选择有效的专项存放渠道");
-  if([...projects,...repayments,...lightPlans].some(x=>x.holdingAccountId)&&!Wallets.account(wallet_income.value))
-    return msg("先选择到账渠道，再设置专项存放渠道");
+    return msg("所选可变动账户的实际支付渠道已失效");
+  if([...projects,...repayments,...lightPlans].length&&!Wallets.account(wallet_income.value))
+    return msg("请先选择这笔收入的实际到账渠道");
 
   const planNextDateBefore=plan?.nextDate||"";
   const planFreqAtRecord=plan?.freq||"none";
@@ -13507,8 +13509,10 @@ saveTxEdit.onclick=()=>{
       const own=sm((t.alloc?.projects||[]).filter(v=>v.projectId===x.projectId&&v.repayment),v=>N(v.amount));
       return x.amount>projectRepayPending(x.projectId)+own+0.005;
     }))return msg("专项补回金额超过待补回余额");
+    if([...projects,...repayments,...lightPlans].some(x=>!S.variableSavingsAccounts?.some(a=>a.id===x.holdingVariableAccountId)))
+      return msg("请为每笔专项或近期计划预留选择可变动账户");
     if([...projects,...repayments,...lightPlans].some(x=>x.holdingAccountId&&!Wallets.account(x.holdingAccountId)))
-      return msg("请选择有效的专项存放渠道");
+      return msg("所选可变动账户的实际支付渠道已失效");
 
     let planId=t.planId||"";
     let planNameAtRecord=t.planNameAtRecord||"";
