@@ -14,7 +14,7 @@
 /* Startup failures must display a visible, local-only diagnostic instead of a blank PWA. */
 (function(){
   let shown=false;
-  const build="10-160";
+  const build="10-161";
   window.safeSpendInitializing=true;
   // Register before accounting bootstrap so a startup error cannot block updates.
   if("serviceWorker" in navigator){
@@ -67,6 +67,7 @@
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif}
 body{min-height:100vh;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
 body.sheet-scroll-locked{position:fixed;left:0;right:0;width:100%;overflow:hidden}
+body.sheet-scroll-locked .bottom{backdrop-filter:none;-webkit-backdrop-filter:none}
 button,input,select{font:inherit}
 button{touch-action:manipulation}
 .app{max-width:760px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 14px 28px}
@@ -3793,7 +3794,12 @@ function normalize(d){
   });
   return s;
 }
-function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function save(){
+  // A write invalidates any read-only calculation pass, including migrations
+  // that are triggered by a wallet view.
+  if(typeof invalidateCalculationScope==="function")invalidateCalculationScope();
+  localStorage.setItem(KEY,JSON.stringify(S));
+}
 function N(v){return Number(v)||0}
 function pad2(v){return String(v).padStart(2,"0")}
 function localDateString(d=new Date()){
@@ -4327,7 +4333,11 @@ function refreshIncomeSavingDestination(edit=false,tx=null){
   const amount=Math.max(0,N(field.value));
   row.style.display=amount>.005?"":"none";
   const prior=select.value||((edit&&tx)?incomeSavingTargetFromTx(tx):"ordinary");
-  select.innerHTML=incomeSavingTargetOptions();
+  const options=incomeSavingTargetOptions();
+  if(select.dataset.optionsMarkup!==options){
+    select.innerHTML=options;
+    select.dataset.optionsMarkup=options;
+  }
   if([...select.options].some(option=>option.value===prior))select.value=prior;
   else select.value="ordinary";
 }
@@ -6420,7 +6430,8 @@ function refreshDelayFundingHint(){
       :"专项现有资金继续保留，延期只影响付款时间。";
   }
 }
-function openPaymentDelay(kind,parentId,id){
+function openPaymentDelay(kind,parentId,id){return readView(()=>openPaymentDelayRead(kind,parentId,id));}
+function openPaymentDelayRead(kind,parentId,id){
   let label="",original="",current="";
   if(kind==="bill"){
     const b=S.bills.find(x=>x.id===parentId);
@@ -6978,10 +6989,18 @@ function removeProjectTimelineTx(id){
   msg("专项记录已删除");
 }
 
+// Cache only within a single synchronous, read-only UI calculation pass.
 let startupCalcScope=null;
 let startupLazyPanels=null;
+const dirtyHeavyPanels=new Set(["history","savings"]);
+const calculationResultKey=Symbol("calculationResult");
+function invalidateCalculationScope(){
+  if(startupCalcScope)startupCalcScope.values.clear();
+}
 function withStartupCalculations(includeLedger,work){
   const previous=startupCalcScope;
+  if(previous&&previous.state===S&&previous.tx===S.tx
+    &&(!includeLedger||previous.includeLedger))return work();
   startupCalcScope={state:S,tx:S.tx,includeLedger,values:new Map()};
   try{return work();}finally{startupCalcScope=previous;}
 }
@@ -6991,13 +7010,20 @@ function startupMemo(fn,ledgerOnly=false){
     if(!scope||scope.state!==S||scope.tx!==S.tx||(ledgerOnly&&!scope.includeLedger))return fn.apply(this,args);
     let values=scope.values.get(fn);
     if(!values){values=new Map();scope.values.set(fn,values);}
-    // The selected functions take zero or one parameter; object keys use identity.
-    const key=args.length?args[0]:startupMemo;
-    if(values.has(key))return values.get(key);
+    // Include all arguments: dates, account IDs and draft objects must never
+    // share an incompatible result.
+    for(const arg of args){
+      if(!values.has(arg))values.set(arg,new Map());
+      values=values.get(arg);
+    }
+    if(values.has(calculationResultKey))return values.get(calculationResultKey);
     const value=fn.apply(this,args);
-    values.set(key,value);
+    values.set(calculationResultKey,value);
     return value;
   };
+}
+function readView(work){
+  return withStartupCalculations(true,work);
 }
 function render(){
   // Recalculate historical settlements before presenting budgets and wallets.
@@ -7017,16 +7043,23 @@ function render(){
 
   const paint=()=>{
     refreshStatsCycleSelects();
-    // Only the visible page is needed until the first switch.
+    const active=document.querySelector(".panel.active")?.id||"now";
+    // Keep plan and now in sync. Heavy result/savings DOM is updated only
+    // when visible, or on the next visit; the underlying ledger is current.
     if(!startupLazyPanels)renderPlan();
     renderNow();
-    if(!startupLazyPanels){renderSavings();renderHistory();}
-    refreshSpendRefs();
+    for(const tab of ["savings","history"]){
+      if(!startupLazyPanels&&active===tab){
+        if(tab==="savings")renderSavings();
+        else renderHistory();
+        dirtyHeavyPanels.delete(tab);
+      }else dirtyHeavyPanels.add(tab);
+    }
+    if(spendSheet.classList.contains("show"))refreshSpendRefs();
     Wallets.render();
     if(window.AA)AA.render();
   };
-  if(startupLazyPanels)withStartupCalculations(true,paint);
-  else paint();
+  withStartupCalculations(true,paint);
 }
 function refreshLivingRuleEditorMeta(){
   const startDate=planLivingStartDate.value||td();
@@ -7048,7 +7081,8 @@ function loadLivingRateRule(startDate){
   planDailyLiving.focus();
 }
 
-function renderPlan(){
+function renderPlan(){return readView(()=>renderPlanRead());}
+function renderPlanRead(){
   refreshCurrentDailyLivingSetting();
 
   if(!planLivingStartDate.value)planLivingStartDate.value=td();
@@ -10242,7 +10276,8 @@ function refreshOrdinaryWalletEditorPreview(){
   document.getElementById("ordinaryWalletEditTotal").textContent=
     "已指定 "+M(d.total)+" · 待核对 "+M(d.remainder)+(d.error?" · "+d.error:"");
 }
-function openOrdinaryWalletEditor(){
+function openOrdinaryWalletEditor(){return readView(()=>openOrdinaryWalletEditorRead());}
+function openOrdinaryWalletEditorRead(){
   const d=ordinaryWalletDistribution();
   document.getElementById("ordinaryWalletEditHeader").textContent="普通储蓄余额 "+M(d.total)+"，请标记实际所在的渠道。";
   document.getElementById("ordinaryWalletFields").innerHTML=d.accounts.map(a=>
@@ -10287,7 +10322,8 @@ function previewOrdinaryBalanceCorrection(){
     "，校准后 "+M(target)+"，差额 "+(difference>=0?"+":"−")+M(Math.abs(difference)))+
     "";
 }
-function openOrdinaryBalanceEditor(id=""){
+function openOrdinaryBalanceEditor(id=""){return readView(()=>openOrdinaryBalanceEditorRead(id));}
+function openOrdinaryBalanceEditorRead(id=""){
   const record=id?S.tx.find(t=>t.id===id&&t.type==="ordinary_balance_adjustment"):null;
   if(id&&!record)return msg("原余额校准记录已更新");
   document.getElementById("ordinaryBalanceAdjustmentId").value=record?.id||"";
@@ -10868,7 +10904,8 @@ function shortWalletFundingValid(fromDate,ids=[]){
   return [...new Set(ids)].filter(Boolean).every(id=>dates.every(d=>Wallets.balanceAt(id,d)>=-0.005));
 }
 
-function openShortTransfer(id="",action="out"){
+function openShortTransfer(id="",action="out"){return readView(()=>openShortTransferRead(id,action));}
+function openShortTransferRead(id="",action="out"){
   if(!activeShortAccounts().length){openShortAccount();return;}
   shortTransferAccount.innerHTML=activeShortAccounts().map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("");
   if(id)shortTransferAccount.value=id;
@@ -10878,7 +10915,8 @@ function openShortTransfer(id="",action="out"){
   updateShortTransferHint();syncDateDisplays();
   shortTransferSheet.classList.add("show");
 }
-function updateShortTransferHint(){
+function updateShortTransferHint(){return readView(()=>updateShortTransferHintRead());}
+function updateShortTransferHintRead(){
   const date=shortTransferDate.value||td();
   const balance=shortAccountBalance(shortTransferAccount.value,date),action=shortTransferAction.value;
   const hasChannel=action==="in"||action==="out";
@@ -11019,7 +11057,8 @@ saveProjectRepay.onclick=()=>{
     :`已从${source==="saving"?"储蓄余额":"日常支出余额"}补回「${p.name}」 ${M(amount)}`);
 };
 
-function renderSavings(){
+function renderSavings(){return readView(()=>renderSavingsRead());}
+function renderSavingsRead(){
   const expandedBankSources=new Set([...bankDepositList.querySelectorAll("details.bankSourceDetails[open]")]
     .map(el=>el.dataset.bankId));
   renderSavingRangeViews();
@@ -11188,7 +11227,8 @@ function spendingBreakdownForMonth(ym=md()){
   );
 }
 
-function renderHistory(){
+function renderHistory(){return readView(()=>renderHistoryRead());}
+function renderHistoryRead(){
   const start=historyStartDate.value||"";
   const end=historyEndDate.value||"";
   const rs=resultStatsForRange(start,end);
@@ -11593,7 +11633,8 @@ deleteProject.onclick=()=>{
 };
 
 /* Income recording */
-function openIncome(){
+function openIncome(){return readView(()=>openIncomeRead());}
+function openIncomeRead(){
   incPlan.innerHTML='<option value="__extra__">单次额外收入</option>'+S.incomePlans.map(p=>`<option value="${p.id}">${esc(p.name)} · ${M(p.amount)}</option>`).join("");
   const next=nextPlannedIncome();
   if(next) incPlan.value=next.id;
@@ -11604,7 +11645,8 @@ function openIncome(){
   incomeSheet.classList.add("show");
 }
 incPlan.onchange=syncIncomeFromPlan;
-function syncIncomeFromPlan(){
+function syncIncomeFromPlan(){return readView(()=>syncIncomeFromPlanRead());}
+function syncIncomeFromPlanRead(){
   const isExtra=incPlan.value==="__extra__";
   const p=S.incomePlans.find(x=>x.id===incPlan.value);
 
@@ -11804,7 +11846,8 @@ function projectSuggestionInputs(){
     btn.addEventListener("click",()=>fillIncomeProjectGap(btn.dataset.id))
   );
 }
-function recalcIncome(){
+function recalcIncome(){return readView(()=>recalcIncomeRead());}
+function recalcIncomeRead(){
   const p=S.incomePlans.find(x=>x.id===incPlan.value);
   const recurring=!!(p&&isRecurringPlan(p));
   const end=incomeDeductionWindowEnd(p,incNextDate.value);
@@ -11838,7 +11881,8 @@ function recalcIncome(){
   projectSuggestionInputs();
   recalcIncomeSummary();
 }
-function recalcIncomeSummary(){
+function recalcIncomeSummary(){return readView(()=>recalcIncomeSummaryRead());}
+function recalcIncomeSummaryRead(){
   const amount=N(incAmount.value),saving=N(incSaving.value),p=S.incomePlans.find(x=>x.id===incPlan.value),next=incNextDate.value;
   const end=incomeDeductionWindowEnd(p,next);
   const lp=livingPreviewForIncome(p,end,incDeductLiving.checked);
@@ -12050,7 +12094,8 @@ function showLivingPanel(mode="today"){
   }
 }
 
-function openLivingSettlement(){
+function openLivingSettlement(){return readView(()=>openLivingSettlementRead());}
+function openLivingSettlementRead(){
   const info=dailyLivingBudgetInfo(td());
   const existing=livingSettlementForDate(td());
 
@@ -12121,7 +12166,8 @@ function openLivingSettlement(){
   showLivingPanel("today");
   livingSheet.classList.add("show");
 }
-function recalcLivingSettlement(){
+function recalcLivingSettlement(){return readView(()=>recalcLivingSettlementRead());}
+function recalcLivingSettlementRead(){
   const info=livingDayInfo(td());
   const existing=livingSettlementForDate(td());
   const allowance=N(existing?.allowance||info.allowance);
@@ -12314,7 +12360,8 @@ function draftLivingBatchDays(v){
   if(!Number.isFinite(n)||n<1)return null;
   return Math.min(365,n);
 }
-function refreshLivingBatchPreview(){
+function refreshLivingBatchPreview(){return readView(()=>refreshLivingBatchPreviewRead());}
+function refreshLivingBatchPreviewRead(){
   const amount=Math.max(0,N(livingBatchAmount.value));
   const start=livingBatchStart.value||td();
   const days=draftLivingBatchDays(livingBatchDays.value);
@@ -12388,7 +12435,8 @@ function linkLivingBatchFromEnd(){
   syncDateDisplays();
   refreshLivingBatchPreview();
 }
-function openLivingBatch(id=""){
+function openLivingBatch(id=""){return readView(()=>openLivingBatchRead(id));}
+function openLivingBatchRead(id=""){
   const t=id?S.tx.find(x=>x.id===id&&x.type==="living_batch"):null;
   const coverage=t?livingBatchCoverage(t):{start:td(),end:addDays(td(),6),days:7};
   livingBatchEditId.value=t?.id||"";
@@ -12678,7 +12726,8 @@ function bankDepositSelectedMonths(){
   return Math.max(0,N(bankDepositTerm.value));
 }
 
-function refreshBankDepositForm(){
+function refreshBankDepositForm(){return readView(()=>refreshBankDepositFormRead());}
+function refreshBankDepositFormRead(){
   const selected=bankShortAccount.value||bankDepositSheet.dataset.sourceShortAccount||"";
   const originalDeposit=(S.deposits||[]).find(d=>d.id===bankDepositId.value);
   const selectableAccounts=activeShortAccounts().map(a=>({id:a.id,name:a.name}));
@@ -12716,7 +12765,8 @@ bankDepositSource.addEventListener("change",refreshBankDepositForm);
 bankShortAccount.addEventListener("change",()=>{bankDepositSheet.dataset.sourceShortAccount=bankShortAccount.value});
 
 /* Bank deposits */
-function openBankDeposit(){
+function openBankDeposit(){return readView(()=>openBankDepositRead());}
+function openBankDepositRead(){
   bankDepositId.value="";
   bankDepositSheetTitle.textContent="新增银行存款";
   bankDepositName.value="";
@@ -12737,7 +12787,8 @@ function openBankDeposit(){
   bankDepositSheet.classList.add("show");
 }
 
-function editBankDeposit(id){
+function editBankDeposit(id){return readView(()=>editBankDepositRead(id));}
+function editBankDepositRead(id){
   const d=(S.deposits||[]).find(x=>x.id===id);
   if(!d)return;
 
@@ -12898,7 +12949,8 @@ function pocketTransferTargetInfo(value){
   return String(value||"").startsWith("short:")
     ?{kind:"short",id:String(value).slice(6)}:{kind:"ordinary",id:""};
 }
-function refreshPocketTransferTarget(){
+function refreshPocketTransferTarget(){return readView(()=>refreshPocketTransferTargetRead());}
+function refreshPocketTransferTargetRead(){
   const ps=activeProjects(),hasProjects=ps.length>0;
   transferTargetRow.style.display=hasProjects?"block":"none";
   if(!hasProjects)transferPocketTarget.value="saving";
@@ -12915,7 +12967,8 @@ function refreshPocketTransferTarget(){
   pocketTransferTitle.textContent=toProject?"零花钱转专项":"零花钱转储蓄";
   recalcPocketTransfer();
 }
-function openPocketTransfer(){
+function openPocketTransfer(){return readView(()=>openPocketTransferRead());}
+function openPocketTransferRead(){
   const b=bal();
   if(b.safe<=0)return msg("当前零花钱余额不足");
   transferPocketAmount.value="";
@@ -12929,7 +12982,8 @@ function openPocketTransfer(){
   refreshPocketTransferTarget();
   pocketTransferSheet.classList.add("show");
 }
-function recalcPocketTransfer(){
+function recalcPocketTransfer(){return readView(()=>recalcPocketTransferRead());}
+function recalcPocketTransferRead(){
   const b=bal(),amount=Math.max(0,N(transferPocketAmount.value));
   const validAmount=Math.min(amount,Math.max(0,b.safe));
   const toProject=activeProjects().length>0&&transferPocketTarget.value==="project";
@@ -13136,7 +13190,8 @@ function incomeEditDraft(t){
   return {amount,saving,livingInfo,billItems,bills,projects,repayments,lightPlans,projectTotal,free,
     recurring,next,deductLiving,deductBills,deductionWindowEnd:end};
 }
-function recalcIncomeEditSummary(t){
+function recalcIncomeEditSummary(t){return readView(()=>recalcIncomeEditSummaryRead(t));}
+function recalcIncomeEditSummaryRead(t){
   if(!document.getElementById("editSumIncome"))return;
   const s=incomeEditDraft(t);
   const livingMeta=document.getElementById("editIncLivingMeta");
@@ -13175,7 +13230,8 @@ function recalcIncomeEditSummary(t){
   saveTxEdit.disabled=s.free< -0.005;
   refreshIncomeSavingDestination(true,t);
 }
-function refreshIncomeEditFields(t){
+function refreshIncomeEditFields(t){return readView(()=>refreshIncomeEditFieldsRead(t));}
+function refreshIncomeEditFieldsRead(t){
   const {selected,recurring,isExtra}=txIncomeEditSelection(t);
   const dateRow=document.getElementById("editIncomeDateRow");
   const nextRow=document.getElementById("editIncomeNextRow");
@@ -13343,7 +13399,8 @@ function refreshTransferEditFields(t){
   if(label)label.textContent=target==="project"||kind==="ordinary"?"资金所在渠道":"实际转出渠道";
 }
 
-function openTxEdit(id){
+function openTxEdit(id){return readView(()=>openTxEditRead(id));}
+function openTxEditRead(id){
   const t=S.tx.find(x=>x.id===id);
   if(t?.type==="ordinary_balance_adjustment")return openOrdinaryBalanceEditor(id);
   if(t?.aaId&&window.AA)return AA.openLinkedTransaction(t);
@@ -14197,7 +14254,8 @@ saveTxEdit.onclick=()=>{
 };
 
 /* Spend */
-function openSpend(){
+function openSpend(){return readView(()=>openSpendRead());}
+function openSpendRead(){
   if(window.AA)AA.restoreSpendingForm();
   plannedExpensePayment=null;
   spendBucket.value="safe";
@@ -14212,7 +14270,8 @@ function openSpend(){
   syncDateDisplays();
   spendSheet.classList.add("show");
 }
-function refreshProjectOverrunUI(){
+function refreshProjectOverrunUI(){return readView(()=>refreshProjectOverrunUIRead());}
+function refreshProjectOverrunUIRead(){
   if(spendBucket.value==="safe"&&spendPaymentMode.value==="borrow"){
     projectOverrunRow.style.display="none";
     const p=S.projects.find(x=>x.id===spendBorrowProject.value);
@@ -14250,8 +14309,9 @@ function refreshProjectOverrunUI(){
   }
 }
 
-function refreshSpendRefs(){
-  const t=spendBucket.value,b=bal();
+function refreshSpendRefs(){return readView(()=>refreshSpendRefsRead());}
+function refreshSpendRefsRead(){
+  const t=spendBucket.value,b=t==="project"?null:bal();
   projectOverrunRow.style.display="none";
   spendPaymentModeRow.style.display=t==="safe"?"block":"none";
   const borrow=t==="safe"&&spendPaymentMode.value==="borrow";
@@ -14606,14 +14666,16 @@ function activateMainTab(tab,{scrollTop=false}={}){
   // Reopening Results always starts with its range editor folded; the saved
   // selection and the numbers calculated from it remain unchanged.
   if(tab==="history")setResultRangePanelOpen(false);
-  if(startupLazyPanels?.has(tab)){
+  const lazy=!!startupLazyPanels?.has(tab);
+  if(lazy||dirtyHeavyPanels.has(tab)){
     withStartupCalculations(true,()=>{
       if(tab==="plan")renderPlan();
       if(tab==="history")renderHistory();
       if(tab==="savings")renderSavings();
     });
-    startupLazyPanels.delete(tab);
-    if(!startupLazyPanels.size)startupLazyPanels=null;
+    dirtyHeavyPanels.delete(tab);
+    startupLazyPanels?.delete(tab);
+    if(startupLazyPanels&&!startupLazyPanels.size)startupLazyPanels=null;
   }
   document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
   document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===tab));
@@ -14641,23 +14703,61 @@ function syncSheetBackgroundScroll(){
     window.scrollTo(0,sheetBackgroundScrollY);
   }
 }
-const sheetBackgroundObserver=new MutationObserver(records=>{
-  if(records.some(record=>record.target.classList.contains("sheet"))){
-    syncSheetBackgroundScroll();
+// Observe sheet class changes directly, not every class change in every
+// list, input, disclosure and hidden panel. Extensions add sheets to body.
+const observedSheets=new WeakSet();
+const sheetBackgroundObserver=new MutationObserver(syncSheetBackgroundScroll);
+function observeSheetNode(node){
+  if(node.nodeType!==1)return;
+  const sheets=node.matches(".sheet")?[node]:[...node.querySelectorAll(".sheet")];
+  for(const sheet of sheets){
+    if(observedSheets.has(sheet))continue;
+    observedSheets.add(sheet);
+    sheetBackgroundObserver.observe(sheet,{attributes:true,attributeFilter:["class"]});
   }
+}
+document.querySelectorAll(".sheet").forEach(observeSheetNode);
+const addedSheetObserver=new MutationObserver(records=>{
+  let relevant=false;
+  for(const record of records){
+    for(const node of record.addedNodes){
+      if(node.nodeType!==1)continue;
+      if(node.matches(".sheet")||node.querySelector(".sheet")){
+        observeSheetNode(node);
+        relevant=true;
+      }
+    }
+    for(const node of record.removedNodes){
+      if(node.nodeType===1&&(node.matches(".sheet")||node.querySelector(".sheet")))relevant=true;
+    }
+  }
+  if(relevant)syncSheetBackgroundScroll();
 });
-sheetBackgroundObserver.observe(document.body,{subtree:true,attributes:true,attributeFilter:["class"]});
+addedSheetObserver.observe(document.body,{childList:true});
 syncSheetBackgroundScroll();
 
 
 
-function syncDateDisplays(){
-  document.querySelectorAll(".dateFieldWrap").forEach(w=>{
-    const input=w.querySelector('input[type="date"]');
-    const visual=w.querySelector(".dateVisual");
-    if(!input||!visual)return;
-    visual.textContent=input.value||"YYYY-MM-DD";
-    w.classList.toggle("empty",!input.value);
+function syncOneDateDisplay(input){
+  const wrap=input?.closest(".dateFieldWrap");
+  const visual=wrap?.querySelector(".dateVisual");
+  if(!visual)return;
+  const label=input.value||"YYYY-MM-DD";
+  if(visual.textContent!==label)visual.textContent=label;
+  wrap.classList.toggle("empty",!input.value);
+}
+function syncDateDisplays(root=document){
+  root.querySelectorAll('.dateFieldWrap input[type="date"]').forEach(syncOneDateDisplay);
+}
+let dateSyncFrame=0;
+const dateSyncRoots=new Set();
+function queueDateDisplays(root){
+  if(root)dateSyncRoots.add(root);
+  if(dateSyncFrame)return;
+  dateSyncFrame=requestAnimationFrame(()=>{
+    dateSyncFrame=0;
+    for(const area of dateSyncRoots)if(area.isConnected)syncDateDisplays(area);
+    dateSyncRoots.clear();
   });
 }
 function enhanceDateInputs(){
@@ -14688,16 +14788,24 @@ function enhanceDateInputs(){
     visual.className="dateVisual";
     wrap.appendChild(visual);
 
-    const sync=()=>syncDateDisplays();
+    const sync=()=>syncOneDateDisplay(input);
     input.addEventListener("input",sync);
     input.addEventListener("change",sync);
   });
   syncDateDisplays();
 }
 
-/* 页面上的按钮会在点击后修改日期值，因此在动作完成后同步自定义日期显示 */
-document.addEventListener("click",()=>setTimeout(syncDateDisplays,0));
-document.addEventListener("focusin",()=>setTimeout(syncDateDisplays,0));
+// Only date-containing active forms need syncing after a click. Form focus
+// updates its own date field, not the entire application.
+document.addEventListener("click",e=>{
+  if(!e.target.closest?.("button,[onclick],.walletAccountRow,[data-credit-edit]"))return;
+  const sheet=document.querySelectorAll(".sheet.show");
+  if(sheet.length)sheet.forEach(queueDateDisplays);
+  else queueDateDisplays(document.querySelector(".panel.active"));
+});
+document.addEventListener("focusin",e=>{
+  if(e.target.matches?.('input[type="date"]'))syncOneDateDisplay(e.target);
+});
 
 enhanceDateInputs();
 enhanceCollapsibleSections();
@@ -14743,7 +14851,8 @@ S.bills.forEach(b=>{
 });
 if(currentBillRepairChanged)save();
 
-// Per-pass caches are discarded before the UI becomes interactive.
+// Per-pass caches are also used in interactive forms; never persist them
+// across clicks, saves or data replacements.
 livingRateSchedule=startupMemo(livingRateSchedule);
 livingRateForDate=startupMemo(livingRateForDate);
 livingReservationMap=startupMemo(livingReservationMap);
@@ -14759,6 +14868,19 @@ matchedEarmarkedExpenseIds=startupMemo(matchedEarmarkedExpenseIds,true);
 accounting=startupMemo(accounting,true);
 currentCycleStats=startupMemo(currentCycleStats,true);
 effectiveIncomeAllocation=startupMemo(effectiveIncomeAllocation,true);
+livingBatchOverrunMap=startupMemo(livingBatchOverrunMap);
+livingBatchAllocationRows=startupMemo(livingBatchAllocationRows);
+livingSettlementForDate=startupMemo(livingSettlementForDate);
+billReleaseEvents=startupMemo(billReleaseEvents);
+virtualCycleCloseEvents=startupMemo(virtualCycleCloseEvents);
+projectFunded=startupMemo(projectFunded);
+projectSpent=startupMemo(projectSpent);
+projectGap=startupMemo(projectGap);
+projectAvail=startupMemo(projectAvail,true);
+projectRepayPending=startupMemo(projectRepayPending);
+projectCyclePlan=startupMemo(projectCyclePlan,true);
+Wallets.balance=startupMemo(Wallets.balance,true);
+Wallets.balanceAt=startupMemo(Wallets.balanceAt,true);
 
 // Keep initial data normalization; the final render runs the single settlement pass.
 refreshCurrentDailyLivingSetting();
