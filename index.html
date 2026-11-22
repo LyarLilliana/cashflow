@@ -6325,10 +6325,11 @@ function billAllocationHistoricallyReleased(incomeId,bid,dueDate){
 function appendBillReleaseEntries(state,d,date,stamp){
   const ids=new Set(d.releasedIncomeIds||[]);
   const entries=[...(d.releaseEntries||[])];
-  const rows=state.tx.filter(t=>t.type==="income"&&t.deductBills!==false&&t.date<=date
+  const incomes=state.tx.filter(t=>t.type==="income"&&t.date<=date
     &&(t.date<date||txStamp(t)<=stamp))
     .sort((a,b)=>a.date.localeCompare(b.date)||txStamp(a)-txStamp(b));
-  const cycle=rows.filter(t=>t.planFreqAtRecord!==undefined?t.planFreqAtRecord!=="none":
+  const rows=incomes.filter(t=>t.deductBills!==false);
+  const cycle=incomes.filter(t=>t.planFreqAtRecord!==undefined?t.planFreqAtRecord!=="none":
     (state.incomePlans.find(p=>p.id===t.planId)?.freq||"weekly")!=="none").slice(-1)[0];
   const bill=state.bills.find(x=>x.id===d.billId);
   const payments=state.tx.filter(t=>t.date<=date&&(t.date<date||txStamp(t)<=stamp)
@@ -6339,16 +6340,9 @@ function appendBillReleaseEntries(state,d,date,stamp){
     const original=sm((t.alloc?.billItems||[]).filter(x=>x.billId===d.billId&&x.dueDate===d.cycleDueDate),x=>N(x.amount));
     return {t,amount:Math.max(0,Math.min(original,N(bill?.amount)-paidBefore))};
   }).filter(x=>x.amount>.005);
-  // Pool tracks both new reservations and prior dated releases. Cap new
-  // releases at funds still held, including partial payments.
-  const priorDated=new Set(entries.map(x=>x.sourceIncomeId));
-  const totalReserved=sm(rows.filter(t=>!ids.has(t.id)||priorDated.has(t.id)),t=>{
-    const paidBefore=sm(payments.filter(x=>x.date<t.date||
-      (x.date===t.date&&txStamp(x)<txStamp(t))),x=>N(x.amount));
-    const original=sm((t.alloc?.billItems||[]).filter(x=>x.billId===d.billId&&x.dueDate===d.cycleDueDate),x=>N(x.amount));
-    return Math.max(0,Math.min(original,N(bill?.amount)-paidBefore));
-  });
-  let available=Math.max(0,totalReserved-sm(payments,x=>N(x.amount))-sm(entries,x=>N(x.amount)));
+  // Replay dated debits against funds present at that time. A payment made
+  // out of pocket before a later income cannot consume the new reserve.
+  let available=billReservePoolAt(state,d,date,stamp);
   candidates.forEach(({t,amount})=>{
     const released=Math.round(Math.min(amount,available)*100)/100;
     available=Math.max(0,available-released);
@@ -6357,6 +6351,33 @@ function appendBillReleaseEntries(state,d,date,stamp){
   });
   return {...d,releasedIncomeIds:[...ids],releaseEntries:entries,
     releaseBlockIncomeIds:[...new Set([...(d.releaseBlockIncomeIds||[]),...(cycle?[cycle.id]:[])])]};
+}
+function billReservePoolAt(state,d,date,stamp=Infinity){
+  const bill=state.bills.find(x=>x.id===d.billId);
+  if(!bill)return 0;
+  const byCutoff=t=>t.date<=date&&(t.date<date||txStamp(t)<=stamp);
+  const entries=(d.releaseEntries||[]).filter(x=>x.date<=date&&(x.date<date||N(x.stamp)<=stamp));
+  const datedIds=new Set((d.releaseEntries||[]).map(x=>x.sourceIncomeId));
+  const legacyIds=new Set((d.releasedIncomeIds||[]).filter(id=>!datedIds.has(id)));
+  const events=state.tx.filter(t=>byCutoff(t)&&(
+    (t.type==="income"&&t.deductBills!==false&&!legacyIds.has(t.id))||
+    billPaymentMatchesCycle(t,d.billId,d.cycleDueDate)))
+    .map(t=>({date:t.date,stamp:txStamp(t),t}));
+  entries.forEach(x=>events.push({date:x.date,stamp:N(x.stamp),release:N(x.amount)}));
+  events.sort((a,b)=>a.date.localeCompare(b.date)||a.stamp-b.stamp);
+  let pool=0,paid=0;
+  for(const e of events){
+    if(e.release!==undefined){pool=Math.max(0,pool-e.release);continue;}
+    const t=e.t;
+    if(t.type==="income"){
+      const reserved=sm((t.alloc?.billItems||[]).filter(x=>x.billId===d.billId&&x.dueDate===d.cycleDueDate),x=>N(x.amount));
+      pool+=Math.max(0,Math.min(reserved,N(bill.amount)-paid));
+    }else{
+      paid+=N(t.amount);
+      pool=Math.max(0,pool-N(t.amount));
+    }
+  }
+  return Math.max(0,Math.round(pool*100)/100);
 }
 function billReleaseEvents(){
   return (S.billDeferrals||[]).flatMap(d=>(d.releaseEntries||[]).filter(x=>x.date&&N(x.amount)>.005)
@@ -6371,10 +6392,8 @@ function lightAllocationReleased(incomeId,lightId){
 function billFundingSnapshot(bid,dueDate){
   const b=S.bills.find(x=>x.id===bid);
   const remaining=billCycleRemainingAmount(b,dueDate);
-  const amount=sm(S.tx.filter(t=>t.type==="income"),t=>sm(
-    (effectiveIncomeAllocation(t).billItems||[]).filter(x=>x.billId===bid&&x.dueDate===dueDate),x=>N(x.amount)));
-  const released=sm((billDelay(bid,dueDate)?.releaseEntries||[]).filter(x=>x.date<=td()),x=>N(x.amount));
-  const available=Math.max(0,amount-released-billCyclePaidAmount(bid,dueDate));
+  const available=billSkipped(bid,dueDate)?0:billReservePoolAt(S,
+    billDelay(bid,dueDate)||{billId:bid,cycleDueDate:dueDate},td());
   return {remaining,available,shortfall:Math.max(0,remaining-available)};
 }
 function refreshDelayFundingHint(){
