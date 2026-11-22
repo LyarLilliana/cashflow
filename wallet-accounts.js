@@ -80,7 +80,7 @@ function balanceAt(id,asOf){
 function balance(id){return balanceAt(id,typeof td==="function"?td():"");}
 function selectOptions(selected=""){
   return '<option value="">未指定渠道</option>'+accounts().map(a=>
-    '<option value="'+clean(a.id)+'" '+(selected===a.id?"selected":"")+'>'+clean(a.name)+' · '+money(balance(a.id))+'</option>').join("");
+    '<option value="'+clean(a.id)+'" '+(selected===a.id?"selected":"")+'>'+clean(a.name)+' · '+money(window.Wallets?.balance?window.Wallets.balance(a.id):balance(a.id))+'</option>').join("");
 }
 function selected(key){
   const id=$("wallet_"+key)?.value||"";
@@ -92,14 +92,23 @@ function selected(key){
   return "";
 }
 function refreshSelectors(){
+  // All payment selectors show the same account list and same dated balance.
+  // Generate it once per refresh and keep the native controls in place when
+  // the choices have not changed.
+  const markup=selectOptions();
   ["income","spend","living","batch","bill","creditLoan","creditRepay","from","to"].forEach(key=>{
     const el=$("wallet_"+key);
     if(!el)return;
     const old=el.value;
-    el.innerHTML=selectOptions(old);
-    if(account(old))el.value=old;
-    else if(["income","creditLoan"].includes(key))el.value=account(S.settings.walletIncomeDefault)?S.settings.walletIncomeDefault:"";
-    else if(["spend","living","batch","bill","creditRepay"].includes(key))el.value=account(S.settings.walletSpendDefault)?S.settings.walletSpendDefault:"";
+    if(el.dataset.walletOptionsMarkup!==markup){
+      el.innerHTML=markup;
+      el.dataset.walletOptionsMarkup=markup;
+    }
+    let next="";
+    if(account(old))next=old;
+    else if(["income","creditLoan"].includes(key))next=account(S.settings.walletIncomeDefault)?S.settings.walletIncomeDefault:"";
+    else if(["spend","living","batch","bill","creditRepay"].includes(key))next=account(S.settings.walletSpendDefault)?S.settings.walletSpendDefault:"";
+    if(el.value!==next)el.value=next;
   });
 }
 const field=(id,label)=>'<div class="walletField"><label for="wallet_'+id+'">'+label+'</label><select id="wallet_'+id+'"></select></div>';
@@ -247,7 +256,7 @@ function initWalletNowFold(){
 }
 function render(){
   if(!$("walletAccountList"))return;
-  const list=accounts().filter(a=>!a.isProjectSubaccount).map(a=>({id:a.id,name:a.name,amount:balance(a.id)}));
+  const list=accounts().filter(a=>!a.isProjectSubaccount).map(a=>({id:a.id,name:a.name,amount:window.Wallets.balance(a.id)}));
   // Now and Plan share the same canonical available balance.
   const availableList=list.map(a=>({...a,available:a.amount}));
   // Read the reconciled ordinary-savings allocation used by the Savings page,
@@ -275,7 +284,8 @@ function render(){
   ).join("");
   refreshSelectors();
 }
-function openAccount(id){
+function openAccount(id){return typeof readView==="function"?readView(()=>openAccountRead(id)):openAccountRead(id);}
+function openAccountRead(id){
   const a=account(id);
   $("wallet_accountId").value=a?.id||"";
   $("wallet_accountName").value=a?.name||"";
@@ -314,7 +324,8 @@ function deleteAccount(){
   S.paymentAccounts=S.paymentAccounts.filter(x=>x.id!==id);
   save();closeSheet("walletAccountSheet");renderAll();msg("渠道已删除");
 }
-function refreshTransferFunding(){
+function refreshTransferFunding(){return typeof readView==="function"?readView(()=>refreshTransferFundingRead()):refreshTransferFundingRead();}
+function refreshTransferFundingRead(){
   const from=$("wallet_from").value;
   const saving=typeof ordinaryWalletDistribution==="function"
     ?Math.max(0,round(ordinaryWalletDistribution().allocation[from])):0;
@@ -330,7 +341,8 @@ function refreshTransferFunding(){
   $("wallet_transferFundingHint").textContent=
     "该渠道余额 "+money(balance(from))+"，其中普通储蓄 "+money(saving);
 }
-function openTransfer(){
+function openTransfer(){return typeof readView==="function"?readView(()=>openTransferRead()):openTransferRead();}
+function openTransferRead(){
   refreshSelectors();
   $("wallet_from").value=accounts()[0]?.id||"";
   $("wallet_to").value=accounts()[1]?.id||"";
@@ -384,7 +396,8 @@ function saveTransfer(){
   save();closeSheet("walletTransferSheet");renderAll();
   msg(ordinary>0?"渠道互转完成，普通储蓄分布已同步":"两个渠道余额已同步");
 }
-function openBillPayment(billId,dueDate){
+function openBillPayment(billId,dueDate){return typeof readView==="function"?readView(()=>openBillPaymentRead(billId,dueDate)):openBillPaymentRead(billId,dueDate);}
+function openBillPaymentRead(billId,dueDate){
   const b=S.bills.find(x=>x.id===billId);if(!b)return;
   $("walletBillSheet").dataset.billId=billId;
   $("walletBillSheet").dataset.dueDate=dueDate;
