@@ -2294,17 +2294,20 @@ details[open]>summary .savingsFoldChevron::before,
 
 </style>
 <style>
-#startupScreen{display:none;position:fixed;inset:0;z-index:100;background:#F6F6F2;color:#2F6F5E;align-items:center;justify-content:center;flex-direction:column;gap:14px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
+#startupScreen{display:none;position:fixed;inset:0;z-index:100;background:#F6F6F2;color:#2F6F5E;align-items:center;justify-content:center;flex-direction:column;gap:0;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
 .booting #startupScreen{display:flex}
-.startupBrand{font-size:27px;font-weight:750;letter-spacing:-.6px}
-.startupSpinner{width:24px;height:24px;border:2px solid #DDE9E3;border-top-color:#2F6F5E;border-radius:50%;animation:startupSpin .85s linear infinite}
-.startupLabel{font-size:12px;color:#747C78}
-@keyframes startupSpin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.startupSpinner{animation:none;border-color:#2F6F5E}}
+.startupBrand{font-family:ui-serif,"New York",Georgia,"Times New Roman",serif;font-size:44px;font-weight:400;line-height:1.12;letter-spacing:-2px;font-kerning:normal}
+.startupBrand em{font-weight:400;font-style:italic}
+.startupMark{width:27px;height:27px;margin-bottom:18px;color:#2F6F5E}
+.startupLoading{width:50px;height:2px;overflow:hidden;border-radius:2px;background:#DDE6DF;margin-top:26px}
+.startupLoading::after{content:"";display:block;width:44%;height:100%;background:#2F6F5E;border-radius:2px;animation:startupSweep 1.05s ease-in-out infinite alternate}
+.startupLabel{font-size:11px;color:#747C78;letter-spacing:1.2px;margin-top:12px}
+@keyframes startupSweep{from{transform:translateX(0)}to{transform:translateX(128%)}}
+@media(prefers-reduced-motion:reduce){.startupLoading::after{animation:none;transform:translateX(64%)}}
 </style>
 </head>
 <body class="booting">
-<div id="startupScreen" role="status" aria-live="polite"><div class="startupBrand">SafeSpend</div><div class="startupSpinner" aria-hidden="true"></div><div class="startupLabel">正在载入账目</div></div>
+<div id="startupScreen" role="status" aria-live="polite"><svg class="startupMark" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M14 25V4M14 16C6 16 3 11 3 5c7 0 11 4 11 11Zm0 5c8 0 11-5 11-11-7 0-11 4-11 11Z" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="startupBrand">Safe<em>Spend</em></div><div class="startupLoading" aria-hidden="true"></div><div class="startupLabel">正在载入账目</div></div>
 <div class="app">
   <div class="topbar">
     <div class="brand"><h1>SafeSpend</h1><p>先计划，再记录现在。</p></div>
@@ -5576,9 +5579,6 @@ function matchedEarmarkedExpenseIds(){
 function dailyExpenseLivingCoverMap(onlyDate=""){
   const byTx={};
   const byDate={};
-  const lightReserveUsage=lightPlanReserveUsageMap();
-  const earmarked=matchedEarmarkedExpenseIds();
-
   const rows=S.tx
     .filter(t=>
       t.type==="expense"
@@ -5594,14 +5594,18 @@ function dailyExpenseLivingCoverMap(onlyDate=""){
       return String(a.id).localeCompare(String(b.id));
     });
 
+  if(!rows.length)return {byTx,byDate};
+  const lightReserveUsage=lightPlanReserveUsageMap();
+  const earmarked=matchedEarmarkedExpenseIds();
   let currentDate="";
   let remaining=0;
+  let info=null;
 
   rows.forEach(t=>{
     const date=String(t.date||"");
     if(date!==currentDate){
       currentDate=date;
-      const info=dailyLivingBudgetInfo(date);
+      info=dailyLivingBudgetInfo(date);
       const settlement=livingSettlementForDate(date);
 
       if(!info.covered){
@@ -5614,7 +5618,7 @@ function dailyExpenseLivingCoverMap(onlyDate=""){
       }
     }
 
-    if(earmarked.has(t.id)||!dailyExpenseMatchesFundedLivingCycle(t,dailyLivingBudgetInfo(date))){
+    if(earmarked.has(t.id)||!dailyExpenseMatchesFundedLivingCycle(t,info)){
       byTx[t.id]=0;
       return;
     }
@@ -14549,6 +14553,9 @@ requestAnimationFrame(()=>requestAnimationFrame(()=>{
   render();
   window.safeSpendInitializing=false;
   document.body.classList.remove("booting");
+  if("serviceWorker" in navigator){
+    setTimeout(()=>navigator.serviceWorker.getRegistration().then(reg=>reg?.update()).catch(()=>{}),1200);
+  }
   const url=new URL(location.href);
   if(url.searchParams.has("refresh")){
     url.searchParams.delete("refresh");
