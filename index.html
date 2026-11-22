@@ -14,7 +14,7 @@
 /* Startup failures must display a visible, local-only diagnostic instead of a blank PWA. */
 (function(){
   let shown=false;
-  const build="10-156";
+  const build="10-157";
   window.safeSpendInitializing=true;
   // Register before accounting bootstrap so a startup error cannot block updates.
   if("serviceWorker" in navigator){
@@ -14580,7 +14580,7 @@ requestAnimationFrame(()=>{
       }
     };
     // Minimum display budget includes the time spent computing, not an added delay.
-    const remaining=Math.max(0,800-(performance.now()-splashStarted));
+    const remaining=Math.max(0,1500-(performance.now()-splashStarted));
     if(remaining>0)setTimeout(reveal,remaining);
     else reveal();
   });
