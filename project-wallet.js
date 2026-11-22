@@ -211,5 +211,5 @@ window.projectIncomeHoldingSync=synchronizeHoldingTransfers;
 window.projectIncomeHoldingDescription=holdingDescription;
 
 migrateLegacyProjectAccounts();
-render();
+if(!window.safeSpendInitializing)render();
 })();
