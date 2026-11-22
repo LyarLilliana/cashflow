@@ -6035,10 +6035,11 @@ function billDueDatesInsideWindow(b,start,end){
 }
 function syncCurrentCycleBillReservation(bid){
   const b=S.bills.find(x=>x.id===bid);
-  const cycle=currentCycleStats();
-  const income=cycle.income;
+  // The latest received recurring income is the open cycle; no ledger replay is
+  // needed just to identify it before repairing bill reservations.
+  const income=cycleIncomeRows().filter(t=>t.date<=td()).slice(-1)[0]||null;
 
-  if(!income||cycle.isClosed||income.deductBills===false)return false;
+  if(!income||income.deductBills===false)return false;
 
   const start=income.date;
   const end=income.nextIncomeDate||nextRecurringIncome()?.nextDate||"";
@@ -6802,6 +6803,11 @@ function render(){
   const reconcile=()=>{
     const settlementsUpdated=syncLivingSettlementTotals();
     const autoSettledCount=autoSettlePastLivingDays();
+    if(window.safeSpendInitializing&&(settlementsUpdated||autoSettledCount>0)){
+      // Retain the previous startup's second reconciliation if the first pass
+      // changed dependencies, while avoiding the duplicate scan on clean data.
+      syncLivingSettlementTotals();
+    }
     if(settlementsUpdated||autoSettledCount>0)save();
   };
   if(startupLazyPanels&&window.safeSpendInitializing)withStartupCalculations(false,reconcile);
