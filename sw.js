@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-160-bill-release";
+const CACHE = "safespend-v10-161-editor-performance";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,7 +6,7 @@ const ASSETS = [
   "./project-transfer.js?v=10-154",
   "./project-wallet.js?v=10-154",
   "./project-savings.js?v=10-154",
-  "./wallet-accounts.js?v=10-151",
+  "./wallet-accounts.js?v=10-161",
   "./aa.js",
   "./manifest.webmanifest",
   "./apple-touch-icon.png",
