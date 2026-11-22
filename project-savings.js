@@ -1,4 +1,4 @@
-/* Mutable Savings accounts: virtual earmarks over real cash held in payment channels. */
+/* Dedicated mutable savings: separate from spendable wallets and bank-deposit goals. */
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
@@ -14,7 +14,7 @@ const label=p=>p.savingsAccountName||((p.name||"专项").endsWith("专项")?p.na
 const defaultId=pid=>{
   const p=project(pid);
   const id=p?.defaultVariableAccountId;
-  return account(id)?.id||accounts().find(a=>a.projectId===pid)?.id||accounts()[0]?.id||"";
+  return account(id)?.id||accounts().find(a=>a.projectId===pid)?.id||"";
 };
 function initAccounts(){
   S.variableSavingsAccounts=Array.isArray(S.variableSavingsAccounts)?S.variableSavingsAccounts:[];
@@ -82,21 +82,21 @@ function consume(pool,owner,id,amount){
   }
   return taken;
 }
-function orderedEvents(){
-  return (S.tx||[]).filter(t=>!t.date||t.date<=td()).slice().sort((a,b)=>{
+function orderedEvents(asOf=td()){
+  return (S.tx||[]).filter(t=>!t.date||t.date<=asOf).slice().sort((a,b)=>{
     if(String(a.date||"")!==String(b.date||""))return String(a.date||"").localeCompare(String(b.date||""));
     if(a.type==="income"&&b.type!=="income")return -1;
     if(b.type==="income"&&a.type!=="income")return 1;
     return txStamp(a)-txStamp(b)||String(a.id).localeCompare(String(b.id));
   });
 }
-function snapshot(){
+function snapshot(asOf=td()){
   const funds={},light={},fallback={};
   S.projects.forEach(p=>{
     const id=defaultId(p.id);
     if(p.initialFund>0)allocate(funds,p.id,id,p.initialFund);
   });
-  for(const t of orderedEvents()){
+  for(const t of orderedEvents(asOf)){
     const amount=R(t.amount);
     if(t.type==="income"){
       (t.alloc?.projects||[]).forEach(x=>
@@ -124,7 +124,7 @@ function snapshot(){
       consume(light,t.personalPlannedExpenseId,t.holdingVariableAccountId,amount);
     }
   }
-  const posted=accounting();
+  const posted=accounting(asOf);
   // Deleted project budgets release their earmarks; historical rows stay in the ledger.
   Object.keys(funds).forEach(id=>{if(!project(id))delete funds[id];});
   // The existing accounting engine owns project advances, reimbursements and AA offsets.
@@ -137,7 +137,7 @@ function snapshot(){
     else if(desired>sum+.005)allocate(funds,p.id,defaultId(p.id),R(desired-sum));
   });
   Object.keys(light).forEach(id=>{
-    const remaining=Math.max(0,R(lightPlanReservedRemaining(id)));
+    const remaining=Math.max(0,R(lightPlanReservedRemaining(id,asOf)));
     const row=light[id];
     const sum=R(Object.values(row).reduce((n,x)=>n+R(x),0));
     if(sum>remaining+.005)consume(light,id,"",R(sum-remaining));
@@ -156,12 +156,11 @@ function snapshot(){
   }));
   return {funds,light,totals,byAccount};
 }
-// Report earmarked funds to the Now panel once per current-day render.
-// Payment-channel accounting retains its real-bank ledger; Now displays the
-// amount remaining outside mutable savings separately from the saved amount.
-window.projectSavingsReservedByWallet=function(){
-  const totals=snapshot().totals,byWallet={};
-  accounts().filter(a=>!a.archived).forEach(a=>{
+// The wallet ledger uses this same dated snapshot for balances, calibration,
+// selectors and validation. Archived accounts do not contribute to current funds.
+window.projectSavingsReservedByWallet=function(asOf=td()){
+  const totals=snapshot(asOf||td()).totals,byWallet={};
+  accounts().filter(a=>!a.archived||(a.archivedAt&&asOf<a.archivedAt)).forEach(a=>{
     if(!a.walletAccountId||!Wallets.account(a.walletAccountId))return;
     byWallet[a.walletAccountId]=R((byWallet[a.walletAccountId]||0)+R(totals[a.id]));
   });
@@ -349,11 +348,9 @@ function record(){
     if(amount>available+.005)return msg("选定资金池可用余额不足");
     if(amount>sourceWalletAmount(from)+.005)return msg("来源支付渠道余额不足");
     if(kind==="safe"){
-      const snapshotBefore=snapshot();
-      const alreadyReserved=accounts().filter(x=>x.walletAccountId===from)
-        .reduce((sum,x)=>sum+R(snapshotBefore.totals[x.id]),0);
       const ordinary=R(ordinaryWalletDistribution().allocation[from]);
-      const availableInWallet=Math.max(0,R(sourceWalletAmount(from)-alreadyReserved-ordinary));
+      // sourceWalletAmount already excludes dedicated variable savings.
+      const availableInWallet=Math.max(0,R(sourceWalletAmount(from)-ordinary));
       if(amount>availableInWallet+.005)
         return msg("该支付渠道的自由资金不足，请核对已分配到储蓄账户的金额");
     }

@@ -32,11 +32,50 @@ function effect(t,id){
   if(t.type==="living_settlement"&&!t.autoSettled)return -round(t.manualActualSpent===undefined?t.actualSpent:t.manualActualSpent);
   return 0;
 }
-function balanceAt(id,asOf){
+// The gross ledger includes funds in dedicated variable savings held at the
+// same provider. The public balance excludes them for ALL screens and checks.
+function grossBalanceAt(id,asOf){
   const a=account(id);
   return a?round(round(a.openingBalance)+(S.tx||[])
     .filter(t=>!asOf||!t.date||t.date<=asOf)
     .reduce((n,t)=>n+effect(t,id),0)):0;
+}
+function reservedAt(id,asOf){
+  if(typeof window.projectSavingsReservedByWallet!=="function")return 0;
+  return Math.max(0,round(window.projectSavingsReservedByWallet(asOf)[id]));
+}
+// Older builds let the Now screen subtract an earmark while calibration used
+// the gross balance. Neutralize a redundant compensation only when the old
+// adjustment exactly equals the separately held funds and its stated target
+// agrees with the gross ledger. Keep its recorded original delta for audit.
+let reconciledState=null;
+function reconcileLegacyWalletAdjustments(){
+  if(reconciledState===S||typeof window.projectSavingsReservedByWallet!=="function")return;
+  reconciledState=S;
+  const rows=(S.tx||[]);
+  const explicit=rows.filter(t=>t.type==="income"&&
+    [...(t.alloc?.projects||[]),...(t.alloc?.lightPlans||[])].some(x=>x.holdingVariableAccountId)
+    ||t.isVariableSavingEntry).map(t=>t.date).filter(Boolean).sort();
+  if(!explicit.length)return;
+  let changed=false;
+  const corrections=rows.filter(t=>t.type==="wallet_adjustment"&&!t.walletBalanceBasis&&
+    t.date>=explicit[0]&&round(t.delta)<0&&Number.isFinite(Number(t.targetBalance)))
+    .slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.id).localeCompare(String(b.id)));
+  for(const t of corrections){
+    const held=reservedAt(t.walletAccountId,t.date);
+    if(held<=0||round(t.delta+held)!==0||
+       round(grossBalanceAt(t.walletAccountId,t.date)-Number(t.targetBalance))!==0)continue;
+    t.legacyGrossDelta=round(t.delta);
+    t.delta=0;
+    t.walletBalanceBasis="available";
+    t.variableSavingCalibrationReconciled=true;
+    changed=true;
+  }
+  if(changed)save();
+}
+function balanceAt(id,asOf){
+  reconcileLegacyWalletAdjustments();
+  return round(grossBalanceAt(id,asOf)-reservedAt(id,asOf));
 }
 function balance(id){return balanceAt(id,typeof td==="function"?td():"");}
 function selectOptions(selected=""){
@@ -209,14 +248,8 @@ function initWalletNowFold(){
 function render(){
   if(!$("walletAccountList"))return;
   const list=accounts().filter(a=>!a.isProjectSubaccount).map(a=>({id:a.id,name:a.name,amount:balance(a.id)}));
-  // The Now panel displays money available outside mutable savings. The
-  // underlying wallet ledger still records the real payment-channel balance.
-  const reserved=typeof window.projectSavingsReservedByWallet==="function"
-    ?window.projectSavingsReservedByWallet():{};
-  const availableList=list.map(a=>{
-    const earmarked=Math.max(0,round(reserved[a.id]));
-    return {...a,earmarked,available:round(a.amount-earmarked)};
-  });
+  // Now and Plan share the same canonical available balance.
+  const availableList=list.map(a=>({...a,available:a.amount}));
   // Read the reconciled ordinary-savings allocation used by the Savings page,
   // not the raw stored distribution. Zero and unallocated portions stay hidden.
   const ordinaryShares=typeof window.ordinaryWalletShares==="function"?window.ordinaryWalletShares():{};
@@ -267,7 +300,7 @@ function saveAccount(){
     const delta=round(target-balance(id));
     a.name=title;
     if(Math.abs(delta)>=0.005)S.tx.push({id:"wa"+Date.now(),date:td(),type:"wallet_adjustment",
-      walletAccountId:id,delta,targetBalance:target,note:$("wallet_accountNote").value.trim()});
+      walletAccountId:id,delta,targetBalance:target,walletBalanceBasis:"available",note:$("wallet_accountNote").value.trim()});
   }else S.paymentAccounts.push({id:"wallet_"+Date.now(),name:title,openingBalance:target});
   save();closeSheet("walletAccountSheet");renderAll();msg("渠道余额已更新");
 }

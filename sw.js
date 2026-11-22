@@ -1,12 +1,12 @@
-const CACHE = "safespend-v10-150-living-batch-cycle-links";
+const CACHE = "safespend-v10-151-unified-wallet-balance";
 const ASSETS = [
   "./",
   "./index.html",
   "./credit.js",
   "./project-transfer.js",
   "./project-wallet.js?v=10-147",
-  "./project-savings.js?v=10-147",
-  "./wallet-accounts.js?v=10-148",
+  "./project-savings.js?v=10-151",
+  "./wallet-accounts.js?v=10-151",
   "./aa.js",
   "./manifest.webmanifest",
   "./apple-touch-icon.png",
