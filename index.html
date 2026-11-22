@@ -14,6 +14,12 @@
 /* Startup failures must display a visible, local-only diagnostic instead of a blank PWA. */
 (function(){
   let shown=false;
+  const build="10-153";
+  // Register before accounting bootstrap so a startup error cannot block updates.
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("./sw.js?v="+build,{updateViaCache:"none"})
+      .then(reg=>reg.update()).catch(()=>{});
+  }
   function showStartupFailure(detail){
     if(shown || !document.body || !document.body.classList.contains("booting"))return;
     shown=true;
@@ -25,18 +31,27 @@
     heading.textContent="SafeSpend 启动遇到错误";
     const information=document.createElement("div");
     information.style.cssText="margin-top:8px;white-space:pre-wrap";
-    information.textContent=String(detail||"未知启动错误").slice(0,350);
+    information.textContent=("版本 "+build+"\n"+String(detail||"未知启动错误")).slice(0,650);
     const advice=document.createElement("div");
     advice.style.cssText="margin-top:8px;color:#747C78;font-size:12px";
     advice.textContent="本地账目数据已保留。请保存此错误信息以便排查。";
-    panel.append(heading,information,advice);
+    const retry=document.createElement("button");
+    retry.type="button";
+    retry.textContent="重新加载最新版本";
+    retry.style.cssText="margin-top:12px;padding:8px 12px;border:1px solid #2F6F5E;border-radius:8px;background:#fff;color:#2F6F5E";
+    retry.onclick=()=>{
+      const url=new URL(location.href);
+      url.searchParams.set("refresh",String(Date.now()));
+      location.replace(url.href);
+    };
+    panel.append(heading,information,advice,retry);
     document.body.appendChild(panel);
   }
   window.addEventListener("error",function(event){
-    if(event.error || event.message)showStartupFailure(event.error?.message || event.message);
+    if(event.error || event.message)showStartupFailure(event.error?.stack || event.error?.message || event.message);
   });
   window.addEventListener("unhandledrejection",function(event){
-    showStartupFailure(event.reason?.message || event.reason);
+    showStartupFailure(event.reason?.stack || event.reason?.message || event.reason);
   });
 })();
 </script>
@@ -14351,7 +14366,7 @@ const sheetBackgroundObserver=new MutationObserver(records=>{
 sheetBackgroundObserver.observe(document.body,{subtree:true,attributes:true,attributeFilter:["class"]});
 syncSheetBackgroundScroll();
 
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=10-152").catch(()=>{}));
+
 
 function syncDateDisplays(){
   document.querySelectorAll(".dateFieldWrap").forEach(w=>{

@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-152-startup-scope-fix";
+const CACHE = "safespend-v10-153-startup-cache-recovery";
 const ASSETS = [
   "./",
   "./index.html",
@@ -17,7 +17,7 @@ const ASSETS = [
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE)
-      .then(cache => cache.addAll(ASSETS))
+      .then(cache => cache.addAll(ASSETS.map(url => new Request(url,{cache:"reload"}))))
       .then(() => self.skipWaiting())
   );
 });
@@ -37,11 +37,12 @@ self.addEventListener("fetch", event => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     // A failed script request must never receive HTML: that leaves the PWA on a blank boot screen.
-    const cached = await caches.match(request);
+    const cached = await cache.match(request);
     try {
-      const response = await fetch(request);
+      const fresh = request.mode === "navigate" || ["script","style","document"].includes(request.destination);
+      const response = await fetch(request, fresh ? {cache:"no-store"} : undefined);
       if (response.ok) {
-        cache.put(request, response.clone()).catch(() => {});
+        await cache.put(request, response.clone()).catch(() => {});
         return response;
       }
       if (cached) return cached;
@@ -49,7 +50,7 @@ self.addEventListener("fetch", event => {
     } catch (error) {
       if (cached) return cached;
       if (request.mode === "navigate") {
-        const documentFallback = await caches.match("./index.html");
+        const documentFallback = await cache.match("./index.html");
         if (documentFallback) return documentFallback;
       }
       return Response.error();
