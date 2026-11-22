@@ -14,7 +14,7 @@
 /* Startup failures must display a visible, local-only diagnostic instead of a blank PWA. */
 (function(){
   let shown=false;
-  const build="10-159";
+  const build="10-160";
   window.safeSpendInitializing=true;
   // Register before accounting bootstrap so a startup error cannot block updates.
   if("serviceWorker" in navigator){
@@ -3641,7 +3641,7 @@ function load(){
     const d=JSON.parse(localStorage.getItem(KEY));
     if(d){
       const normalized=normalize(d);
-      if(d.settings?.pocketSettlementFrom===undefined){
+      if(d.settings?.pocketSettlementFrom===undefined||d.settings?.billReleaseLedgerVersion!==1){
         try{localStorage.setItem(KEY,JSON.stringify(normalized));}catch(_){}
       }
       return normalized;
@@ -3770,6 +3770,18 @@ function normalize(d){
       if(t.type==="living_batch"&&t.pocketImmediate===undefined)
         t.pocketImmediate=t.date>=s.settings.pocketSettlementFrom;
     });
+  }
+  // Keep existing historical releases intact. Recover later reservations omitted
+  // by the legacy repeated-deferral branch, using the recorded deferral date.
+  if(s.settings.billReleaseLedgerVersion!==1){
+    s.billDeferrals=s.billDeferrals.map(d=>{
+      if(d.fundingMode!=="spent"||Array.isArray(d.releaseEntries))return d;
+      const stamp=N(d.updatedAt);
+      if(stamp<=0)return {...d,releaseEntries:[]};
+      const eventDate=localDateString(new Date(stamp));
+      return appendBillReleaseEntries(s,d,eventDate,stamp);
+    });
+    s.settings.billReleaseLedgerVersion=1;
   }
   // Convert prior soft deletions into real removal and retain account names in the ledger.
   legacyDeletedShortAccounts.forEach(a=>{
@@ -4135,10 +4147,12 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
   const cycleTx=cycleTransactionsForIncome(incomeTx,beforeExclusive);
 
   const expenses=cycleTx.filter(t=>t.type==="expense");
+  const billReleases=billReleaseEvents().filter(t=>t.cycleIncomeId===incomeTx.id
+    &&t.date<=td()&&(!beforeExclusive||t.date<beforeExclusive));
   // The posting engine passes its effects to avoid recursive accounting and
   // to use only spending already posted by the time the cycle closes.
   const postedEffects=postedEffectsOverride
-    ||(incomeTx.pocketRollover==="carry"||expenses.some(t=>t.bucket==="project"||t.bucket==="bill"||!!t.settledBillId)
+    ||(billReleases.length||incomeTx.pocketRollover==="carry"||expenses.some(t=>t.bucket==="project"||t.bucket==="bill"||!!t.settledBillId)
       ?accounting().effects:{});
   const projectEffects=postedEffects;
   const settlements=cycleTx.filter(t=>t.type==="living_settlement");
@@ -4150,6 +4164,7 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
   const extraAllocs=extraIncomes.map(t=>effectiveIncomeAllocation(t));
 
   const plannedSaving=N(baseAlloc.saving)+sm(extraAllocs,x=>N(x.saving));
+  const billReleased=sm(billReleases,t=>N(postedEffects[t.id]?.billReserveReleased));
   const pocketInitial=N(baseAlloc.safe)+sm(extraAllocs,x=>N(x.safe));
   const fixedReserved=N(baseAlloc.bills)+sm(extraAllocs,x=>N(x.bills));
   const projectReserved=N(baseAlloc.projectTotal)+sm(extraAllocs,x=>N(x.projectTotal));
@@ -4238,7 +4253,7 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
     ?cycleIncomeRows()[cycleWindowForIncome(incomeTx).pos-1]:null;
   const pocketCarry=previous?N(postedEffects[`cycleclose_${previous.id}`]?.cycleCloseSourceBalance):0;
   const pocketBalance=
-    pocketCarry+pocketInitial
+    pocketCarry+pocketInitial+billReleased
     -pocketSpent
     +livingRelease
     +lightPlanReleased
@@ -4261,6 +4276,7 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
     pocketSpent,
     batchPocketSpent,
     pocketCarry,
+    billReleased,
     billPocketSpent,
     fallbackLivingCommitted,
     manualSavingUse,
@@ -4588,7 +4604,7 @@ function accounting(asOf=td()){
     t.type==="living_settlement"&&t.coveredDate&&t.coveredDate!==t.date
       ?{...t,date:t.coveredDate}:t
   );
-  const ordered=[...datedTransactions,...depositLocks,...cycleClosures,...fallbackLivingEvents]
+  const ordered=[...datedTransactions,...depositLocks,...cycleClosures,...fallbackLivingEvents,...billReleaseEvents()]
     .filter(t=>!t.date||t.date<=asOf)
     .sort((a,b)=>{
       if(String(a.date)!==String(b.date))return String(a.date).localeCompare(String(b.date));
@@ -4708,6 +4724,15 @@ function accounting(asOf=td()){
       return;
     }
 
+    if(t.type==="bill_reserve_release"){
+      const key=billPoolKey(t.billId,t.cycleDueDate);
+      const amount=Math.min(Math.max(0,N(t.amount)),Math.max(0,N(billPools[key])));
+      billPools[key]=N(billPools[key])-amount;
+      refreshBillRaw();
+      const repaid=creditPocket(amount);
+      effects[t.id]={billReserveReleased:amount,pocketSavingRepaid:repaid};
+      return;
+    }
     if(t.type==="ordinary_balance_adjustment"){
       // The user's reconciled balance is an absolute checkpoint. Recalculate
       // the applied adjustment after any earlier living/income edits.
@@ -5186,6 +5211,7 @@ function cycleStatsForIncome(incomeTx){
   const projectedSaving=
     snap.plannedSaving
     +snap.pocketInitial
+    +N(snap.billReleased)
     +snap.livingRelease
     +snap.lightPlanReleased
     +snap.aaPocketReceipts
@@ -5865,7 +5891,7 @@ function effectiveIncomeAllocation(t){
   }else if(Array.isArray(t.alloc?.billItems)){
     billItems=t.alloc.billItems.map(x=>{
       const b=existingBills.get(x.billId);
-      if(!b||!billCycleIsActive(b,x.dueDate)||billSkipped(x.billId,x.dueDate)||billAllocationReleased(t.id,x.billId,x.dueDate))return null;
+      if(!b||!billCycleIsActive(b,x.dueDate)||billSkipped(x.billId,x.dueDate)||billAllocationHistoricallyReleased(t.id,x.billId,x.dueDate))return null;
 
       // Only the amount still unpaid when this income was recorded belongs in
       // this income's bill reserve. This prevents an already-paid bill from
@@ -6175,6 +6201,9 @@ function syncCurrentCycleBillReservation(bid){
 
     dueDates.forEach(dueDate=>{
       if(billSkipped(bid,dueDate))return;
+      const deferred=billDelay(bid,dueDate);
+      if(!existingDueDates.includes(dueDate)&&deferred?.fundingMode==="spent"
+        &&deferred.releaseBlockIncomeIds?.includes(income.id))return;
 
       income.alloc.billItems.push({
         billId:bid,
@@ -6283,8 +6312,58 @@ function projectCycleDatesText(schedule){
 }
 
 
+// Legacy released IDs remain historical allocation edits. New entries are
+// dated budget movements and do not rewrite the original income allocation.
 function billAllocationReleased(incomeId,bid,dueDate){
   return !!(billDelay(bid,dueDate)?.releasedIncomeIds||[]).includes(incomeId);
+}
+function billAllocationHistoricallyReleased(incomeId,bid,dueDate){
+  const d=billDelay(bid,dueDate);
+  return !!d?.releasedIncomeIds?.includes(incomeId)
+    &&!(d.releaseEntries||[]).some(x=>x.sourceIncomeId===incomeId);
+}
+function appendBillReleaseEntries(state,d,date,stamp){
+  const ids=new Set(d.releasedIncomeIds||[]);
+  const entries=[...(d.releaseEntries||[])];
+  const rows=state.tx.filter(t=>t.type==="income"&&t.deductBills!==false&&t.date<=date
+    &&(t.date<date||txStamp(t)<=stamp))
+    .sort((a,b)=>a.date.localeCompare(b.date)||txStamp(a)-txStamp(b));
+  const cycle=rows.filter(t=>t.planFreqAtRecord!==undefined?t.planFreqAtRecord!=="none":
+    (state.incomePlans.find(p=>p.id===t.planId)?.freq||"weekly")!=="none").slice(-1)[0];
+  const bill=state.bills.find(x=>x.id===d.billId);
+  const payments=state.tx.filter(t=>t.date<=date&&(t.date<date||txStamp(t)<=stamp)
+    &&billPaymentMatchesCycle(t,d.billId,d.cycleDueDate));
+  const candidates=rows.filter(t=>!ids.has(t.id)).map(t=>{
+    const paidBefore=sm(payments.filter(x=>x.date<t.date||
+      (x.date===t.date&&txStamp(x)<txStamp(t))),x=>N(x.amount));
+    const original=sm((t.alloc?.billItems||[]).filter(x=>x.billId===d.billId&&x.dueDate===d.cycleDueDate),x=>N(x.amount));
+    return {t,amount:Math.max(0,Math.min(original,N(bill?.amount)-paidBefore))};
+  }).filter(x=>x.amount>.005);
+  // Pool tracks both new reservations and prior dated releases. Cap new
+  // releases at funds still held, including partial payments.
+  const priorDated=new Set(entries.map(x=>x.sourceIncomeId));
+  const totalReserved=sm(rows.filter(t=>!ids.has(t.id)||priorDated.has(t.id)),t=>{
+    const paidBefore=sm(payments.filter(x=>x.date<t.date||
+      (x.date===t.date&&txStamp(x)<txStamp(t))),x=>N(x.amount));
+    const original=sm((t.alloc?.billItems||[]).filter(x=>x.billId===d.billId&&x.dueDate===d.cycleDueDate),x=>N(x.amount));
+    return Math.max(0,Math.min(original,N(bill?.amount)-paidBefore));
+  });
+  let available=Math.max(0,totalReserved-sm(payments,x=>N(x.amount))-sm(entries,x=>N(x.amount)));
+  candidates.forEach(({t,amount})=>{
+    const released=Math.round(Math.min(amount,available)*100)/100;
+    available=Math.max(0,available-released);
+    entries.push({sourceIncomeId:t.id,date,stamp,cycleIncomeId:cycle?.id||"",amount:released});
+    ids.add(t.id);
+  });
+  return {...d,releasedIncomeIds:[...ids],releaseEntries:entries,
+    releaseBlockIncomeIds:[...new Set([...(d.releaseBlockIncomeIds||[]),...(cycle?[cycle.id]:[])])]};
+}
+function billReleaseEvents(){
+  return (S.billDeferrals||[]).flatMap(d=>(d.releaseEntries||[]).filter(x=>x.date&&N(x.amount)>.005)
+    .map(x=>({id:`billrelease_${d.billId}_${d.cycleDueDate}_${x.sourceIncomeId}`,
+      type:"bill_reserve_release",date:x.date,amount:N(x.amount),
+      billId:d.billId,cycleDueDate:d.cycleDueDate,sourceIncomeId:x.sourceIncomeId,
+      cycleIncomeId:x.cycleIncomeId||cycleIncomeIdForDate(x.date),_sortStamp:N(x.stamp)})));
 }
 function lightAllocationReleased(incomeId,lightId){
   return !!((S.plannedExpenses||[]).find(x=>x.id===lightId)?.delayReleasedIncomeIds||[]).includes(incomeId);
@@ -6294,7 +6373,8 @@ function billFundingSnapshot(bid,dueDate){
   const remaining=billCycleRemainingAmount(b,dueDate);
   const amount=sm(S.tx.filter(t=>t.type==="income"),t=>sm(
     (effectiveIncomeAllocation(t).billItems||[]).filter(x=>x.billId===bid&&x.dueDate===dueDate),x=>N(x.amount)));
-  const available=Math.max(0,amount-billCyclePaidAmount(bid,dueDate));
+  const released=sm((billDelay(bid,dueDate)?.releaseEntries||[]).filter(x=>x.date<=td()),x=>N(x.amount));
+  const available=Math.max(0,amount-released-billCyclePaidAmount(bid,dueDate));
   return {remaining,available,shortfall:Math.max(0,remaining-available)};
 }
 function refreshDelayFundingHint(){
@@ -6302,8 +6382,7 @@ function refreshDelayFundingHint(){
   const spent=delayFundingMode.value==="spent";
   if(kind==="bill"){
     const x=billFundingSnapshot(pid,id);
-    const alreadySpent=billDelay(pid,id)?.fundingMode==="spent";
-    const afterAvailable=spent&&!alreadySpent?0:x.available;
+    const afterAvailable=spent?0:x.available;
     const afterGap=Math.max(0,x.remaining-afterAvailable);
     delayFundingHint.textContent=spent
       ?`保存后，这笔账单的可用预留预计为 ${M(afterAvailable)}，待补 ${M(afterGap)}。此前占用资金的实际消费须已在流水中登记。`
@@ -6361,23 +6440,21 @@ function applyPaymentDelay(restore=false){
     original=id;target=restore?original:delayPaymentDate.value;
     if(!restore&&(!target||target.length!==10||target<=original))return msg("请选择晚于原定日期的付款日");
     const old=billDelay(pid,id),oldMode=old?.fundingMode||"reserved";
-    const reservedIds=S.tx.filter(t=>t.type==="income"&&(t.alloc?.billItems||[])
-      .some(v=>v.billId===pid&&v.dueDate===original)).map(t=>t.id);
-    let released=[];
+    const stamp=Date.now();
+    let record={...old,billId:pid,cycleDueDate:original,payDate:target,
+      fundingMode:mode,releasedIncomeIds:[...(old?.releasedIncomeIds||[])],
+      releaseEntries:[...(old?.releaseEntries||[])],updatedAt:stamp};
     if(mode==="spent"){
-      released=oldMode==="spent"?(old.releasedIncomeIds||[]):reservedIds;
-      if(oldMode!=="spent"&&reservedIds.length&&!confirm(
-        "请确认已经把占用预留款发生的实际消费登记在流水中。此次只调整原预留归属，账单最终付款再记一笔支出。"
+      if(billFundingSnapshot(pid,original).available>.005&&!confirm(
+        "请确认已登记使用预留款的实际消费。账单预留将转入零花钱，待付款金额保持原样。"
       ))return;
-    }else if(oldMode==="spent"&&reservedIds.some(v=>!(old.releasedIncomeIds||[]).includes(v))){
-      return msg("后续收入已经重新预留，请先调整后续收入记录，再恢复原预留");
+      record=appendBillReleaseEntries(S,record,td(),stamp);
     }
     S.billDeferrals=(S.billDeferrals||[]).filter(x=>!(x.billId===pid&&x.cycleDueDate===original));
-    if(target!==original||mode==="spent"){
-      S.billDeferrals.push({billId:pid,cycleDueDate:original,payDate:target,
-        fundingMode:mode,releasedIncomeIds:released,updatedAt:Date.now()});
+    if(target!==original||mode==="spent"||record.releasedIncomeIds.length){
+      S.billDeferrals.push(record);
     }
-    syncCurrentCycleBillReservation(pid);
+    if(mode!=="spent")syncCurrentCycleBillReservation(pid);
   }else if(kind==="light"||kind==="project"){
     const x=kind==="light"?(S.plannedExpenses||[]).find(x=>x.id===id):
       (S.projects.find(x=>x.id===pid)?.plannedExpenses||[]).find(x=>x.id===id);
@@ -8527,6 +8604,9 @@ function periodSavingsPerformance(start="",end=""){
       x=>x.wallet!=="safe"&&inRange(x.date)?N(x.amount):0);
     if(reimbursement>.005)add(t,"本期专项垫款回补",reimbursement);
   }
+  billReleaseEvents().forEach(t=>{
+    if(inRange(t.date))add(t,"账单预留释放回补储蓄",N(effects[t.id]?.pocketSavingRepaid));
+  });
   // Closing is posted at next receipt before that income. Attribute it to
   // the previous day for boundary-consistent calendar and plan windows.
   virtualCycleCloseEvents().forEach(t=>{
