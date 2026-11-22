@@ -482,5 +482,5 @@ removeProjectTimelineTx=function(id){
   }
   return originalRemoveProjectTimeline(id);
 };
-render();
+if(!window.safeSpendInitializing)render();
 })();
