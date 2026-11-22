@@ -1,11 +1,11 @@
-const CACHE = "safespend-v10-153-startup-cache-recovery";
+const CACHE = "safespend-v10-154-fast-start";
 const ASSETS = [
   "./",
   "./index.html",
-  "./credit.js",
-  "./project-transfer.js",
-  "./project-wallet.js?v=10-147",
-  "./project-savings.js?v=10-151",
+  "./credit.js?v=10-154",
+  "./project-transfer.js?v=10-154",
+  "./project-wallet.js?v=10-154",
+  "./project-savings.js?v=10-154",
   "./wallet-accounts.js?v=10-151",
   "./aa.js",
   "./manifest.webmanifest",
@@ -13,8 +13,14 @@ const ASSETS = [
   "./icon-192.png",
   "./icon-512.png"
 ];
+const ROOT = new URL("./", self.location.href);
+const INDEX = new URL("./index.html", ROOT);
+const isAppDocument = url => url.origin === ROOT.origin &&
+  (url.pathname === ROOT.pathname || url.pathname === INDEX.pathname);
+const explicitRefresh = url => url.searchParams.has("refresh");
 
 self.addEventListener("install", event => {
+  // Publish a complete version only after all its assets have been fetched.
   event.waitUntil(
     caches.open(CACHE)
       .then(cache => cache.addAll(ASSETS.map(url => new Request(url,{cache:"reload"}))))
@@ -32,28 +38,31 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   const request = event.request;
-  if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) return;
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    // A failed script request must never receive HTML: that leaves the PWA on a blank boot screen.
-    const cached = await cache.match(request);
+    const navigation = request.mode === "navigate" && isAppDocument(url);
+    const cached = await cache.match(request) ||
+      (navigation ? await cache.match(INDEX.href) : undefined);
+    let manualRefresh = navigation && explicitRefresh(url);
+    if (!manualRefresh && request.referrer) {
+      try {
+        const referrer = new URL(request.referrer);
+        manualRefresh = isAppDocument(referrer) && explicitRefresh(referrer);
+      } catch (_) {}
+    }
+    // Installed app launches immediately from the versioned cache. The browser
+    // checks the service-worker update independently; no document network wait.
+    if (cached && !manualRefresh) return cached;
     try {
-      const fresh = request.mode === "navigate" || ["script","style","document"].includes(request.destination);
-      const response = await fetch(request, fresh ? {cache:"no-store"} : undefined);
-      if (response.ok) {
-        await cache.put(request, response.clone()).catch(() => {});
-        return response;
-      }
-      if (cached) return cached;
-      return response;
+      const response = await fetch(request, manualRefresh ? {cache:"no-store"} : undefined);
+      if (response.ok) return response;
+      return cached || response;
     } catch (error) {
-      if (cached) return cached;
-      if (request.mode === "navigate") {
-        const documentFallback = await cache.match("./index.html");
-        if (documentFallback) return documentFallback;
-      }
-      return Response.error();
+      // Only a navigation can receive an HTML fallback.
+      return cached || Response.error();
     }
   })());
 });
