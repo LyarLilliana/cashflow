@@ -14,11 +14,12 @@
 /* Startup failures must display a visible, local-only diagnostic instead of a blank PWA. */
 (function(){
   let shown=false;
-  const build="10-153";
+  const build="10-154";
+  window.safeSpendInitializing=true;
   // Register before accounting bootstrap so a startup error cannot block updates.
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("./sw.js?v="+build,{updateViaCache:"none"})
-      .then(reg=>reg.update()).catch(()=>{});
+      .catch(()=>{});
   }
   function showStartupFailure(detail){
     if(shown || !document.body || !document.body.classList.contains("booting"))return;
@@ -49,7 +50,8 @@
   }
   window.addEventListener("error",function(event){
     if(event.error || event.message)showStartupFailure(event.error?.stack || event.error?.message || event.message);
-  });
+    else if(event.target?.tagName==="SCRIPT")showStartupFailure("组件载入失败："+event.target.getAttribute("src"));
+  },true);
   window.addEventListener("unhandledrejection",function(event){
     showStartupFailure(event.reason?.stack || event.reason?.message || event.reason);
   });
@@ -2291,8 +2293,18 @@ details[open]>summary .savingsFoldChevron::before,
 
 
 </style>
+<style>
+#startupScreen{display:none;position:fixed;inset:0;z-index:100;background:#F6F6F2;color:#2F6F5E;align-items:center;justify-content:center;flex-direction:column;gap:14px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
+.booting #startupScreen{display:flex}
+.startupBrand{font-size:27px;font-weight:750;letter-spacing:-.6px}
+.startupSpinner{width:24px;height:24px;border:2px solid #DDE9E3;border-top-color:#2F6F5E;border-radius:50%;animation:startupSpin .85s linear infinite}
+.startupLabel{font-size:12px;color:#747C78}
+@keyframes startupSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.startupSpinner{animation:none;border-color:#2F6F5E}}
+</style>
 </head>
 <body class="booting">
+<div id="startupScreen" role="status" aria-live="polite"><div class="startupBrand">SafeSpend</div><div class="startupSpinner" aria-hidden="true"></div><div class="startupLabel">正在载入账目</div></div>
 <div class="app">
   <div class="topbar">
     <div class="brand"><h1>SafeSpend</h1><p>先计划，再记录现在。</p></div>
@@ -7889,7 +7901,7 @@ function currentCycleResultBounds(){
   return {start,end:end<start?start:end};
 }
 
-function setHistoryMode(mode){
+function setHistoryMode(mode,{renderResults=true}={}){
   historyMode=mode;
   historyVisibleCount=HISTORY_PAGE_SIZE;
 
@@ -7926,7 +7938,7 @@ function setHistoryMode(mode){
 
   syncDateDisplays();
   writeResultRangePref();
-  renderHistory();
+  if(renderResults)renderHistory();
 }
 
 function historyTxDate(t){
@@ -9024,7 +9036,7 @@ function renderSavingRangeViews(){
   renderSavingAssetSummary();
 }
 
-function setSavingRangePreset(mode){
+function setSavingRangePreset(mode,{renderResults=true}={}){
   savingRangePreset=mode;
 
   savingCycleBtn.classList.toggle("active",mode==="cycle");
@@ -9060,7 +9072,7 @@ function setSavingRangePreset(mode){
   savingRangeToggle.setAttribute("aria-expanded",String(mode==="cycle"));
   refreshStatsCycleSelects();
   syncDateDisplays();
-  renderSavingRangeViews();
+  if(renderResults)renderSavingRangeViews();
 }
 
 function savingRangeBounds(){
@@ -14441,9 +14453,8 @@ if(!historyStartDate.value&&!historyEndDate.value){
 
     historyCustomDates.hidden=false;
     syncDateDisplays();
-    renderHistory();
   }else{
-    setHistoryMode(pref.mode||"month");
+    setHistoryMode(pref.mode||"month",{renderResults:false});
   }
 }
 
@@ -14452,7 +14463,7 @@ if(!historyStartDate.value&&!historyEndDate.value){
 setResultRangePanelOpen(false);
 
 // 储蓄统计默认本月，样式与流水筛选保持一致。
-if(!savingStartDate.value&&!savingEndDate.value)setSavingRangePreset("month");
+if(!savingStartDate.value&&!savingEndDate.value)setSavingRangePreset("month",{renderResults:false});
 
 // V9.9 升级时修复当前开放周期的固定账单预留。
 let currentBillRepairChanged=false;
@@ -14467,22 +14478,28 @@ syncLivingSettlementTotals();
 autoSettlePastLivingDays();
 save();
 
-// 首屏固定为“现在”。初始化期间主界面保持隐藏，全部计算完成后一次性显示，
-// 避免 Safari / PWA 在启动时闪过计划页或中间计算状态。
+// All extensions register their hooks before the first full render.
 activateMainTab("now");
-render();
-activateMainTab("now");
-
-requestAnimationFrame(()=>{
-  requestAnimationFrame(()=>{
-    document.body.classList.remove("booting");
-  });
-});
 </script>
-<script src="./credit.js"></script>
-<script src="./project-transfer.js"></script>
-<script src="./project-wallet.js?v=10-147"></script>
-<script src="./project-savings.js?v=10-151"></script>
+<script src="./credit.js?v=10-154"></script>
+<script src="./project-transfer.js?v=10-154"></script>
+<script src="./project-wallet.js?v=10-154"></script>
+<script src="./project-savings.js?v=10-154"></script>
 <script src="./aa.js"></script>
+<script>
+// Yield one paint to display the startup screen, then render once with all hooks installed.
+requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  if(!document.body.classList.contains("booting"))return;
+  window.safeSpendInitializing=false;
+  activateMainTab("now");
+  render();
+  document.body.classList.remove("booting");
+  const url=new URL(location.href);
+  if(url.searchParams.has("refresh")){
+    url.searchParams.delete("refresh");
+    history.replaceState(history.state,"",url.href);
+  }
+}));
+</script>
 </body>
 </html>
