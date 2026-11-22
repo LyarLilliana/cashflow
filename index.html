@@ -4100,7 +4100,7 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
   // 周期统计必须只把真正落到零花钱上的部分计入 pocketSpent，
   // 否则尚未结算当天的基础生活会被误算成零花钱支出。
   const dailyLivingCover=dailyExpenseLivingCoverMap();
-  const lightReserveUsage=lightPlanReserveUsageMap(asOf);
+  const lightReserveUsage=lightPlanReserveUsageMap();
   const dailyPocketSpent=sm(
     expenses.filter(t=>
       (t.bucket==="safe"||t.bucket==="living")
@@ -4389,7 +4389,7 @@ function accounting(asOf=td()){
   // Historical and future-dated wallet movements affect balances only from their effective date.
   const raw={safe:0,bills:0};
   const dailyLivingCover=dailyExpenseLivingCoverMap();
-  const lightReserveUsage=lightPlanReserveUsageMap();
+  const lightReserveUsage=lightPlanReserveUsageMap(asOf);
   const billPools={};
   const billPoolKey=(billId,dueDate)=>`${billId||""}|${dueDate||""}`;
   const refreshBillRaw=()=>{
@@ -14351,7 +14351,7 @@ const sheetBackgroundObserver=new MutationObserver(records=>{
 sheetBackgroundObserver.observe(document.body,{subtree:true,attributes:true,attributeFilter:["class"]});
 syncSheetBackgroundScroll();
 
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=10-151").catch(()=>{}));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=10-152").catch(()=>{}));
 
 function syncDateDisplays(){
   document.querySelectorAll(".dateFieldWrap").forEach(w=>{

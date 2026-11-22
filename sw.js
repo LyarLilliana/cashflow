@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-151-unified-wallet-balance";
+const CACHE = "safespend-v10-152-startup-scope-fix";
 const ASSETS = [
   "./",
   "./index.html",
