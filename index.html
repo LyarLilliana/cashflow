@@ -3641,7 +3641,9 @@ function load(){
     const d=JSON.parse(localStorage.getItem(KEY));
     if(d){
       const normalized=normalize(d);
-      if(d.settings?.pocketSettlementFrom===undefined)localStorage.setItem(KEY,JSON.stringify(normalized));
+      if(d.settings?.pocketSettlementFrom===undefined){
+        try{localStorage.setItem(KEY,JSON.stringify(normalized));}catch(_){}
+      }
       return normalized;
     }
     for(const k of OLD_KEYS){
@@ -5492,7 +5494,10 @@ function dailyExpenseMatchesFundedLivingCycle(t,info){
   if(!info?.covered)return false;
   if(info.fallback)return true;
   const boundCycleId=effectiveExpenseCycleIncomeId(t);
-  return !boundCycleId||boundCycleId===info.incomeId;
+  // A newer receipt may use a daily allowance already reserved by an older one.
+  const budgetOwner=(!S.settings.pocketSettlementFrom||t.date>=S.settings.pocketSettlementFrom)
+    ?cycleIncomeIdForDate(t.date):info.incomeId;
+  return !boundCycleId||boundCycleId===budgetOwner;
 }
 function livingSettlementPreviewForDate(date,allowance,manual){
   const batch=livingBatchShareForDate(date);
@@ -5521,7 +5526,7 @@ function livingSettlementTotalUsed(t){
 }
 function livingSettlementRemaining(t){
   if(!t)return 0;
-  return N(t.allowance)-livingSettlementTotalUsed(t);
+  return N(t.allowance)-livingSettlementTotalUsed(t)+N(livingBatchOverrunMap().byDate[t.coveredDate||t.date]);
 }
 function syncLivingSettlementTotals(){
   let changed=false;
@@ -12144,7 +12149,7 @@ function renderPastLivingSettlements(){
       const dailyDraw=livingSettlementDailyDraw(t);
       const actual=explicitActual+dailyDraw;
       const batch=livingBatchShareForDate(date);
-      const release=N(t.allowance)-actual;
+      const release=N(t.allowance)-actual+N(livingBatchOverrunMap().byDate[date]);
       const status=t.autoSettled
         ?'<span class="pastLivingStatus">自动</span>'
         :'<span class="pastLivingStatus manual">已确认</span>';
