@@ -451,6 +451,5 @@ $("projectSavingsList").addEventListener("toggle",e=>{
 const folded=typeof readSavingFold==="function"?readSavingFold("section:variable",true):true;
 $("projectSavingsBody").hidden=!folded;
 $("projectSavingsFold").setAttribute("aria-expanded",String(folded));
-renderSavings();
-Wallets.render();
+if(!window.safeSpendInitializing){renderSavings();Wallets.render();}
 })();
