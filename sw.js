@@ -1,4 +1,4 @@
-const CACHE = "safespend-v10-155-fast-start";
+const CACHE = "safespend-v10-156-fast-start";
 const ASSETS = [
   "./",
   "./index.html",
