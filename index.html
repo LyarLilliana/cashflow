@@ -5550,7 +5550,7 @@ function livingRemainingForDate(date=td()){
 // Pair a separately funded purchase with a same-day, same-amount one-off
 // income using a matching memo. Duplicate adjacent labels in notes are
 // collapsed because the spending form can prefix the category name.
-function matchedEarmarkedExpenseIds(){
+function matchedEarmarkedExpenseIds(onlyDate=""){
   const pools=new Map();
   const memo=value=>{
     const s=String(value||"").trim().toLowerCase();
@@ -5559,7 +5559,7 @@ function matchedEarmarkedExpenseIds(){
   };
   const key=(date,amount,desc,cycle)=>[date,Math.round(N(amount)*100),memo(desc),cycle||""].join("|");
   S.tx.forEach(t=>{
-    if(t.type!=="income"||t.incomeKind!=="extra"||N(t.amount)<=0||!memo(t.incomeNote))return;
+    if((onlyDate&&String(t.date||"")!==onlyDate)||t.type!=="income"||t.incomeKind!=="extra"||N(t.amount)<=0||!memo(t.incomeNote))return;
     const a=t.alloc||{};
     if(Math.abs(N(a.safe)-N(t.amount))>.005
       ||N(a.saving)>.005||N(a.living)>.005||N(a.bills)>.005
@@ -5569,7 +5569,7 @@ function matchedEarmarkedExpenseIds(){
   });
   const result=new Set();
   S.tx.forEach(t=>{
-    if(t.type!=="expense"||(t.bucket!=="safe"&&t.bucket!=="living")||t.settledBillId)return;
+    if((onlyDate&&String(t.date||"")!==onlyDate)||t.type!=="expense"||(t.bucket!=="safe"&&t.bucket!=="living")||t.settledBillId)return;
     const k=key(t.date,t.amount,t.note,effectiveExpenseCycleIncomeId(t));
     const n=pools.get(k)||0;
     if(n>0){result.add(t.id);pools.set(k,n-1);}
@@ -5596,7 +5596,7 @@ function dailyExpenseLivingCoverMap(onlyDate=""){
 
   if(!rows.length)return {byTx,byDate};
   const lightReserveUsage=lightPlanReserveUsageMap();
-  const earmarked=matchedEarmarkedExpenseIds();
+  const earmarked=matchedEarmarkedExpenseIds(onlyDate);
   let currentDate="";
   let remaining=0;
   let info=null;
@@ -5618,7 +5618,7 @@ function dailyExpenseLivingCoverMap(onlyDate=""){
       }
     }
 
-    if(earmarked.has(t.id)||!dailyExpenseMatchesFundedLivingCycle(t,info)){
+    if(earmarked.has(t.id)||!dailyExpenseMatchesFundedLivingCycle(t,info||dailyLivingBudgetInfo(date))){
       byTx[t.id]=0;
       return;
     }
