@@ -14,7 +14,7 @@
 /* Startup failures must display a visible, local-only diagnostic instead of a blank PWA. */
 (function(){
   let shown=false;
-  const build="10-157";
+  const build="10-158";
   window.safeSpendInitializing=true;
   // Register before accounting bootstrap so a startup error cannot block updates.
   if("serviceWorker" in navigator){
@@ -2990,6 +2990,13 @@ details[open]>summary .savingsFoldChevron::before,
       <div class="meta" id="projectSuggestMeta"></div>
       <div id="projectSuggest" style="margin-top:8px"></div>
     </div>
+    <div class="subCard" id="incPocketRolloverRow" style="display:none">
+      <div class="explainRow"><span>上一周期零花钱</span><strong id="incPreviousPocket">¥0</strong></div>
+      <select id="incPocketRollover" aria-label="上一周期零花钱处理" style="margin-top:8px;width:100%">
+        <option value="reset">重置零花钱</option>
+        <option value="carry">延续零花钱余额</option>
+      </select>
+    </div>
     <div class="explain">
       <div class="explainRow"><span>到账</span><strong id="sumIncome">¥0</strong></div>
       <div class="explainRow"><span>储蓄</span><strong id="sumSaving">¥0</strong></div>
@@ -3289,6 +3296,7 @@ details[open]>summary .savingsFoldChevron::before,
     <div class="livingBatchHint">
       <div>覆盖日期：<strong id="livingBatchRange">—</strong></div>
       <div>日均分摊：<strong id="livingBatchDaily">¥0</strong></div>
+      <div>立即扣除零花钱：<strong id="livingBatchPocket">¥0</strong></div>
       <div style="margin-top:4px">开始日期同时作为这笔消费的付款日期。修改开始日期、结束日期或覆盖天数时，另外两项会自动联动。</div>
     </div>
 
@@ -3631,7 +3639,11 @@ let S=load();
 function load(){
   try{
     const d=JSON.parse(localStorage.getItem(KEY));
-    if(d)return normalize(d);
+    if(d){
+      const normalized=normalize(d);
+      if(d.settings?.pocketSettlementFrom===undefined)localStorage.setItem(KEY,JSON.stringify(normalized));
+      return normalized;
+    }
     for(const k of OLD_KEYS){
       const old=localStorage.getItem(k);
       if(old){
@@ -3744,6 +3756,19 @@ function normalize(d){
     }
     return x;
   });
+  // Apply the new budget rule to the open cycle and subsequent purchases.
+  // Closed cycles retain their original batch posting policy.
+  if(s.settings.pocketSettlementFrom===undefined){
+    const latest=s.tx.filter(t=>t.type==="income"&&t.date<=td()&&
+      (t.planFreqAtRecord!==undefined?t.planFreqAtRecord!=="none":
+        (s.incomePlans.find(p=>p.id===t.planId)?.freq||"weekly")!=="none"))
+      .sort((a,b)=>a.date.localeCompare(b.date)||txStamp(a)-txStamp(b)).slice(-1)[0];
+    s.settings.pocketSettlementFrom=latest?.date||td();
+    s.tx.forEach(t=>{
+      if(t.type==="living_batch"&&t.pocketImmediate===undefined)
+        t.pocketImmediate=t.date>=s.settings.pocketSettlementFrom;
+    });
+  }
   // Convert prior soft deletions into real removal and retain account names in the ledger.
   legacyDeletedShortAccounts.forEach(a=>{
     if(!s.tx.some(t=>t.type==="short_account_archive"&&t.shortAccountId===a.id)){
@@ -4054,6 +4079,9 @@ function transactionBelongsToCycle(t,incomeTx,next){
     return !!cycleId&&cycleId===incomeTx.id;
   }
 
+  if(t.type==="living_batch"&&t.pocketImmediate===true)
+    return cycleIncomeIdForDate(t.date)===incomeTx.id;
+
   // Explicit cycle ownership on other transactions remains authoritative.
   const boundCycleId=effectiveExpenseCycleIncomeId(t);
   if(boundCycleId)return boundCycleId===incomeTx.id;
@@ -4108,7 +4136,7 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
   // The posting engine passes its effects to avoid recursive accounting and
   // to use only spending already posted by the time the cycle closes.
   const postedEffects=postedEffectsOverride
-    ||(expenses.some(t=>t.bucket==="project"||t.bucket==="bill"||!!t.settledBillId)
+    ||(incomeTx.pocketRollover==="carry"||expenses.some(t=>t.bucket==="project"||t.bucket==="bill"||!!t.settledBillId)
       ?accounting().effects:{});
   const projectEffects=postedEffects;
   const settlements=cycleTx.filter(t=>t.type==="living_settlement");
@@ -4159,8 +4187,10 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
     x=>fallbackLivingCommitmentForDate(x.date)
   );
 
+  const batchOverrun=livingBatchOverrunMap();
+  const batchPocketSpent=sm(cycleTx.filter(t=>t.type==="living_batch"),t=>N(batchOverrun.byTx[t.id]));
   const pocketSpent=
-    dailyPocketSpent
+    batchPocketSpent+dailyPocketSpent
     +fallbackLivingCommitted
     +sm(expenses.filter(t=>t.bucket==="project"),t=>projectExpenseEffect(t,projectEffects).pocketCharged)
     +billPocketSpent;
@@ -4178,7 +4208,7 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
       Math.max(0,grossRelease),
       Math.max(0,N(dailyLivingCover.byDate[date]))
     );
-    return grossRelease-dailyDraw;
+    return grossRelease-dailyDraw+N(batchOverrun.byDate[date]);
   });
   const pocketToSaving=sm(savingTransfers,t=>t.type==="short_transfer"?N(t.pocketPortion):N(t.amount));
   const pocketToProject=sm(projectTransfers,t=>N(t.amount));
@@ -4202,8 +4232,11 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
     return original&&(original.bucket==="safe"||original.bucket==="living")
       &&effectiveExpenseCycleIncomeId(original)===incomeTx.id?N(t.amount):0;
   });
+  const previous=incomeTx.pocketRollover==="carry"
+    ?cycleIncomeRows()[cycleWindowForIncome(incomeTx).pos-1]:null;
+  const pocketCarry=previous?N(postedEffects[`cycleclose_${previous.id}`]?.cycleCloseSourceBalance):0;
   const pocketBalance=
-    pocketInitial
+    pocketCarry+pocketInitial
     -pocketSpent
     +livingRelease
     +lightPlanReleased
@@ -4224,6 +4257,8 @@ function cyclePocketSnapshot(incomeTx,postedEffectsOverride=null,beforeExclusive
     fixedReserved,
     projectReserved,
     pocketSpent,
+    batchPocketSpent,
+    pocketCarry,
     billPocketSpent,
     fallbackLivingCommitted,
     manualSavingUse,
@@ -4423,6 +4458,7 @@ function accounting(asOf=td()){
   const raw={safe:0,bills:0};
   const dailyLivingCover=dailyExpenseLivingCoverMap();
   const lightReserveUsage=lightPlanReserveUsageMap(asOf);
+  const batchOverrun=livingBatchOverrunMap(asOf);
   const billPools={};
   const billPoolKey=(billId,dueDate)=>`${billId||""}|${dueDate||""}`;
   const refreshBillRaw=()=>{
@@ -4649,6 +4685,8 @@ function accounting(asOf=td()){
       const ea=effectiveIncomeAllocation(t);
       if(isCycleIncomeTx(t)){
         autoSavingDebt=0;
+        // Budget reset never posts a wallet receipt or restores money already spent.
+        if(t.pocketRollover==="reset")raw.safe=Math.max(0,N(raw.safe));
         activeCycleIncomeId=t.id;
       }
       const repaid=creditPocket(N(ea.safe));
@@ -4680,7 +4718,9 @@ function accounting(asOf=td()){
       // Sweep the closing income plan alone; preserve other open plan pockets.
       const source=S.tx.find(x=>x.id===t.sourceIncomeId);
       const signed=source?N(cyclePocketSnapshot(source,effects,t.date).pocketBalance):0;
-      const amount=Math.min(Math.max(0,signed),Math.max(0,N(raw.safe)));
+      const nextIncome=S.tx.find(x=>x.id===t.nextIncomeId);
+      const amount=nextIncome?.pocketRollover==="carry"?0:
+        Math.min(Math.max(0,signed),Math.max(0,N(raw.safe)));
       const historicalShortfall=Math.max(0,-signed);
       raw.safe-=amount;
       saving+=amount;
@@ -4727,7 +4767,7 @@ function accounting(asOf=td()){
         Math.max(0,grossRelease),
         Math.max(0,N(dailyLivingCover.byDate[date]))
       );
-      const netRelease=grossRelease-dailyDraw;
+      const netRelease=grossRelease-dailyDraw+N(batchOverrun.byDate[date]);
 
       // Settle against the income that funded this daily living allowance.
       // After a different income cycle opens, the former cycle's later
@@ -4751,7 +4791,21 @@ function accounting(asOf=td()){
     }
 
     if(t.type==="living_batch"){
-      // 多日基础生活支出在付款日进入消费统计，预算影响按覆盖日期进入每日结算。
+      // Only the incremental overrun is posted to pocket on the payment date.
+      // The payment channel already records the full purchase exactly once.
+      const overrun=N(batchOverrun.byTx[t.id]);
+      if(overrun>0){
+        const pocketDraw=Math.min(overrun,Math.max(0,N(raw.safe)));
+        const overPlan=overrun-pocketDraw;
+        const autoDraw=Math.min(overPlan,Math.max(0,N(saving)));
+        const gap=overPlan-autoDraw;
+        raw.safe-=pocketDraw+gap;
+        saving-=autoDraw;
+        autoSavingUsed+=autoDraw;
+        autoSavingDebt+=autoDraw;
+        uncovered+=gap;
+        effects[t.id]={batchPocketOverrun:overrun,pocketDraw,autoDraw,overPlan,uncovered:gap};
+      }
       return;
     }
 
@@ -5337,6 +5391,9 @@ function livingDayInfo(date=td()){
 // The calendar owner is only a fallback for old/unfunded records.
 function livingSettlementBudgetOwner(t){
   const date=t?.coveredDate||t?.date||"";
+  // Funding ownership (sourceIncomeId) remains separate from pocket ownership.
+  if(!S.settings.pocketSettlementFrom||date>=S.settings.pocketSettlementFrom)
+    return cycleIncomeIdForDate(date);
   const funded=livingDayInfo(date);
   return funded.covered&&funded.incomeId
     ?funded.incomeId
@@ -5373,6 +5430,30 @@ function livingBatchAllocationRows(t){
     date:addDays(start,i),
     amount:(base+(i<remainder?1:0))/100
   }));
+}
+// Allocate each day's allowance in cents, in payment order, including overlap.
+function livingBatchOverrunMap(asOf=td(),replacement=null){
+  const byTx={},byDate={},used={};
+  const rows=livingBatchRows().filter(t=>t.id!==replacement?.id);
+  if(replacement)rows.push(replacement);
+  rows.filter(t=>t.date<=asOf).sort((a,b)=>
+    a.date.localeCompare(b.date)||txStamp(a)-txStamp(b)||String(a.id).localeCompare(String(b.id))
+  ).forEach(t=>{
+    let excess=0;
+    livingBatchAllocationRows(t).forEach(row=>{
+      const date=row.date,cents=Math.round(N(row.amount)*100);
+      const allowance=Math.max(0,Math.round(livingRateForDate(date)*100));
+      const before=N(used[date]);
+      const incremental=Math.max(0,before+cents-allowance)-Math.max(0,before-allowance);
+      used[date]=before+cents;
+      if(t.pocketImmediate===true){
+        excess+=incremental;
+        byDate[date]=(N(byDate[date])*100+incremental)/100;
+      }
+    });
+    if(t.pocketImmediate===true)byTx[t.id]=excess/100;
+  });
+  return {byTx,byDate};
 }
 function livingBatchShareForDate(date){
   return sm(livingBatchRows(),t=>{
@@ -5427,7 +5508,7 @@ function livingSettlementPreviewForDate(date,allowance,manual){
     &&dailyExpenseMatchesFundedLivingCycle(t,dayInfo)
   ),t=>Math.max(0,(t.aaKind==="advance"?Math.min(N(t.amount),Math.max(0,N(t.aaOwnShare))):N(t.amount))-Math.max(0,N(reserveUsage[t.id]))));
   const dailyDraw=Math.min(Math.max(0,gross),eligible);
-  return {batch,dailyDraw,net:gross-dailyDraw};
+  return {batch,dailyDraw,net:gross-dailyDraw+N(livingBatchOverrunMap().byDate[date])};
 }
 function livingSettlementDailyDraw(t){
   if(!t)return 0;
@@ -7473,7 +7554,7 @@ function txHtml(t,del=false,edit=false,effects=null){
   if(t.type==="living_settlement"){
     const actual=livingSettlementTotalUsed(t);
     const batch=livingBatchShareForDate(t.coveredDate||t.date);
-    const release=N(t.allowance)-actual;
+    const release=N(t.allowance)-actual+N(livingBatchOverrunMap().byDate[t.coveredDate||t.date]);
     const title=t.autoSettled
       ?"基础生活按计划自动结算"
       :release>0
@@ -7491,7 +7572,8 @@ function txHtml(t,del=false,edit=false,effects=null){
   if(t.type==="living_batch"){
     const coverage=livingBatchCoverage(t);
     const avg=N(t.amount)/Math.max(1,N(coverage.days));
-    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">多日基础生活${t.note?" · "+esc(t.note):""}</div><div class="meta">${coverage.start} 开始/付款 · ${coverage.end} 结束 · ${coverage.days} 天 · 日均约 ${M(avg)}${Wallets.inlineTag(t)}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
+    const pocket=N(livingBatchOverrunMap().byTx[t.id]);
+    return `<div class="item"><div class="txRow"><div class="txLeft"><div class="name">多日基础生活${t.note?" · "+esc(t.note):""}</div><div class="meta">${coverage.start} 开始/付款 · ${coverage.end} 结束 · ${coverage.days} 天 · 日均约 ${M(avg)}${pocket>0?" · 零花钱 "+M(pocket):""}${Wallets.inlineTag(t)}</div></div><div class="txRight"><div class="txAmount neg">-${M(t.amount)}</div>${txButtons(t,del,edit)}</div></div></div>`;
   }
   if(t.type==="living_rate_change"){
     const title=t.action==="delete"
@@ -8021,6 +8103,7 @@ function pocketOutflowAmountForTx(t,effects=null){
   }
 
   if(t.type==="short_transfer"&&t.direction==="in")return Math.max(0,N(t.pocketPortion));
+  if(t.type==="living_batch")return Math.max(0,N(effects?.[t.id]?.pocketDraw));
   if(t.type!=="expense")return 0;
 
   const fx=effects?.[t.id]||null;
@@ -11391,6 +11474,7 @@ function openIncome(){
   incPlan.innerHTML='<option value="__extra__">单次额外收入</option>'+S.incomePlans.map(p=>`<option value="${p.id}">${esc(p.name)} · ${M(p.amount)}</option>`).join("");
   const next=nextPlannedIncome();
   if(next) incPlan.value=next.id;
+  document.getElementById("incPocketRollover").value="reset";
   syncIncomeFromPlan();
   wallet_income.value=Wallets.account(S.settings.walletIncomeDefault)?S.settings.walletIncomeDefault:"";
   refreshIncomeSavingDestination();
@@ -11661,8 +11745,15 @@ function recalcIncomeSummary(){
   sumLivingLabel.textContent=incDeductLiving.checked?"基础生活":"基础生活（本次不扣）";
   sumBillsLabel.textContent=incDeductBills.checked?"固定账单":"固定账单（本次不扣）";
   sumProjects.textContent=M(ps+lps);
-  sumSafe.textContent=M(safe);
-  sumSafe.style.color=safe<=0?"var(--danger)":"var(--accent)";
+  const recurring=!!(p&&isRecurringPlan(p));
+  const previous=recurring?openCycleIncomes().slice(-1)[0]:null;
+  const rollover=document.getElementById("incPocketRollover");
+  document.getElementById("incPocketRolloverRow").style.display=previous?"":"none";
+  const previousPocket=previous?N(cyclePocketSnapshot(previous,accounting().effects,td()).pocketBalance):0;
+  document.getElementById("incPreviousPocket").textContent=M(previousPocket);
+  const opening=safe+(previous&&rollover.value==="carry"?previousPocket:0);
+  sumSafe.textContent=M(opening);
+  sumSafe.style.color=opening<=0?"var(--danger)":"var(--accent)";
 
   const scheduledDate=p?.nextDate||"";
   const pending=p&&isRecurringPlan(p)?pendingIncomeForPlan(p.id,scheduledDate):null;
@@ -11679,6 +11770,7 @@ function recalcIncomeSummary(){
 }
 [incAmount,incSaving,incNextDate].forEach(x=>x.addEventListener("input",()=>x===incNextDate?recalcIncome():recalcIncomeSummary()));
 [incDeductLiving,incDeductBills].forEach(x=>x.addEventListener("change",recalcIncome));
+document.getElementById("incPocketRollover").addEventListener("change",recalcIncomeSummary);
 
 markIncomePending.onclick=()=>{
   const plan=S.incomePlans.find(x=>x.id===incPlan.value);
@@ -11775,6 +11867,7 @@ saveIncome.onclick=()=>{
     planNextDateBefore,
     planFreqAtRecord,
     cycleIncomeId:currentCycleIncomeId,
+    ...(recurring?{pocketRollover:document.getElementById("incPocketRollover").value==="carry"?"carry":"reset"}:{}),
     livingCoverageStart:incDeductLiving.checked&&!lp.missingWindow?lp.start:"",
     livingCoverageEnd:incDeductLiving.checked&&!lp.missingWindow?lp.end:"",
     livingRateAtRecord:recurring?livingRateForDate(td()):0,
@@ -12110,11 +12203,18 @@ function refreshLivingBatchPreview(){
   if(days===null){
     livingBatchRange.textContent=`${start} 至 ${livingBatchEnd.value||"—"} · — 天`;
     livingBatchDaily.textContent="—";
+    document.getElementById("livingBatchPocket").textContent="—";
     return;
   }
   const end=livingBatchEnd.value||addDays(start,days-1);
   livingBatchRange.textContent=`${start} 至 ${end} · ${days} 天`;
   livingBatchDaily.textContent=M(amount/days);
+  const id=livingBatchEditId.value||"lb"+Date.now();
+  const existing=S.tx.find(t=>t.id===id);
+  const draft={id,type:"living_batch",date:start,startDate:start,
+    endDate:addDays(start,days-1),days,amount,pocketImmediate:existing?existing.pocketImmediate===true:true};
+  const excess=N(livingBatchOverrunMap(td(),draft).byTx[id]);
+  document.getElementById("livingBatchPocket").textContent=M(excess);
 }
 function linkLivingBatchFromDays(){
   if(livingBatchLinking)return;
@@ -12222,6 +12322,7 @@ saveLivingBatch.onclick=()=>{
       id:"lb"+Date.now(),
       date:startDate,
       type:"living_batch",
+      pocketImmediate:true,
       amount,
       days,
       startDate,
@@ -12235,7 +12336,7 @@ saveLivingBatch.onclick=()=>{
   save();
   closeSheet("livingBatchSheet");
   render();
-  msg(`${M(amount)} 已按 ${days} 天直接占用每日基础生活预留`);
+  msg(`${M(amount)} 已按 ${days} 天分摊`);
 };
 
 /* Extra savings */
