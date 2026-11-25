@@ -4500,6 +4500,10 @@ function accounting(asOf=td()){
   const projectAdvances={};
 
   let saving=0;
+  // A reconciled ordinary balance is authoritative. Keep any later historical
+  // transfer-source discrepancy separate from actual held assets and wallet cash.
+  let ordinaryFundingGap=0;
+  let ordinaryCheckpoint=false;
   let autoSavingUsed=0;
   let manualSavingUsed=0;
   let uncovered=0;
@@ -4748,6 +4752,7 @@ function accounting(asOf=td()){
       // the applied adjustment after any earlier living/income edits.
       const hasTarget=typeof t.targetBalance==="number"&&Number.isFinite(t.targetBalance);
       saving=hasTarget?Math.max(0,t.targetBalance):saving+N(t.delta);
+      if(hasTarget){ordinaryCheckpoint=true;ordinaryFundingGap=0;}
       effects[t.id]={ordinaryBalanceCorrection:saving-ordinaryBefore};
       return;
     }
@@ -4780,9 +4785,19 @@ function accounting(asOf=td()){
       // ordinary-savings ledger. Import them without debiting today's pocket.
       const externalPart=t.direction==="in"
         ?Math.min(amount-pocketPart,Math.max(0,N(t.externalPortion))):0;
-      saving+=t.direction==="in"?-(amount-pocketPart-externalPart):amount;
+      // Explicit transfer amounts and wallet movements are already recorded.
+      // Before the first absolute checkpoint, preserve legacy replay. After it,
+      // do not consume the same ordinary funds twice or borrow from future income.
+      const requested=Math.max(0,amount-pocketPart-externalPart);
+      const savingDraw=t.direction==="in"
+        ?(ordinaryCheckpoint?Math.min(requested,Math.max(0,saving)):requested):0;
+      const fundingGap=t.direction==="in"?Math.max(0,requested-savingDraw):0;
+      saving+=t.direction==="in"?-savingDraw:amount;
+      ordinaryFundingGap+=fundingGap;
       raw.safe-=pocketPart;
-      effects[t.id]={internalShortTransfer:true,pocketToShort:pocketPart,externalShortImport:externalPart};
+      effects[t.id]={internalShortTransfer:true,pocketToShort:pocketPart,
+        externalShortImport:externalPart,ordinaryFundingGap:fundingGap,
+        ordinarySavingDraw:savingDraw};
       return;
     }
     if(t.type==="short_interest"||t.type==="short_spend"){
@@ -5150,7 +5165,7 @@ function accounting(asOf=td()){
   Object.entries(projectAdvances).forEach(([id,entries])=>{
     projectFundingDeficits[id]=sm(entries,e=>Math.max(0,N(e.remaining)));
   });
-  return {raw,projects,projectFundingDeficits,saving,autoSavingUsed,manualSavingUsed,uncovered,effects,ordinaryMovements,fallbackLivingFunding,lightPlanReserves:lightReserveUsage.remaining};
+  return {raw,projects,projectFundingDeficits,saving,ordinaryFundingGap,autoSavingUsed,manualSavingUsed,uncovered,effects,ordinaryMovements,fallbackLivingFunding,lightPlanReserves:lightReserveUsage.remaining};
 }
 function ordinaryCorrectionImpact(t){
   const applied=accounting().effects[t.id]?.ordinaryBalanceCorrection;
@@ -10503,7 +10518,8 @@ function renderOrdinarySavingLedger(){
   document.getElementById("ordinaryMovementCount").textContent=rows.length+" 笔";
   const info=`增加 ${M(totalIn)} · 扣减 ${M(totalOut)}`;
   document.getElementById("ordinarySavingLedgerIntro").textContent=
-    info+(Math.abs(diff)>.005?" · 余额差额 "+M(diff):"");
+    info+(Math.abs(diff)>.005?" · 余额差额 "+M(diff):"")
+    +(N(a.ordinaryFundingGap)>.005?" · 历史转存资金来源待核对 "+M(a.ordinaryFundingGap):"");
   root.innerHTML=rows.length?rows.slice().reverse().map(row=>{
     const tx=lookup.get(row.id)||null;
     const title=ordinaryMovementTitle(row,tx);
