@@ -233,12 +233,11 @@ function refresh(){
       '<div class="varRow"><span>'+E((S.plannedExpenses||[]).find(x=>x.id===id)?.name||"近期计划")+'</span><strong>'+M(value)+'</strong></div>').join("");
     const detail=historyFor(a).map(x=>'<div class="varHistRow"><div><div>'+E(x.text)+'</div><div class="meta">'+E(x.date||"")+(x.meta?' · '+E(x.meta):"")+'</div></div><strong>'+
       (x.amount>0?"+":x.amount<0?"−":"")+M(Math.abs(x.amount))+'</strong></div>').join("");
-    const walletText=a.walletAccountId?wallet(a.walletAccountId):"待指定渠道";
     return '<details class="shortAccountLine shortAccountFold" data-project-saving="'+E(a.id)+'"'+
       (readSavingFold("variable:"+a.id,false)?" open":"")+'>'+
       '<summary class="shortAccountLineTop savingsAccountFoldSummary"><span class="name">'+E(a.name)+'</span>'+
       '<span class="savingsAccountSummaryEnd"><strong>'+M(count)+'</strong><span class="savingsFoldChevron"></span></span></summary>'+
-      '<div class="shortAccountLineSub"><span class="small">实际资金渠道：'+E(walletText)+'</span>'+
+      '<div class="shortAccountLineSub" style="justify-content:flex-end">'+
       '<span class="varBtns"><button data-op="in" data-id="'+E(a.id)+'">转入</button>'+
       '<button data-op="out" data-id="'+E(a.id)+'">转出</button>'+
       '<button data-op="move" data-id="'+E(a.id)+'">转存账户</button>'+
