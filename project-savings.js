@@ -288,12 +288,12 @@ function open(mode,id=""){
   selectField("projectSavingProject",a?.projectId||Object.keys(balances)[0]||"");
   $("projectSavingNameRow").hidden=!(mode==="new"||mode==="edit");
   $("projectSavingFromRow").hidden=(mode==="new"||mode==="edit");
-  $("projectSavingToRow").hidden=mode==="out"||mode==="move";
+  $("projectSavingToRow").hidden=mode!=="in"||!!a?.walletAccountId;
   $("projectSavingVariableRow").hidden=mode!=="move";
   $("projectSavingProjectRow").hidden=mode==="new"||mode==="edit";
   $("projectSavingFundingRow").hidden=mode!=="in";
   $("projectSavingAmountRow").hidden=mode==="new"||mode==="edit";
-  $("projectSavingToLabel").textContent=mode==="in"?"账户所在支付渠道":"账户默认存放渠道";
+  $("projectSavingToLabel").textContent="实际转入渠道";
   $("projectSavingFromLabel").textContent=mode==="out"
     ?"转出后普通储蓄存放的支付渠道":"资金实际转出渠道";
   $("projectSavingSheetTitle").textContent=({new:"新增可变动账户",edit:"编辑可变动账户",
@@ -310,8 +310,10 @@ function record(){
   if(mode==="new"){
     const name=$("projectSavingName").value.trim();
     if(!name)return msg("请输入账户名称");
-    if(!Wallets.account(destination))return msg("请选择账户所在的实际支付渠道");
-    S.variableSavingsAccounts.push({id:newId("va_"),name,walletAccountId:destination,
+    // The account name is the user-facing destination. Keep a separate internal
+    // wallet link only for ledger reconciliation; bind an unmatched account on first funding.
+    const matchingWallets=wallets().filter(w=>String(w.name||"").trim()===name);
+    S.variableSavingsAccounts.push({id:newId("va_"),name,walletAccountId:matchingWallets.length===1?matchingWallets[0].id:"",
       createdAt:td(),projectId:""});
     save();closeSheet("projectSavingsSheet");render();return msg("可变动账户已添加");
   }
@@ -319,11 +321,8 @@ function record(){
   if(mode==="edit"){
     const name=$("projectSavingName").value.trim();
     if(!name)return msg("请输入账户名称");
-    if(!Wallets.account(destination))return msg("请选择实际支付渠道");
-    if(a.walletAccountId&&a.walletAccountId!==destination
-      &&R(snapshot().totals[a.id])>.005)
-      return msg("账户已有资金，请先通过渠道互转登记实际资金移动，再修改默认渠道");
-    a.name=name;a.walletAccountId=destination;
+    // Renaming must never move funds or rewrite the historical wallet link.
+    a.name=name;
     save();closeSheet("projectSavingsSheet");render();return msg("可变动账户已更新");
   }
   if(amount<=0)return msg("请输入有效金额");
@@ -335,7 +334,12 @@ function record(){
   const oldTx=S.tx;
   const oldShares=JSON.stringify(S.settings.ordinaryWalletShares||{});
   const oldAbsorbed=JSON.stringify(S.settings.ordinaryWalletAbsorbedMovements||{});
+  const walletBindings=[];
+  const bindWallet=(record,id)=>{
+    if(!record.walletAccountId){walletBindings.push({record,previous:record.walletAccountId,id});}
+  };
   const revert=()=>{
+    walletBindings.forEach(({record,previous})=>{record.walletAccountId=previous;});
     S.tx=oldTx;
     S.settings.ordinaryWalletShares=JSON.parse(oldShares);
     S.settings.ordinaryWalletAbsorbedMovements=JSON.parse(oldAbsorbed);
@@ -362,6 +366,9 @@ function record(){
       (dist.inferredMovementIds||[]).forEach(id=>{absorbed[id]=true;});
       S.settings.ordinaryWalletShares[from]=R(R(S.settings.ordinaryWalletShares[from])-amount);
     }
+    toWallet=a.walletAccountId||destination||from;
+    if(!Wallets.account(toWallet)){revert();return msg("请选择有效的实际转入渠道");}
+    bindWallet(a,toWallet);
     const funding={id:newId("vsf"),type:kind==="saving"?"saving_to_project":"pocket_to_project",
       date:dt,amount,projectId:pid,holdingVariableAccountId:a.id,
       projectHoldingAccountId:toWallet,walletFromAccountId:from,
@@ -390,7 +397,8 @@ function record(){
   }else if(mode==="move"){
     const to=account($("projectSavingVariable").value);
     if(!to||to.id===a.id)return msg("请选择另一个可变动账户");
-    const original=a.walletAccountId||from,target=to.walletAccountId||from;
+    const original=a.walletAccountId||from,target=to.walletAccountId||original;
+    bindWallet(to,target);
     txRows.push({id:newId("vsm"),type:"wallet_transfer",date:dt,amount,projectId:pid,
       projectHoldingSource:"project",fromVariableAccountId:a.id,toVariableAccountId:to.id,
       fromAccountId:original,toAccountId:target,isVariableSavingEntry:true,
@@ -398,6 +406,7 @@ function record(){
   }else return;
   const beforeBudget=accounting();
   const walletBefore=wallets().map(w=>({id:w.id,amount:Wallets.balance(w.id)}));
+  walletBindings.forEach(({record,id})=>{record.walletAccountId=id;});
   S.tx=[...S.tx,...txRows];
   const afterBudget=accounting();
   const walletValid=walletBefore.every(w=>Wallets.balance(w.id)>=Math.min(0,w.amount)-.005);
