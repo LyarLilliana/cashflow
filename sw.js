@@ -1,11 +1,11 @@
-const CACHE = "safespend-v10-162-variable-account-name";
+const CACHE = "safespend-v10-163-variable-account-display";
 const ASSETS = [
   "./",
   "./index.html",
   "./credit.js?v=10-154",
   "./project-transfer.js?v=10-154",
   "./project-wallet.js?v=10-154",
-  "./project-savings.js?v=10-162",
+  "./project-savings.js?v=10-163",
   "./wallet-accounts.js?v=10-161",
   "./aa.js",
   "./manifest.webmanifest",
